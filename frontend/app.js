@@ -13,7 +13,6 @@ const DAY_NAMES   = ['일', '월', '화', '수', '목', '금', '토'];
    ============================================================ */
 let currentDate    = new Date();
 let currentRoomId  = 1;
-let selectedDuration = 1;
 let reservations   = [];
 
 /* ============================================================
@@ -205,9 +204,8 @@ function openModal(defaultHour = null) {
   badge.className = `room-badge r${currentRoomId}`;
   badgeName.textContent = currentRoomId === 1 ? '합주실' : '개인연습실';
 
-  selectedDuration = 1;
-  refreshDurationButtons();
   populateStartTimes(defaultHour);
+  populateEndTimes();
 
   document.getElementById('teamName').value = '';
   document.getElementById('members').value  = '';
@@ -226,9 +224,7 @@ function populateStartTimes(defaultHour) {
   const select = document.getElementById('startTime');
   select.innerHTML = '';
 
-  const maxStart = HOURS_END - selectedDuration;
-
-  for (let h = HOURS_START; h <= maxStart; h++) {
+  for (let h = HOURS_START; h < HOURS_END; h++) {
     const val    = `${String(h).padStart(2, '0')}:00`;
     const option = document.createElement('option');
     option.value = val;
@@ -236,35 +232,46 @@ function populateStartTimes(defaultHour) {
     if (defaultHour !== null && h === defaultHour) option.selected = true;
     select.appendChild(option);
   }
-  updateTimeSummary();
 }
 
-function refreshDurationButtons() {
-  document.querySelectorAll('.duration-btn').forEach(btn => {
-    btn.classList.toggle('active', Number(btn.dataset.hours) === selectedDuration);
-  });
+function populateEndTimes(preferredHour = null) {
+  const select = document.getElementById('endTime');
+  const startH = Number(document.getElementById('startTime').value.split(':')[0]);
+
+  select.innerHTML = '';
+  for (let h = startH + 1; h <= HOURS_END; h++) {
+    const val    = `${String(h).padStart(2, '0')}:00`;
+    const option = document.createElement('option');
+    option.value = val;
+    option.textContent = val;
+    select.appendChild(option);
+  }
+
+  const desired = preferredHour !== null && preferredHour > startH && preferredHour <= HOURS_END
+    ? preferredHour
+    : startH + 1;
+  select.value = `${String(desired).padStart(2, '0')}:00`;
+
+  updateTimeSummary();
 }
 
 function updateTimeSummary() {
   const start = document.getElementById('startTime').value;
-  if (!start) return;
-  const [h] = start.split(':').map(Number);
-  const endH  = h + selectedDuration;
-  const end   = `${String(endH).padStart(2, '0')}:00`;
-  const room  = currentRoomId === 1 ? '합주실' : '개인연습실';
+  const end   = document.getElementById('endTime').value;
+  if (!start || !end) return;
+  const startH = Number(start.split(':')[0]);
+  const endH   = Number(end.split(':')[0]);
+  const dur    = endH - startH;
   document.getElementById('timeSummaryText').textContent =
-    `${displayDate(currentDate)} · ${start} ~ ${end} (${selectedDuration}시간)`;
+    `${displayDate(currentDate)} · ${start} ~ ${end} (${dur}시간)`;
 }
 
-/* Duration buttons */
-document.querySelectorAll('.duration-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    selectedDuration = Number(btn.dataset.hours);
-    refreshDurationButtons();
-    const currentStart = Number(document.getElementById('startTime').value?.split(':')[0] || HOURS_START);
-    populateStartTimes(currentStart <= HOURS_END - selectedDuration ? currentStart : null);
-  });
+/* Start/End time changes */
+document.getElementById('startTime').addEventListener('change', () => {
+  const prevEnd = Number(document.getElementById('endTime').value?.split(':')[0] || 0);
+  populateEndTimes(prevEnd);
 });
+document.getElementById('endTime').addEventListener('change', updateTimeSummary);
 
 /* Close on overlay backdrop click */
 document.getElementById('modalOverlay').addEventListener('click', e => {
@@ -279,7 +286,14 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
   if (!teamName) { showToast('팀명 또는 예약자 이름을 입력해주세요.', 'error'); return; }
 
   const startTime = document.getElementById('startTime').value;
-  const endHour   = Number(startTime.split(':')[0]) + selectedDuration;
+  const endTime   = document.getElementById('endTime').value;
+  const startHour = Number(startTime.split(':')[0]);
+  const endHour   = Number(endTime.split(':')[0]);
+  const duration  = endHour - startHour;
+  if (duration < 1) {
+    showToast('종료 시간은 시작 시간 이후여야 합니다.', 'error');
+    return;
+  }
   if (endHour > HOURS_END) {
     showToast(`예약 종료 시간은 ${HOURS_END}:00을 넘을 수 없습니다.`, 'error');
     return;
@@ -297,7 +311,7 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
         room_id:   currentRoomId,
         date:      toDateStr(currentDate),
         start_time: startTime + ':00',
-        duration:  selectedDuration,
+        duration:  duration,
         team_name: teamName,
         members:   document.getElementById('members').value.trim() || null,
         note:      document.getElementById('note').value.trim()     || null,
@@ -355,6 +369,38 @@ function escHtml(str) {
 }
 
 /* ============================================================
+   Realtime updates (SSE)
+   ============================================================ */
+function connectRealtime() {
+  const es = new EventSource('/api/reservations/stream');
+
+  es.onmessage = (e) => {
+    if (!e.data) return;
+    let payload;
+    try { payload = JSON.parse(e.data); } catch { return; }
+    const { event, data } = payload;
+    if (!event || !data) return;
+
+    const onCurrentDate = data.date === toDateStr(currentDate);
+
+    if (event === 'reservation_created') {
+      if (onCurrentDate) loadReservations();
+      if (onCurrentDate && data.room_id === currentRoomId) {
+        const s = fmtTime(data.start_time);
+        const eTime = fmtTime(data.end_time);
+        showToast(`새 예약: ${data.team_name || ''} ${s}~${eTime}`, 'info');
+      }
+    } else if (event === 'reservation_deleted') {
+      if (onCurrentDate) loadReservations();
+    }
+  };
+
+  es.onerror = () => {
+    // Browser auto-reconnects on transient errors; nothing to do.
+  };
+}
+
+/* ============================================================
    Init
    ============================================================ */
 function init() {
@@ -362,6 +408,7 @@ function init() {
   renderWeekStrip();
   buildTimeline();
   loadReservations();
+  connectRealtime();
   setInterval(updateCurrentTimeLine, 60_000);
 
   // Scroll timeline to current hour on load
