@@ -1,14 +1,17 @@
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
+from sse_starlette.sse import EventSourceResponse
 from datetime import datetime, timedelta
 from typing import List, Optional
+import asyncio
 import os
 import secrets
 import bcrypt
 
 from database import engine, get_db, SessionLocal
+from broadcaster import broadcaster
 import models
 import schemas
 
@@ -59,6 +62,7 @@ def init_data():
 @app.on_event("startup")
 async def startup_event():
     init_data()
+    broadcaster.attach_loop(asyncio.get_event_loop())
 
 
 # ========== Auth dependencies ==========
@@ -121,6 +125,26 @@ def get_reservations(
     return query.order_by(models.Reservation.date, models.Reservation.start_time).all()
 
 
+@app.get("/api/reservations/stream")
+async def reservations_stream(request: Request):
+    queue = await broadcaster.subscribe()
+
+    async def event_gen():
+        try:
+            while True:
+                if await request.is_disconnected():
+                    break
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=25.0)
+                    yield {"data": msg}
+                except asyncio.TimeoutError:
+                    yield {"event": "ping", "data": ""}
+        finally:
+            await broadcaster.unsubscribe(queue)
+
+    return EventSourceResponse(event_gen())
+
+
 @app.post("/api/reservations", response_model=schemas.ReservationResponse)
 def create_reservation(reservation: schemas.ReservationCreate, db: Session = Depends(get_db)):
     start_dt = datetime.combine(reservation.date, reservation.start_time)
@@ -148,6 +172,15 @@ def create_reservation(reservation: schemas.ReservationCreate, db: Session = Dep
     db.add(db_r)
     db.commit()
     db.refresh(db_r)
+
+    broadcaster.publish("reservation_created", {
+        "id": db_r.id,
+        "room_id": db_r.room_id,
+        "date": str(db_r.date),
+        "start_time": str(db_r.start_time),
+        "end_time": str(db_r.end_time),
+        "team_name": db_r.team_name,
+    })
     return db_r
 
 
@@ -160,8 +193,14 @@ def delete_reservation(
     res = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
     if not res:
         raise HTTPException(404, "예약을 찾을 수 없습니다.")
+    payload = {
+        "id": res.id,
+        "room_id": res.room_id,
+        "date": str(res.date),
+    }
     db.delete(res)
     db.commit()
+    broadcaster.publish("reservation_deleted", payload)
     return {"message": "취소되었습니다."}
 
 

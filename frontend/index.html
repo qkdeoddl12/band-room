@@ -7,13 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
-  <style>
-    body { background: #ECECF4; }
-    /* Desktop backdrop */
-    @media (min-width: 481px) {
-      .header { box-shadow: 0 2px 16px rgba(0,0,0,.06); }
-    }
-  </style>
 </head>
 <body>
 
@@ -95,14 +88,10 @@
             <select class="form-select" id="startTime"></select>
           </div>
 
-          <!-- Duration -->
+          <!-- End Time -->
           <div class="form-group">
-            <label class="form-label">이용 시간</label>
-            <div class="duration-grid">
-              <button type="button" class="duration-btn active" data-hours="1">1시간</button>
-              <button type="button" class="duration-btn" data-hours="2">2시간</button>
-              <button type="button" class="duration-btn" data-hours="3">3시간</button>
-            </div>
+            <label class="form-label" for="endTime">종료 시간</label>
+            <select class="form-select" id="endTime"></select>
           </div>
 
           <!-- Time Summary -->
