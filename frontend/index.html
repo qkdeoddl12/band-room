@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Band Room — 합주실 예약</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    body { background: #ECECF4; }
+    /* Desktop backdrop */
+    @media (min-width: 481px) {
+      .header { box-shadow: 0 2px 16px rgba(0,0,0,.06); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">🎸</span>
+      <span class="logo-text">Band Room</span>
+    </div>
+    <a href="/admin" class="admin-link">관리자</a>
+  </header>
+
+  <main class="main">
+
+    <!-- Date Navigation -->
+    <div class="date-nav">
+      <div class="date-top">
+        <button class="btn-nav" id="prevDay" aria-label="이전 날">&#8249;</button>
+        <div class="date-center">
+          <span class="date-weekday" id="weekday"></span>
+          <span class="date-text" id="currentDate"></span>
+        </div>
+        <button class="btn-nav" id="nextDay" aria-label="다음 날">&#8250;</button>
+      </div>
+      <div class="week-strip" id="weekStrip"></div>
+    </div>
+
+    <!-- Room Tabs -->
+    <div class="room-tabs">
+      <button class="room-tab active" id="tab-1" onclick="switchRoom(1)">
+        <span class="tab-dot"></span>합주실
+      </button>
+      <button class="room-tab" id="tab-2" onclick="switchRoom(2)">
+        <span class="tab-dot"></span>개인연습실
+      </button>
+    </div>
+
+    <!-- Timeline -->
+    <div class="timeline-section" id="timelineSection">
+      <div class="timeline-wrapper">
+        <div class="time-labels" id="timeLabels"></div>
+        <div class="timeline-grid" id="timelineGrid">
+          <!-- slots injected by JS -->
+          <div class="reservations-layer" id="reservationsLayer"></div>
+          <div class="current-time-line" id="currentTimeLine" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Bottom Bar -->
+  <div class="bottom-bar">
+    <button class="btn-reserve-main" onclick="openModal()">
+      <span>+</span> 예약하기
+    </button>
+  </div>
+
+  <!-- Reservation Modal -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">예약하기</h3>
+        <button class="modal-close" onclick="closeModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="reservationForm" autocomplete="off">
+
+          <!-- Room Badge -->
+          <div id="roomBadge" class="room-badge r1">
+            <span class="badge-dot"></span>
+            <span id="roomBadgeName">합주실</span>
+          </div>
+
+          <!-- Start Time -->
+          <div class="form-group">
+            <label class="form-label" for="startTime">시작 시간</label>
+            <select class="form-select" id="startTime"></select>
+          </div>
+
+          <!-- Duration -->
+          <div class="form-group">
+            <label class="form-label">이용 시간</label>
+            <div class="duration-grid">
+              <button type="button" class="duration-btn active" data-hours="1">1시간</button>
+              <button type="button" class="duration-btn" data-hours="2">2시간</button>
+              <button type="button" class="duration-btn" data-hours="3">3시간</button>
+            </div>
+          </div>
+
+          <!-- Time Summary -->
+          <div class="time-summary">
+            <span class="time-summary-icon">🕐</span>
+            <span class="time-summary-text" id="timeSummaryText">—</span>
+          </div>
+
+          <!-- Team Name -->
+          <div class="form-group">
+            <label class="form-label" for="teamName">
+              팀명 / 예약자 <span style="color:var(--danger)">*</span>
+            </label>
+            <input type="text" class="form-input" id="teamName"
+              placeholder="팀명 또는 예약자 이름" required>
+          </div>
+
+          <!-- Members -->
+          <div class="form-group">
+            <label class="form-label" for="members">
+              참여 멤버
+              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
+            </label>
+            <input type="text" class="form-input" id="members"
+              placeholder="홍길동, 김철수, 이영희">
+          </div>
+
+          <!-- Note -->
+          <div class="form-group">
+            <label class="form-label" for="note">
+              메모
+              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
+            </label>
+            <textarea class="form-textarea" id="note"
+              placeholder="특이사항이 있다면 적어주세요"></textarea>
+          </div>
+
+          <button type="submit" class="btn-submit" id="submitBtn">예약 확정</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Band Room — 관리자</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- ===========================
+       LOGIN SCREEN
+       =========================== -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="login-logo-icon">🎸</span>
+        <div class="login-logo-text">Band Room</div>
+        <div class="login-subtitle">관리자 전용 페이지</div>
+      </div>
+
+      <h2 class="login-title">로그인</h2>
+      <div class="login-error" id="loginError"></div>
+
+      <form id="loginForm" autocomplete="off">
+        <div class="form-group">
+          <label class="form-label" for="loginUsername">아이디</label>
+          <input type="text" class="form-input" id="loginUsername"
+            placeholder="관리자 아이디" required autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="loginPassword">비밀번호</label>
+          <input type="password" class="form-input" id="loginPassword"
+            placeholder="비밀번호" required>
+        </div>
+        <button type="submit" class="btn-login" id="loginBtn">로그인</button>
+      </form>
+
+      <div style="text-align:center;margin-top:20px;">
+        <a href="/" style="font-size:13px;color:var(--text-sub);">← 예약 페이지로 돌아가기</a>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===========================
+       ADMIN DASHBOARD
+       =========================== -->
+  <div class="admin-dashboard" id="adminDashboard">
+
+    <!-- Header -->
+    <header class="admin-header">
+      <div class="admin-logo">
+        <span class="admin-logo-icon">🎸</span>
+        <span class="admin-logo-text">Band Room</span>
+        <span class="admin-badge">ADMIN</span>
+      </div>
+
+      <div class="admin-user-info">
+        <div class="user-display">
+          <span class="user-name" id="adminUsername"></span>
+          <span class="user-role-badge" id="adminRoleBadge"></span>
+        </div>
+        <a href="/" class="btn-logout" style="border-color:var(--border);color:var(--text-sub);">예약 페이지</a>
+        <button class="btn-logout" onclick="logout()">로그아웃</button>
+      </div>
+    </header>
+
+    <div class="admin-content">
+
+      <!-- Sidebar -->
+      <aside class="admin-sidebar">
+        <div class="sidebar-title">메뉴</div>
+        <ul class="sidebar-nav">
+          <li class="sidebar-item active" data-page="reservations" onclick="switchPage('reservations')">
+            <span class="sidebar-icon">📋</span> 예약 관리
+          </li>
+          <li class="sidebar-item system-only" data-page="users" onclick="switchPage('users')">
+            <span class="sidebar-icon">👥</span> 계정 관리
+          </li>
+        </ul>
+
+        <!-- Reservation filters (only on reservations page) -->
+        <div id="reservationsFilters">
+          <div class="sidebar-title">기간 필터</div>
+          <ul class="sidebar-nav">
+            <li class="sidebar-item active" data-period="today" onclick="setPeriod('today', this)">
+              <span class="sidebar-icon">📅</span> 오늘
+            </li>
+            <li class="sidebar-item" data-period="week" onclick="setPeriod('week', this)">
+              <span class="sidebar-icon">📆</span> 이번 주
+            </li>
+            <li class="sidebar-item" data-period="month" onclick="setPeriod('month', this)">
+              <span class="sidebar-icon">🗓️</span> 이번 달
+            </li>
+            <li class="sidebar-item" data-period="all" onclick="setPeriod('all', this)">
+              <span class="sidebar-icon">📋</span> 전체
+            </li>
+          </ul>
+
+          <div class="sidebar-title">공간 필터</div>
+          <ul class="sidebar-nav">
+            <li class="sidebar-item active" data-room="all" onclick="setRoom('all', this)">
+              <span class="room-filter-dot" style="background:#9CA3AF;"></span> 전체 공간
+            </li>
+            <li class="sidebar-item" data-room="1" onclick="setRoom('1', this)">
+              <span class="room-filter-dot" style="background:var(--room1);"></span> 합주실
+            </li>
+            <li class="sidebar-item" data-room="2" onclick="setRoom('2', this)">
+              <span class="room-filter-dot" style="background:var(--room2);"></span> 개인연습실
+            </li>
+          </ul>
+        </div>
+      </aside>
+
+      <!-- Main -->
+      <main class="admin-main">
+
+        <!-- ===== RESERVATIONS PAGE ===== -->
+        <div class="admin-page" id="reservationsPage">
+
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-label">오늘 예약</div>
+              <div class="stat-value" id="statToday">—</div>
+              <div class="stat-sub">건</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">이번 주</div>
+              <div class="stat-value" id="statWeek">—</div>
+              <div class="stat-sub">건</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">이번 달</div>
+              <div class="stat-value" id="statMonth">—</div>
+              <div class="stat-sub">건</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">전체</div>
+              <div class="stat-value" id="statAll">—</div>
+              <div class="stat-sub">건</div>
+            </div>
+          </div>
+
+          <div class="filter-bar">
+            <span class="filter-label">검색</span>
+            <input type="text" class="filter-input" id="searchInput"
+              placeholder="팀명, 멤버 검색..." style="flex:1;min-width:120px;"
+              oninput="applyFilters()">
+            <select class="filter-select" id="roomSelect" onchange="applyFilters()">
+              <option value="all">전체 공간</option>
+              <option value="1">합주실</option>
+              <option value="2">개인연습실</option>
+            </select>
+          </div>
+
+          <div id="reservationList">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- ===== USERS PAGE (system admin only) ===== -->
+        <div class="admin-page" id="usersPage" style="display:none;">
+
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">계정 관리</h2>
+              <p class="page-subtitle">관리자 계정을 생성하고 권한을 관리합니다.</p>
+            </div>
+            <button class="btn-primary" onclick="openCreateUserModal()">
+              <span style="font-size:18px;">+</span> 계정 추가
+            </button>
+          </div>
+
+          <div id="usersList">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- Mobile Nav -->
+    <nav class="mobile-admin-nav">
+      <div class="mobile-nav-items">
+        <div class="mobile-nav-item active" data-mtab="reservations" onclick="switchPageMobile('reservations')">
+          <span class="mobile-nav-icon">📋</span>예약
+        </div>
+        <div class="mobile-nav-item" data-mtab="today" onclick="setPeriodMobile('today')">
+          <span class="mobile-nav-icon">📅</span>오늘
+        </div>
+        <div class="mobile-nav-item" data-mtab="week" onclick="setPeriodMobile('week')">
+          <span class="mobile-nav-icon">📆</span>이번 주
+        </div>
+        <div class="mobile-nav-item" data-mtab="all" onclick="setPeriodMobile('all')">
+          <span class="mobile-nav-icon">📋</span>전체
+        </div>
+        <div class="mobile-nav-item system-only" data-mtab="users" onclick="switchPageMobile('users')">
+          <span class="mobile-nav-icon">👥</span>계정
+        </div>
+      </div>
+    </nav>
+
+  </div><!-- /admin-dashboard -->
+
+
+  <!-- ===========================
+       Modals
+       =========================== -->
+
+  <!-- Delete Reservation Modal -->
+  <div class="modal-overlay" id="deleteOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">예약 취소</h3>
+        <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:15px;color:var(--text-sub);margin-bottom:8px;">
+          아래 예약을 취소하시겠습니까?
+        </p>
+        <div id="deleteTarget" style="
+          background:var(--bg);border-radius:var(--radius-sm);
+          padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);
+          margin-bottom:24px;line-height:1.6;
+        "></div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="closeDeleteModal()" class="btn-secondary">취소</button>
+          <button id="confirmDeleteBtn" class="btn-danger">예약 취소 확정</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create User Modal -->
+  <div class="modal-overlay" id="createUserOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">계정 추가</h3>
+        <button class="modal-close" onclick="closeCreateUserModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="createUserForm" autocomplete="off">
+
+          <div class="form-group">
+            <label class="form-label" for="newUsername">아이디 <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="newUsername"
+              placeholder="3자 이상" minlength="3" maxlength="50" required autocomplete="off">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="newPassword">비밀번호 <span style="color:var(--danger)">*</span></label>
+            <input type="password" class="form-input" id="newPassword"
+              placeholder="4자 이상" minlength="4" required autocomplete="new-password">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">권한 <span style="color:var(--danger)">*</span></label>
+            <div class="role-select">
+              <label class="role-option active">
+                <input type="radio" name="newRole" value="reservation" checked>
+                <div class="role-info">
+                  <div class="role-name">📋 예약 관리자</div>
+                  <div class="role-desc">예약 조회 · 취소만 가능</div>
+                </div>
+              </label>
+              <label class="role-option">
+                <input type="radio" name="newRole" value="system">
+                <div class="role-info">
+                  <div class="role-name">⚙️ 시스템 관리자</div>
+                  <div class="role-desc">예약 관리 + 계정 관리 가능</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <button type="submit" class="btn-submit" id="createUserBtn">계정 생성</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit User Modal -->
+  <div class="modal-overlay" id="editUserOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">계정 수정</h3>
+        <button class="modal-close" onclick="closeEditUserModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="editUserTarget" style="
+          background:var(--bg);border-radius:var(--radius-sm);
+          padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);
+          margin-bottom:20px;
+        "></div>
+
+        <form id="editUserForm" autocomplete="off">
+
+          <div class="form-group">
+            <label class="form-label" for="editPassword">비밀번호 재설정
+              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(비워두면 변경 안 함)</span>
+            </label>
+            <input type="password" class="form-input" id="editPassword"
+              placeholder="새 비밀번호 (4자 이상)" minlength="4" autocomplete="new-password">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">권한</label>
+            <div class="role-select">
+              <label class="role-option" id="editRoleResv">
+                <input type="radio" name="editRole" value="reservation">
+                <div class="role-info">
+                  <div class="role-name">📋 예약 관리자</div>
+                  <div class="role-desc">예약 조회 · 취소만 가능</div>
+                </div>
+              </label>
+              <label class="role-option" id="editRoleSys">
+                <input type="radio" name="editRole" value="system">
+                <div class="role-info">
+                  <div class="role-name">⚙️ 시스템 관리자</div>
+                  <div class="role-desc">예약 관리 + 계정 관리 가능</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span style="font-size:14px;font-weight:600;color:var(--text);display:block;">계정 활성화</span>
+                <span style="font-size:12px;color:var(--text-sub);">비활성화하면 로그인할 수 없습니다.</span>
+              </span>
+              <input type="checkbox" id="editActive" class="toggle-switch">
+            </label>
+          </div>
+
+          <div style="display:flex;gap:10px;margin-top:8px;">
+            <button type="button" onclick="deleteCurrentUser()" class="btn-danger" style="flex:1;">계정 삭제</button>
+            <button type="submit" class="btn-submit" id="editUserBtn" style="flex:2;margin-top:0;">변경 저장</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="admin-toast" id="adminToast"></div>
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>
