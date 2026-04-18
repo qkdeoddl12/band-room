@@ -38,6 +38,7 @@ class AdminUser(Base):
     password_hash = Column(String(200), nullable=False)
     role = Column(String(20), nullable=False)  # 'system' or 'reservation'
     is_active = Column(Boolean, default=True, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     sessions = relationship("AdminSession", back_populates="user", cascade="all, delete-orphan")

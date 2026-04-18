@@ -46,6 +46,43 @@
 
 
   <!-- ===========================
+       CHANGE PASSWORD SCREEN (first login)
+       =========================== -->
+  <div class="login-screen" id="changePwScreen" style="display:none;">
+    <div class="login-card">
+      <div class="login-logo">
+        <span class="login-logo-icon">🔒</span>
+        <div class="login-logo-text">비밀번호 설정</div>
+        <div class="login-subtitle">최초 로그인 — 새 비밀번호를 등록해주세요</div>
+      </div>
+
+      <div class="login-error" id="changePwError"></div>
+
+      <form id="changePwForm" autocomplete="off">
+        <div class="form-group">
+          <label class="form-label" for="newPw">새 비밀번호</label>
+          <input type="password" class="form-input" id="newPw"
+            placeholder="4자 이상" minlength="4" required autocomplete="new-password" autofocus>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="confirmPw">비밀번호 확인</label>
+          <input type="password" class="form-input" id="confirmPw"
+            placeholder="다시 입력" minlength="4" required autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn-login" id="changePwBtn">비밀번호 설정</button>
+      </form>
+
+      <div style="text-align:center;margin-top:20px;">
+        <button type="button" onclick="cancelChangePassword()"
+          style="font-size:13px;color:var(--text-sub);background:none;">
+          ← 로그인 화면으로
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <!-- ===========================
        ADMIN DASHBOARD
        =========================== -->
   <div class="admin-dashboard" id="adminDashboard">
@@ -252,10 +289,12 @@
               placeholder="3자 이상" minlength="3" maxlength="50" required autocomplete="off">
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="newPassword">비밀번호 <span style="color:var(--danger)">*</span></label>
-            <input type="password" class="form-input" id="newPassword"
-              placeholder="4자 이상" minlength="4" required autocomplete="new-password">
+          <div class="form-group" style="
+            background:var(--bg);border-radius:var(--radius-sm);
+            padding:12px 14px;font-size:13px;color:var(--text-sub);line-height:1.6;
+          ">
+            🔑 임시 비밀번호가 자동 생성됩니다. 생성 후 대상자에게 전달해주세요.
+            사용자가 최초 로그인 시 비밀번호를 직접 설정합니다.
           </div>
 
           <div class="form-group">
@@ -280,6 +319,56 @@
 
           <button type="submit" class="btn-submit" id="createUserBtn">계정 생성</button>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Temp Password Result Modal -->
+  <div class="modal-overlay" id="tempPasswordOverlay" style="z-index:310;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">임시 비밀번호 발급</h3>
+        <button class="modal-close" onclick="closeTempPasswordModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:14px;color:var(--text-sub);margin-bottom:14px;line-height:1.6;">
+          아래 임시 비밀번호를 대상자에게 안전하게 전달하세요.<br>
+          <b style="color:var(--danger);">이 창을 닫으면 다시 확인할 수 없습니다.</b>
+          사용자는 최초 로그인 시 새 비밀번호를 직접 설정합니다.
+        </p>
+
+        <div style="
+          background:var(--bg);border-radius:var(--radius-sm);
+          padding:14px 16px;margin-bottom:10px;
+        ">
+          <div style="font-size:12px;color:var(--text-sub);font-weight:700;margin-bottom:4px;">
+            아이디
+          </div>
+          <div id="tempPwUsername" style="font-size:16px;font-weight:700;color:var(--text);"></div>
+        </div>
+
+        <div style="
+          background:var(--primary-light);border-radius:var(--radius-sm);
+          padding:14px 16px;margin-bottom:20px;
+          display:flex;align-items:center;gap:10px;
+        ">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;color:var(--primary);font-weight:700;margin-bottom:4px;">
+              임시 비밀번호
+            </div>
+            <div id="tempPwValue" style="
+              font-family:ui-monospace,'SF Mono',Menlo,monospace;
+              font-size:18px;font-weight:800;color:var(--primary-dark);
+              letter-spacing:.5px;word-break:break-all;
+            "></div>
+          </div>
+          <button type="button" id="copyTempPwBtn" class="btn-secondary"
+            style="flex:none;height:40px;padding:0 14px;"
+            onclick="copyTempPassword()">복사</button>
+        </div>
+
+        <button type="button" class="btn-submit" onclick="closeTempPasswordModal()">확인</button>
       </div>
     </div>
   </div>
