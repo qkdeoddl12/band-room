@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
 from datetime import datetime, timedelta
@@ -8,6 +9,7 @@ from typing import List, Optional
 import asyncio
 import os
 import secrets
+import string
 import bcrypt
 
 from database import engine, get_db, SessionLocal
@@ -36,6 +38,22 @@ def verify_password(pw: str, hashed: str) -> bool:
         return False
 
 
+def generate_temp_password(length: int = 10) -> str:
+    # Readable alphabet: exclude similar-looking chars (0/O, 1/l/I)
+    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
+
+
+# ========== DB migrations (lightweight) ==========
+def migrate_schema():
+    # Add must_change_password column if missing (for existing deployments).
+    with engine.begin() as conn:
+        conn.execute(text(
+            "ALTER TABLE admin_users "
+            "ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+
+
 # ========== Initial data ==========
 def init_data():
     db = SessionLocal()
@@ -61,14 +79,15 @@ def init_data():
 
 @app.on_event("startup")
 async def startup_event():
+    migrate_schema()
     init_data()
     broadcaster.attach_loop(asyncio.get_event_loop())
 
 
 # ========== Auth dependencies ==========
-def get_current_admin(
-    x_auth_token: Optional[str] = Header(None),
-    db: Session = Depends(get_db),
+def _resolve_session_user(
+    x_auth_token: Optional[str],
+    db: Session,
 ) -> models.AdminUser:
     if not x_auth_token:
         raise HTTPException(401, "인증이 필요합니다.")
@@ -80,6 +99,24 @@ def get_current_admin(
     if not session.user.is_active:
         raise HTTPException(403, "비활성화된 계정입니다.")
     return session.user
+
+
+def get_current_admin_raw(
+    x_auth_token: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> models.AdminUser:
+    """Authenticated user; does NOT block must_change_password. Use for password-change endpoint."""
+    return _resolve_session_user(x_auth_token, db)
+
+
+def get_current_admin(
+    x_auth_token: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+) -> models.AdminUser:
+    user = _resolve_session_user(x_auth_token, db)
+    if user.must_change_password:
+        raise HTTPException(403, "비밀번호 변경이 필요합니다.")
+    return user
 
 
 def require_system_admin(
@@ -217,7 +254,27 @@ def admin_login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
     token = secrets.token_hex(32)
     db.add(models.AdminSession(token=token, user_id=user.id))
     db.commit()
-    return {"token": token, "username": user.username, "role": user.role}
+    return {
+        "token": token,
+        "username": user.username,
+        "role": user.role,
+        "must_change_password": user.must_change_password,
+    }
+
+
+@app.post("/api/admin/change-password", response_model=schemas.AdminUserResponse)
+def admin_change_password(
+    data: schemas.ChangePasswordRequest,
+    admin: models.AdminUser = Depends(get_current_admin_raw),
+    db: Session = Depends(get_db),
+):
+    if verify_password(data.new_password, admin.password_hash):
+        raise HTTPException(400, "이전과 다른 비밀번호를 사용해주세요.")
+    admin.password_hash = hash_password(data.new_password)
+    admin.must_change_password = False
+    db.commit()
+    db.refresh(admin)
+    return admin
 
 
 @app.post("/api/admin/logout")
@@ -247,7 +304,7 @@ def list_admin_users(
     return db.query(models.AdminUser).order_by(models.AdminUser.created_at.desc()).all()
 
 
-@app.post("/api/admin/users", response_model=schemas.AdminUserResponse)
+@app.post("/api/admin/users", response_model=schemas.CreateUserResponse)
 def create_admin_user(
     data: schemas.CreateUserRequest,
     admin: models.AdminUser = Depends(require_system_admin),
@@ -255,16 +312,19 @@ def create_admin_user(
 ):
     if db.query(models.AdminUser).filter(models.AdminUser.username == data.username).first():
         raise HTTPException(400, "이미 존재하는 아이디입니다.")
+
+    temp_password = generate_temp_password()
     new_user = models.AdminUser(
         username=data.username,
-        password_hash=hash_password(data.password),
+        password_hash=hash_password(temp_password),
         role=data.role,
         is_active=True,
+        must_change_password=True,
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    return new_user
+    return {"user": new_user, "temp_password": temp_password}
 
 
 @app.patch("/api/admin/users/{user_id}", response_model=schemas.AdminUserResponse)

@@ -59,6 +59,11 @@ async function init() {
   authToken = stored;
   try {
     const res = await api('/api/admin/me');
+    if (res.status === 403) {
+      // Must change password
+      showChangePassword();
+      return;
+    }
     if (!res.ok) throw new Error();
     currentUser = await res.json();
     showDashboard();
@@ -71,12 +76,23 @@ async function init() {
 
 function showLogin() {
   document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('changePwScreen').style.display = 'none';
   document.getElementById('adminDashboard').classList.remove('show');
   document.getElementById('loginPassword').value = '';
 }
 
+function showChangePassword() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('changePwScreen').style.display = 'flex';
+  document.getElementById('adminDashboard').classList.remove('show');
+  document.getElementById('newPw').value = '';
+  document.getElementById('confirmPw').value = '';
+  document.getElementById('changePwError').classList.remove('show');
+}
+
 function showDashboard() {
   document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('changePwScreen').style.display = 'none';
   document.getElementById('adminDashboard').classList.add('show');
 
   document.getElementById('adminUsername').textContent = currentUser.username;
@@ -121,6 +137,11 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
     authToken = data.token;
     sessionStorage.setItem('bandroom_admin_token', data.token);
 
+    if (data.must_change_password) {
+      showChangePassword();
+      return;
+    }
+
     // Fetch full info
     const me = await api('/api/admin/me');
     currentUser = await me.json();
@@ -138,6 +159,51 @@ async function logout() {
   try { await api('/api/admin/logout', { method: 'POST' }); } catch {}
   sessionStorage.removeItem('bandroom_admin_token');
   authToken = ''; currentUser = null;
+  showLogin();
+}
+
+/* ============================================================
+   Change Password (first login)
+   ============================================================ */
+document.getElementById('changePwForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pw1 = document.getElementById('newPw').value;
+  const pw2 = document.getElementById('confirmPw').value;
+  const err = document.getElementById('changePwError');
+  const btn = document.getElementById('changePwBtn');
+
+  if (pw1 !== pw2) {
+    err.textContent = '비밀번호가 일치하지 않습니다.';
+    err.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = '설정 중...';
+  err.classList.remove('show');
+
+  try {
+    const res = await api('/api/admin/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ new_password: pw1 }),
+    });
+    if (!res.ok) {
+      const e = await res.json();
+      throw new Error(e.detail || '비밀번호 변경 실패');
+    }
+    currentUser = await res.json();
+    showDashboard();
+    showToast('비밀번호가 설정되었습니다.', 'success');
+  } catch (e) {
+    err.textContent = e.message;
+    err.classList.add('show');
+  } finally {
+    btn.disabled = false; btn.textContent = '비밀번호 설정';
+  }
+});
+
+function cancelChangePassword() {
+  sessionStorage.removeItem('bandroom_admin_token');
+  authToken = '';
   showLogin();
 }
 
@@ -419,7 +485,6 @@ function renderUsers() {
    ============================================================ */
 function openCreateUserModal() {
   document.getElementById('newUsername').value = '';
-  document.getElementById('newPassword').value = '';
   document.querySelectorAll('input[name="newRole"]').forEach((r, i) => {
     r.checked = i === 0;
   });
@@ -440,7 +505,6 @@ document.getElementById('createUserOverlay').addEventListener('click', e => {
 document.getElementById('createUserForm').addEventListener('submit', async e => {
   e.preventDefault();
   const username = document.getElementById('newUsername').value.trim();
-  const password = document.getElementById('newPassword').value;
   const role = document.querySelector('input[name="newRole"]:checked').value;
 
   const btn = document.getElementById('createUserBtn');
@@ -449,20 +513,54 @@ document.getElementById('createUserForm').addEventListener('submit', async e => 
   try {
     const res = await api('/api/admin/users', {
       method: 'POST',
-      body: JSON.stringify({ username, password, role }),
+      body: JSON.stringify({ username, role }),
     });
     if (!res.ok) {
       const e = await res.json();
       throw new Error(e.detail || '생성 실패');
     }
+    const data = await res.json();
     closeCreateUserModal();
     await loadUsers();
-    showToast(`계정 [${username}] 이(가) 생성되었습니다.`, 'success');
+    openTempPasswordModal(data.user.username, data.temp_password);
   } catch (e) {
     showToast(e.message, 'error');
   } finally {
     btn.disabled = false; btn.textContent = '계정 생성';
   }
+});
+
+/* ============================================================
+   Temp Password Result Modal
+   ============================================================ */
+function openTempPasswordModal(username, password) {
+  document.getElementById('tempPwUsername').textContent = username;
+  document.getElementById('tempPwValue').textContent = password;
+  document.getElementById('copyTempPwBtn').textContent = '복사';
+  document.getElementById('tempPasswordOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeTempPasswordModal() {
+  document.getElementById('tempPasswordOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  document.getElementById('tempPwValue').textContent = '';
+}
+
+async function copyTempPassword() {
+  const pw = document.getElementById('tempPwValue').textContent;
+  const btn = document.getElementById('copyTempPwBtn');
+  try {
+    await navigator.clipboard.writeText(pw);
+    btn.textContent = '복사됨 ✓';
+    setTimeout(() => { btn.textContent = '복사'; }, 1500);
+  } catch {
+    showToast('클립보드 복사에 실패했습니다.', 'error');
+  }
+}
+
+document.getElementById('tempPasswordOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeTempPasswordModal();
 });
 
 /* ============================================================

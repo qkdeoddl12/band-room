@@ -50,6 +50,11 @@ class LoginResponse(BaseModel):
     token: str
     username: str
     role: str
+    must_change_password: bool = False
+
+
+class ChangePasswordRequest(BaseModel):
+    new_password: str = Field(..., min_length=4)
 
 
 # ========== Admin User ==========
@@ -58,14 +63,19 @@ class AdminUserResponse(BaseModel):
     username: str
     role: str
     is_active: bool
+    must_change_password: bool = False
     created_at: datetime
     model_config = {"from_attributes": True}
 
 
 class CreateUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    password: str = Field(..., min_length=4)
     role: str = Field(..., pattern='^(system|reservation)$')
+
+
+class CreateUserResponse(BaseModel):
+    user: AdminUserResponse
+    temp_password: str
 
 
 class UpdateUserRequest(BaseModel):
