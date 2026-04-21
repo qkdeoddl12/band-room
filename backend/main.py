@@ -14,6 +14,8 @@ import bcrypt
 
 from database import engine, get_db, SessionLocal
 from broadcaster import broadcaster
+from app_logging import setup_logging, log_event, logger
+import logging
 import models
 import schemas
 
@@ -79,9 +81,37 @@ def init_data():
 
 @app.on_event("startup")
 async def startup_event():
+    setup_logging()
     migrate_schema()
     init_data()
     broadcaster.attach_loop(asyncio.get_event_loop())
+    log_event("startup")
+
+
+@app.middleware("http")
+async def access_log_middleware(request: Request, call_next):
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        log_event(
+            "unhandled_exception",
+            level=logging.ERROR,
+            method=request.method,
+            path=request.url.path,
+            client=request.client.host if request.client else None,
+            exc=repr(exc),
+        )
+        raise
+    if response.status_code >= 400:
+        log_event(
+            "http_error",
+            level=logging.WARNING,
+            method=request.method,
+            path=request.url.path,
+            status=response.status_code,
+            client=request.client.host if request.client else None,
+        )
+    return response
 
 
 # ========== Auth dependencies ==========
@@ -183,7 +213,11 @@ async def reservations_stream(request: Request):
 
 
 @app.post("/api/reservations", response_model=schemas.ReservationResponse)
-def create_reservation(reservation: schemas.ReservationCreate, db: Session = Depends(get_db)):
+def create_reservation(
+    reservation: schemas.ReservationCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
     start_dt = datetime.combine(reservation.date, reservation.start_time)
     end_dt = start_dt + timedelta(hours=reservation.duration)
     end_time = end_dt.time()
@@ -194,6 +228,16 @@ def create_reservation(reservation: schemas.ReservationCreate, db: Session = Dep
     ).all()
     for r in existing:
         if not (end_time <= r.start_time or reservation.start_time >= r.end_time):
+            log_event(
+                "reservation_conflict",
+                level=logging.WARNING,
+                client=request.client.host if request.client else None,
+                room_id=reservation.room_id,
+                date=str(reservation.date),
+                start=str(reservation.start_time),
+                end=str(end_time),
+                team=reservation.team_name,
+            )
             raise HTTPException(400, "해당 시간에 이미 예약이 있습니다.")
 
     db_r = models.Reservation(
@@ -218,6 +262,16 @@ def create_reservation(reservation: schemas.ReservationCreate, db: Session = Dep
         "end_time": str(db_r.end_time),
         "team_name": db_r.team_name,
     })
+    log_event(
+        "reservation_created",
+        id=db_r.id,
+        room_id=db_r.room_id,
+        date=str(db_r.date),
+        start=str(db_r.start_time),
+        end=str(db_r.end_time),
+        team=db_r.team_name,
+        client=request.client.host if request.client else None,
+    )
     return db_r
 
 
@@ -235,25 +289,53 @@ def delete_reservation(
         "room_id": res.room_id,
         "date": str(res.date),
     }
+    team = res.team_name
     db.delete(res)
     db.commit()
     broadcaster.publish("reservation_deleted", payload)
+    log_event(
+        "reservation_deleted",
+        id=payload["id"],
+        room_id=payload["room_id"],
+        date=payload["date"],
+        team=team,
+        by=admin.username,
+    )
     return {"message": "취소되었습니다."}
 
 
 # ========== Admin: Auth ==========
 @app.post("/api/admin/login", response_model=schemas.LoginResponse)
-def admin_login(data: schemas.LoginRequest, db: Session = Depends(get_db)):
+def admin_login(
+    data: schemas.LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    client = request.client.host if request.client else None
     user = db.query(models.AdminUser).filter(
         models.AdminUser.username == data.username,
         models.AdminUser.is_active == True,
     ).first()
     if not user or not verify_password(data.password, user.password_hash):
+        log_event(
+            "login_failed",
+            level=logging.WARNING,
+            username=data.username,
+            client=client,
+            reason="invalid_credentials" if user else "user_not_found_or_inactive",
+        )
         raise HTTPException(401, "아이디 또는 비밀번호가 틀렸습니다.")
 
     token = secrets.token_hex(32)
     db.add(models.AdminSession(token=token, user_id=user.id))
     db.commit()
+    log_event(
+        "login",
+        username=user.username,
+        role=user.role,
+        must_change_password=user.must_change_password,
+        client=client,
+    )
     return {
         "token": token,
         "username": user.username,
@@ -274,6 +356,7 @@ def admin_change_password(
     admin.must_change_password = False
     db.commit()
     db.refresh(admin)
+    log_event("password_changed", username=admin.username)
     return admin
 
 
@@ -283,10 +366,14 @@ def admin_logout(
     db: Session = Depends(get_db),
 ):
     if x_auth_token:
-        db.query(models.AdminSession).filter(
+        session = db.query(models.AdminSession).filter(
             models.AdminSession.token == x_auth_token
-        ).delete()
-        db.commit()
+        ).first()
+        if session:
+            username = session.user.username if session.user else None
+            db.delete(session)
+            db.commit()
+            log_event("logout", username=username)
     return {"message": "logged out"}
 
 
@@ -324,6 +411,12 @@ def create_admin_user(
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
+    log_event(
+        "user_created",
+        by=admin.username,
+        target=new_user.username,
+        role=new_user.role,
+    )
     return {"user": new_user, "temp_password": temp_password}
 
 
@@ -338,8 +431,10 @@ def update_admin_user(
     if not user:
         raise HTTPException(404, "사용자를 찾을 수 없습니다.")
 
+    changes = []
     if data.password is not None:
         user.password_hash = hash_password(data.password)
+        changes.append("password")
 
     if data.role is not None and data.role != user.role:
         if user.role == 'system':
@@ -350,6 +445,7 @@ def update_admin_user(
             ).count()
             if other_systems == 0:
                 raise HTTPException(400, "마지막 시스템 관리자의 역할은 변경할 수 없습니다.")
+        changes.append(f"role:{user.role}->{data.role}")
         user.role = data.role
 
     if data.is_active is not None and data.is_active != user.is_active:
@@ -363,10 +459,17 @@ def update_admin_user(
             ).count()
             if other_systems == 0:
                 raise HTTPException(400, "마지막 활성 시스템 관리자는 비활성화할 수 없습니다.")
+        changes.append(f"active:{user.is_active}->{data.is_active}")
         user.is_active = data.is_active
 
     db.commit()
     db.refresh(user)
+    log_event(
+        "user_updated",
+        by=admin.username,
+        target=user.username,
+        changes=",".join(changes) if changes else "none",
+    )
     return user
 
 
@@ -391,6 +494,8 @@ def delete_admin_user(
         if other_systems == 0:
             raise HTTPException(400, "마지막 시스템 관리자는 삭제할 수 없습니다.")
 
+    target_username = user.username
     db.delete(user)
     db.commit()
+    log_event("user_deleted", by=admin.username, target=target_username)
     return {"message": "삭제되었습니다."}
