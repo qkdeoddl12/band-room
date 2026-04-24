@@ -107,93 +107,247 @@
 
     <div class="admin-content">
 
-      <!-- Sidebar -->
+      <!-- Sidebar (menu only) -->
       <aside class="admin-sidebar">
         <div class="sidebar-title">메뉴</div>
         <ul class="sidebar-nav">
-          <li class="sidebar-item active" data-page="reservations" onclick="switchPage('reservations')">
+          <li class="sidebar-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+            <span class="sidebar-icon">📊</span> 대시보드
+          </li>
+          <li class="sidebar-item" data-page="reservations" onclick="switchPage('reservations')">
             <span class="sidebar-icon">📋</span> 예약 관리
+          </li>
+          <li class="sidebar-item" data-page="calendar" onclick="switchPage('calendar')">
+            <span class="sidebar-icon">📅</span> 캘린더
+          </li>
+          <li class="sidebar-item" data-page="stats" onclick="switchPage('stats')">
+            <span class="sidebar-icon">📈</span> 통계
+          </li>
+          <li class="sidebar-item" data-page="inquiries" onclick="switchPage('inquiries')">
+            <span class="sidebar-icon">📩</span> 문의/민원
+            <span class="nav-badge" id="navInquiryBadge" style="display:none;"></span>
+          </li>
+          <li class="sidebar-item" data-page="blocked" onclick="switchPage('blocked')">
+            <span class="sidebar-icon">🚫</span> 차단 설정
           </li>
           <li class="sidebar-item system-only" data-page="users" onclick="switchPage('users')">
             <span class="sidebar-icon">👥</span> 계정 관리
           </li>
         </ul>
-
-        <!-- Reservation filters (only on reservations page) -->
-        <div id="reservationsFilters">
-          <div class="sidebar-title">기간 필터</div>
-          <ul class="sidebar-nav">
-            <li class="sidebar-item active" data-period="today" onclick="setPeriod('today', this)">
-              <span class="sidebar-icon">📅</span> 오늘
-            </li>
-            <li class="sidebar-item" data-period="week" onclick="setPeriod('week', this)">
-              <span class="sidebar-icon">📆</span> 이번 주
-            </li>
-            <li class="sidebar-item" data-period="month" onclick="setPeriod('month', this)">
-              <span class="sidebar-icon">🗓️</span> 이번 달
-            </li>
-            <li class="sidebar-item" data-period="all" onclick="setPeriod('all', this)">
-              <span class="sidebar-icon">📋</span> 전체
-            </li>
-          </ul>
-
-          <div class="sidebar-title">공간 필터</div>
-          <ul class="sidebar-nav">
-            <li class="sidebar-item active" data-room="all" onclick="setRoom('all', this)">
-              <span class="room-filter-dot" style="background:#9CA3AF;"></span> 전체 공간
-            </li>
-            <li class="sidebar-item" data-room="1" onclick="setRoom('1', this)">
-              <span class="room-filter-dot" style="background:var(--room1);"></span> 합주실
-            </li>
-            <li class="sidebar-item" data-room="2" onclick="setRoom('2', this)">
-              <span class="room-filter-dot" style="background:var(--room2);"></span> 개인연습실
-            </li>
-          </ul>
-        </div>
       </aside>
 
       <!-- Main -->
       <main class="admin-main">
 
-        <!-- ===== RESERVATIONS PAGE ===== -->
-        <div class="admin-page" id="reservationsPage">
+        <!-- ===== DASHBOARD PAGE ===== -->
+        <div class="admin-page" id="dashboardPage">
 
-          <div class="stats-row">
-            <div class="stat-card">
-              <div class="stat-label">오늘 예약</div>
-              <div class="stat-value" id="statToday">—</div>
-              <div class="stat-sub">건</div>
+          <!-- Pending highlight -->
+          <div class="pending-highlight" id="pendingHighlight" onclick="goToPendingList()" role="button" tabindex="0">
+            <div class="pending-highlight-icon">🕐</div>
+            <div class="pending-highlight-body">
+              <div class="pending-highlight-title">입금 대기 예약</div>
+              <div class="pending-highlight-sub" id="pendingSub">—</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">이번 주</div>
-              <div class="stat-value" id="statWeek">—</div>
-              <div class="stat-sub">건</div>
+            <div class="pending-highlight-amount" id="pendingAmount">—</div>
+          </div>
+
+          <!-- KPI Grid -->
+          <div class="kpi-grid">
+            <div class="kpi-card revenue">
+              <div class="kpi-period">오늘</div>
+              <div class="kpi-main"><span class="kpi-value" id="kpiRevToday">—</span><span class="kpi-unit">원</span></div>
+              <div class="kpi-sub"><span id="kpiCntToday">0</span>건 · 확정 기준</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">이번 달</div>
-              <div class="stat-value" id="statMonth">—</div>
-              <div class="stat-sub">건</div>
+            <div class="kpi-card revenue">
+              <div class="kpi-period">이번 주</div>
+              <div class="kpi-main"><span class="kpi-value" id="kpiRevWeek">—</span><span class="kpi-unit">원</span></div>
+              <div class="kpi-sub"><span id="kpiCntWeek">0</span>건 · 확정 기준</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-label">전체</div>
-              <div class="stat-value" id="statAll">—</div>
-              <div class="stat-sub">건</div>
+            <div class="kpi-card revenue">
+              <div class="kpi-period">이번 달</div>
+              <div class="kpi-main"><span class="kpi-value" id="kpiRevMonth">—</span><span class="kpi-unit">원</span></div>
+              <div class="kpi-sub"><span id="kpiCntMonth">0</span>건 · 확정 기준</div>
             </div>
           </div>
 
-          <div class="filter-bar">
-            <span class="filter-label">검색</span>
-            <input type="text" class="filter-input" id="searchInput"
-              placeholder="팀명, 멤버 검색..." style="flex:1;min-width:120px;"
-              oninput="applyFilters()">
-            <select class="filter-select" id="roomSelect" onchange="applyFilters()">
-              <option value="all">전체 공간</option>
-              <option value="1">합주실</option>
-              <option value="2">개인연습실</option>
-            </select>
+          <!-- 7-day revenue chart -->
+          <div class="dashboard-card">
+            <div class="dashboard-card-header">
+              <h3 class="dashboard-card-title">최근 7일 매출</h3>
+              <div class="dashboard-card-sub">확정된 예약 기준</div>
+            </div>
+            <div class="bar-chart" id="weekChart"></div>
+          </div>
+
+          <!-- Room breakdown (this month) -->
+          <div class="dashboard-card">
+            <div class="dashboard-card-header">
+              <h3 class="dashboard-card-title">이번 달 방별 이용</h3>
+              <div class="dashboard-card-sub">확정 건 기준</div>
+            </div>
+            <div class="room-breakdown" id="roomBreakdown"></div>
+          </div>
+
+        </div>
+
+        <!-- ===== RESERVATIONS PAGE ===== -->
+        <div class="admin-page" id="reservationsPage" style="display:none;">
+
+          <div class="filter-panel">
+            <div class="chip-row" role="tablist" aria-label="기간">
+              <button class="chip" data-period="today" onclick="setPeriod('today')">오늘</button>
+              <button class="chip" data-period="week" onclick="setPeriod('week')">이번 주</button>
+              <button class="chip" data-period="month" onclick="setPeriod('month')">이번 달</button>
+              <button class="chip active" data-period="all" onclick="setPeriod('all')">전체</button>
+            </div>
+            <div class="chip-row" role="tablist" aria-label="공간">
+              <button class="chip active" data-room="all" onclick="setRoom('all')">전체 공간</button>
+              <button class="chip" data-room="1" onclick="setRoom('1')"><span class="chip-dot room1"></span>합주실</button>
+              <button class="chip" data-room="2" onclick="setRoom('2')"><span class="chip-dot room2"></span>개인연습실</button>
+            </div>
+            <div class="chip-row" role="tablist" aria-label="상태">
+              <button class="chip" data-status="all" onclick="setStatus('all')">전체</button>
+              <button class="chip chip-status-pending active" data-status="pending" onclick="setStatus('pending')">🕐 입금 대기</button>
+              <button class="chip chip-status-confirmed" data-status="confirmed" onclick="setStatus('confirmed')">✅ 확정</button>
+            </div>
+            <input type="text" class="filter-search" id="searchInput"
+              placeholder="🔍 팀명, 멤버, 메모 검색..." oninput="applyFilters()">
           </div>
 
           <div id="reservationList">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- ===== INQUIRIES PAGE ===== -->
+        <div class="admin-page" id="inquiriesPage" style="display:none;">
+
+          <div class="filter-panel">
+            <div class="chip-row" role="tablist" aria-label="상태">
+              <button class="chip active" data-inq-status="new" onclick="setInquiryStatus('new')">🆕 새 접수</button>
+              <button class="chip" data-inq-status="resolved" onclick="setInquiryStatus('resolved')">✅ 처리 완료</button>
+              <button class="chip" data-inq-status="all" onclick="setInquiryStatus('all')">전체</button>
+            </div>
+            <div class="chip-row" role="tablist" aria-label="유형">
+              <button class="chip active" data-inq-cat="all" onclick="setInquiryCat('all')">전체</button>
+              <button class="chip" data-inq-cat="question" onclick="setInquiryCat('question')">💬 문의</button>
+              <button class="chip" data-inq-cat="complaint" onclick="setInquiryCat('complaint')">🛠 불편사항</button>
+              <button class="chip" data-inq-cat="incident" onclick="setInquiryCat('incident')">⚠️ 사고</button>
+            </div>
+          </div>
+
+          <div id="inquiryList">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- ===== STATS PAGE ===== -->
+        <div class="admin-page" id="statsPage" style="display:none;">
+
+          <div class="filter-panel">
+            <div class="chip-row" role="tablist" aria-label="기간">
+              <button class="chip" data-range="3"  onclick="setStatsRange(3)">최근 3개월</button>
+              <button class="chip active" data-range="6" onclick="setStatsRange(6)">최근 6개월</button>
+              <button class="chip" data-range="12" onclick="setStatsRange(12)">최근 12개월</button>
+            </div>
+          </div>
+
+          <!-- KPI -->
+          <div class="kpi-grid">
+            <div class="kpi-card revenue">
+              <div class="kpi-period">기간 매출</div>
+              <div class="kpi-main"><span class="kpi-value" id="statsRev">—</span><span class="kpi-unit">원</span></div>
+              <div class="kpi-sub"><span id="statsCount">0</span>건 · 확정 기준</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-period">확정률</div>
+              <div class="kpi-main"><span class="kpi-value" id="statsRate">—</span><span class="kpi-unit">%</span></div>
+              <div class="kpi-sub"><span id="statsPendingCnt">0</span>건 대기 중</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-period">평균 이용</div>
+              <div class="kpi-main"><span class="kpi-value" id="statsAvg">—</span><span class="kpi-unit">시간</span></div>
+              <div class="kpi-sub">건당 평균</div>
+            </div>
+          </div>
+
+          <!-- Monthly revenue stack -->
+          <div class="dashboard-card">
+            <div class="dashboard-card-header">
+              <h3 class="dashboard-card-title">월별 매출 추이</h3>
+              <div class="dashboard-card-sub">방별 스택 · 확정 기준</div>
+            </div>
+            <div class="stack-chart" id="monthChart"></div>
+          </div>
+
+          <!-- Weekday pattern -->
+          <div class="dashboard-card">
+            <div class="dashboard-card-header">
+              <h3 class="dashboard-card-title">요일별 이용 패턴</h3>
+              <div class="dashboard-card-sub">확정 예약 시간 합계</div>
+            </div>
+            <div class="bar-chart mini" id="weekdayChart"></div>
+          </div>
+
+          <!-- Hour pattern -->
+          <div class="dashboard-card">
+            <div class="dashboard-card-header">
+              <h3 class="dashboard-card-title">시간대별 이용</h3>
+              <div class="dashboard-card-sub">09:00 ~ 23:00</div>
+            </div>
+            <div class="bar-chart mini" id="hourChart"></div>
+          </div>
+
+          <!-- Room comparison -->
+          <div class="dashboard-card">
+            <div class="dashboard-card-header">
+              <h3 class="dashboard-card-title">방별 매출 비교</h3>
+              <div class="dashboard-card-sub">기간 합계</div>
+            </div>
+            <div class="room-breakdown" id="statsRoomBreakdown"></div>
+          </div>
+
+        </div>
+
+        <!-- ===== CALENDAR PAGE ===== -->
+        <div class="admin-page" id="calendarPage" style="display:none;">
+
+          <div class="cal-header">
+            <button class="btn-nav" onclick="calPrevMonth()" aria-label="이전 달">&#8249;</button>
+            <div class="cal-title-wrap">
+              <h2 class="cal-title" id="calTitle">—</h2>
+              <button class="cal-today-btn" onclick="calGoToday()">오늘</button>
+            </div>
+            <button class="btn-nav" onclick="calNextMonth()" aria-label="다음 달">&#8250;</button>
+          </div>
+
+          <div class="cal-legend">
+            <span class="cal-legend-item"><span class="cal-dot r1"></span>합주실</span>
+            <span class="cal-legend-item"><span class="cal-dot r2"></span>개인연습실</span>
+            <span class="cal-legend-item"><span class="cal-dot pending"></span>대기 포함</span>
+            <span class="cal-legend-item"><span class="cal-dot blocked"></span>차단</span>
+          </div>
+
+          <div class="cal-grid" id="calendarGrid">
+            <div class="spinner"></div>
+          </div>
+        </div>
+
+        <!-- ===== BLOCKED PAGE (system admin only) ===== -->
+        <div class="admin-page" id="blockedPage" style="display:none;">
+
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">차단 설정</h2>
+              <p class="page-subtitle">휴무일이나 점검 시간 등 예약을 받지 않을 기간을 등록합니다.</p>
+            </div>
+            <button class="btn-primary" onclick="openCreateBlockedModal()">
+              <span style="font-size:18px;">+</span> 차단 추가
+            </button>
+          </div>
+
+          <div id="blockedList">
             <div class="spinner"></div>
           </div>
         </div>
@@ -222,20 +376,27 @@
     <!-- Mobile Nav -->
     <nav class="mobile-admin-nav">
       <div class="mobile-nav-items">
-        <div class="mobile-nav-item active" data-mtab="reservations" onclick="switchPageMobile('reservations')">
-          <span class="mobile-nav-icon">📋</span>예약
+        <div class="mobile-nav-item active" data-mtab="dashboard" onclick="switchPageMobile('dashboard')">
+          <span class="mobile-nav-icon">📊</span>대시보드
         </div>
-        <div class="mobile-nav-item" data-mtab="today" onclick="setPeriodMobile('today')">
-          <span class="mobile-nav-icon">📅</span>오늘
+        <div class="mobile-nav-item" data-mtab="reservations" onclick="switchPageMobile('reservations')">
+          <span class="mobile-nav-icon">📋</span>예약 관리
         </div>
-        <div class="mobile-nav-item" data-mtab="week" onclick="setPeriodMobile('week')">
-          <span class="mobile-nav-icon">📆</span>이번 주
+        <div class="mobile-nav-item" data-mtab="calendar" onclick="switchPageMobile('calendar')">
+          <span class="mobile-nav-icon">📅</span>캘린더
         </div>
-        <div class="mobile-nav-item" data-mtab="all" onclick="setPeriodMobile('all')">
-          <span class="mobile-nav-icon">📋</span>전체
+        <div class="mobile-nav-item" data-mtab="stats" onclick="switchPageMobile('stats')">
+          <span class="mobile-nav-icon">📈</span>통계
+        </div>
+        <div class="mobile-nav-item" data-mtab="inquiries" onclick="switchPageMobile('inquiries')">
+          <span class="mobile-nav-icon">📩</span>문의
+          <span class="nav-badge mobile" id="mobileInquiryBadge" style="display:none;"></span>
+        </div>
+        <div class="mobile-nav-item" data-mtab="blocked" onclick="switchPageMobile('blocked')">
+          <span class="mobile-nav-icon">🚫</span>차단
         </div>
         <div class="mobile-nav-item system-only" data-mtab="users" onclick="switchPageMobile('users')">
-          <span class="mobile-nav-icon">👥</span>계정
+          <span class="mobile-nav-icon">👥</span>계정 관리
         </div>
       </div>
     </nav>
@@ -292,6 +453,114 @@
         <div style="display:flex;gap:10px;">
           <button onclick="closeConfirmModal()" class="btn-secondary">취소</button>
           <button id="confirmReservationBtn" class="btn-primary">예약 확정</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inquiry Detail Modal -->
+  <div class="modal-overlay" id="inquiryDetailOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="inquiryDetailTitle">문의 상세</h3>
+        <button class="modal-close" onclick="closeInquiryDetail()">✕</button>
+      </div>
+      <div class="modal-body" id="inquiryDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Day Detail Modal -->
+  <div class="modal-overlay" id="dayDetailOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="dayDetailTitle">—</h3>
+        <button class="modal-close" onclick="closeDayDetail()">✕</button>
+      </div>
+      <div class="modal-body" id="dayDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Create Blocked Modal -->
+  <div class="modal-overlay" id="createBlockedOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">차단 추가</h3>
+        <button class="modal-close" onclick="closeCreateBlockedModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="createBlockedForm" autocomplete="off">
+
+          <div class="form-group">
+            <label class="form-label" for="blockDate">날짜 <span style="color:var(--danger)">*</span></label>
+            <input type="date" class="form-input" id="blockDate" required>
+          </div>
+
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span style="font-size:14px;font-weight:600;color:var(--text);display:block;">하루 종일 차단</span>
+                <span style="font-size:12px;color:var(--text-sub);">해제하면 시간 범위를 지정할 수 있습니다.</span>
+              </span>
+              <input type="checkbox" id="blockAllDay" class="toggle-switch" checked>
+            </label>
+          </div>
+
+          <div class="form-group" id="blockTimeRow" style="display:none;">
+            <label class="form-label">시간 범위</label>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <select class="form-select" id="blockStart" style="flex:1;"></select>
+              <span style="color:var(--text-sub);">~</span>
+              <select class="form-select" id="blockEnd" style="flex:1;"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">대상 공간</label>
+            <select class="form-select" id="blockRoom">
+              <option value="">전체 공간</option>
+              <option value="1">합주실</option>
+              <option value="2">개인연습실</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="blockReason">
+              사유
+              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
+            </label>
+            <input type="text" class="form-input" id="blockReason"
+              placeholder="예: 설비 점검, 공휴일" maxlength="200">
+          </div>
+
+          <button type="submit" class="btn-submit" id="createBlockedBtn">차단 등록</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Blocked Modal -->
+  <div class="modal-overlay" id="deleteBlockedOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">차단 해제</h3>
+        <button class="modal-close" onclick="closeDeleteBlockedModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:15px;color:var(--text-sub);margin-bottom:8px;">
+          아래 차단 설정을 해제하시겠습니까?
+        </p>
+        <div id="deleteBlockedTarget" style="
+          background:var(--bg);border-radius:var(--radius-sm);
+          padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);
+          margin-bottom:24px;line-height:1.6;
+        "></div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="closeDeleteBlockedModal()" class="btn-secondary">취소</button>
+          <button id="confirmDeleteBlockedBtn" class="btn-danger">해제</button>
         </div>
       </div>
     </div>

@@ -53,3 +53,32 @@ class AdminSession(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     user = relationship("AdminUser", back_populates="sessions")
+
+
+class Inquiry(Base):
+    __tablename__ = "inquiries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String(20), nullable=False)  # 'question' | 'complaint' | 'incident'
+    content = Column(Text, nullable=False)
+    contact_name = Column(String(100))
+    contact_phone = Column(String(30))
+    status = Column(String(20), nullable=False, server_default='new', index=True)  # 'new' | 'resolved'
+    resolved_by = Column(String(50))
+    resolved_at = Column(DateTime)
+    created_at = Column(DateTime, server_default=func.now())
+
+
+class BlockedPeriod(Base):
+    __tablename__ = "blocked_periods"
+
+    id = Column(Integer, primary_key=True, index=True)
+    date = Column(Date, nullable=False, index=True)
+    start_time = Column(Time)  # null = all day
+    end_time = Column(Time)    # null = all day
+    room_id = Column(Integer, ForeignKey("rooms.id"))  # null = all rooms
+    reason = Column(String(200))
+    created_by = Column(String(50))
+    created_at = Column(DateTime, server_default=func.now())
+
+    room = relationship("Room")

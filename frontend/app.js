@@ -16,6 +16,7 @@ const DEPOSIT_ACCOUNT = '352-1068-1777-83';
 let currentDate    = new Date();
 let currentRoomId  = 1;
 let reservations   = [];
+let blockedPeriods = [];
 
 /* ============================================================
    Date helpers
@@ -113,11 +114,46 @@ function buildTimeline() {
 }
 
 /* ============================================================
+   Render: blocked periods overlay
+   ============================================================ */
+function activeBlockedForRoom() {
+  return blockedPeriods.filter(b => b.room_id === null || b.room_id === undefined || b.room_id === currentRoomId);
+}
+
+function renderBlockedLayer() {
+  const layer = document.getElementById('reservationsLayer');
+  const blocks = activeBlockedForRoom();
+  blocks.forEach(b => {
+    const allDay = !b.start_time || !b.end_time;
+    const startH = allDay ? HOURS_START : timeToMinutes(b.start_time) / 60;
+    const endH   = allDay ? HOURS_END   : timeToMinutes(b.end_time)   / 60;
+    const clampedStart = Math.max(HOURS_START, startH);
+    const clampedEnd   = Math.min(HOURS_END,   endH);
+    if (clampedEnd <= clampedStart) return;
+
+    const top    = (clampedStart - HOURS_START) * SLOT_H;
+    const height = (clampedEnd - clampedStart) * SLOT_H;
+
+    const block = document.createElement('div');
+    block.className = 'blocked-block';
+    block.style.top    = `${top}px`;
+    block.style.height = `${height}px`;
+    block.innerHTML = `
+      <span class="blocked-icon">🚫</span>
+      <span class="blocked-text">${escHtml(b.reason || '예약 불가')}</span>
+    `;
+    layer.appendChild(block);
+  });
+}
+
+/* ============================================================
    Render: reservations on timeline
    ============================================================ */
 function renderReservations() {
   const layer = document.getElementById('reservationsLayer');
   layer.innerHTML = '';
+
+  renderBlockedLayer();
 
   const dayRes = reservations.filter(r => r.room_id === currentRoomId);
 
@@ -173,12 +209,18 @@ function updateCurrentTimeLine() {
    API: load reservations
    ============================================================ */
 async function loadReservations() {
+  const dateStr = toDateStr(currentDate);
   try {
-    const res = await fetch(`/api/reservations?date=${toDateStr(currentDate)}`);
-    if (!res.ok) throw new Error();
-    reservations = await res.json();
+    const [resRes, blkRes] = await Promise.all([
+      fetch(`/api/reservations?date=${dateStr}`),
+      fetch(`/api/blocked?date=${dateStr}`),
+    ]);
+    if (!resRes.ok) throw new Error();
+    reservations   = await resRes.json();
+    blockedPeriods = blkRes.ok ? await blkRes.json() : [];
   } catch {
-    reservations = [];
+    reservations   = [];
+    blockedPeriods = [];
     showToast('예약 정보를 불러오지 못했습니다.', 'error');
   }
   renderReservations();
@@ -226,17 +268,41 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 
+function hourBlocked(hour) {
+  // Returns true if [hour, hour+1] overlaps any blocked period for current room
+  const blocks = activeBlockedForRoom();
+  for (const b of blocks) {
+    if (!b.start_time || !b.end_time) return true;
+    const bStart = timeToMinutes(b.start_time) / 60;
+    const bEnd   = timeToMinutes(b.end_time)   / 60;
+    if (!(hour + 1 <= bStart || hour >= bEnd)) return true;
+  }
+  return false;
+}
+
 function populateStartTimes(defaultHour) {
   const select = document.getElementById('startTime');
   select.innerHTML = '';
 
+  let firstAvailable = null;
   for (let h = HOURS_START; h < HOURS_END; h++) {
     const val    = `${String(h).padStart(2, '0')}:00`;
     const option = document.createElement('option');
     option.value = val;
     option.textContent = val;
-    if (defaultHour !== null && h === defaultHour) option.selected = true;
+    if (hourBlocked(h)) {
+      option.disabled = true;
+      option.textContent = `${val} (차단됨)`;
+    } else if (firstAvailable === null) {
+      firstAvailable = h;
+    }
+    if (defaultHour !== null && h === defaultHour && !option.disabled) option.selected = true;
     select.appendChild(option);
+  }
+  if (select.selectedIndex === -1 || select.options[select.selectedIndex]?.disabled) {
+    if (firstAvailable !== null) {
+      select.value = `${String(firstAvailable).padStart(2,'0')}:00`;
+    }
   }
 }
 
@@ -245,7 +311,12 @@ function populateEndTimes(preferredHour = null) {
   const startH = Number(document.getElementById('startTime').value.split(':')[0]);
 
   select.innerHTML = '';
-  for (let h = startH + 1; h <= HOURS_END; h++) {
+  // Stop at first blocked hour after startH (can't bridge across blocks)
+  let maxEnd = HOURS_END;
+  for (let h = startH; h < HOURS_END; h++) {
+    if (hourBlocked(h)) { maxEnd = h; break; }
+  }
+  for (let h = startH + 1; h <= maxEnd; h++) {
     const val    = `${String(h).padStart(2, '0')}:00`;
     const option = document.createElement('option');
     option.value = val;
@@ -253,10 +324,12 @@ function populateEndTimes(preferredHour = null) {
     select.appendChild(option);
   }
 
-  const desired = preferredHour !== null && preferredHour > startH && preferredHour <= HOURS_END
+  const desired = preferredHour !== null && preferredHour > startH && preferredHour <= maxEnd
     ? preferredHour
     : startH + 1;
-  select.value = `${String(desired).padStart(2, '0')}:00`;
+  if (desired <= maxEnd) {
+    select.value = `${String(desired).padStart(2, '0')}:00`;
+  }
 
   updateTimeSummary();
 }
@@ -357,6 +430,72 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
   } finally {
     btn.disabled = false;
     btn.textContent = '예약 신청';
+  }
+});
+
+/* ============================================================
+   Inquiry Modal
+   ============================================================ */
+function openInquiryModal() {
+  document.getElementById('inqContent').value = '';
+  document.getElementById('inqName').value = '';
+  document.getElementById('inqPhone').value = '';
+  document.querySelectorAll('input[name="inqCat"]').forEach((r, i) => {
+    r.checked = i === 0;
+  });
+  syncInquiryCatStyles();
+  document.getElementById('inquiryOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeInquiryModal() {
+  document.getElementById('inquiryOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function syncInquiryCatStyles() {
+  document.querySelectorAll('input[name="inqCat"]').forEach(input => {
+    input.closest('.inquiry-cat').classList.toggle('active', input.checked);
+  });
+}
+
+document.querySelectorAll('input[name="inqCat"]').forEach(input => {
+  input.addEventListener('change', syncInquiryCatStyles);
+});
+
+document.getElementById('inquiryOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeInquiryModal();
+});
+
+document.getElementById('inquiryForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const category = document.querySelector('input[name="inqCat"]:checked').value;
+  const content  = document.getElementById('inqContent').value.trim();
+  if (!content) { showToast('내용을 입력해주세요.', 'error'); return; }
+
+  const btn = document.getElementById('inqSubmitBtn');
+  btn.disabled = true; btn.textContent = '접수 중...';
+  try {
+    const res = await fetch('/api/inquiries', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        category,
+        content,
+        contact_name:  document.getElementById('inqName').value.trim()  || null,
+        contact_phone: document.getElementById('inqPhone').value.trim() || null,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '접수 실패');
+    }
+    closeInquiryModal();
+    showToast('접수되었습니다. 빠르게 확인하겠습니다 🙏', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '접수하기';
   }
 });
 
