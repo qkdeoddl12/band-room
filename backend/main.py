@@ -48,11 +48,14 @@ def generate_temp_password(length: int = 10) -> str:
 
 # ========== DB migrations (lightweight) ==========
 def migrate_schema():
-    # Add must_change_password column if missing (for existing deployments).
     with engine.begin() as conn:
         conn.execute(text(
             "ALTER TABLE admin_users "
             "ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        conn.execute(text(
+            "ALTER TABLE reservations "
+            "ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending'"
         ))
 
 
@@ -261,6 +264,7 @@ def create_reservation(
         "start_time": str(db_r.start_time),
         "end_time": str(db_r.end_time),
         "team_name": db_r.team_name,
+        "status": db_r.status,
     })
     log_event(
         "reservation_created",
@@ -270,9 +274,46 @@ def create_reservation(
         start=str(db_r.start_time),
         end=str(db_r.end_time),
         team=db_r.team_name,
+        status=db_r.status,
         client=request.client.host if request.client else None,
     )
     return db_r
+
+
+@app.post("/api/reservations/{reservation_id}/confirm", response_model=schemas.ReservationResponse)
+def confirm_reservation(
+    reservation_id: int,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    res = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
+    if not res:
+        raise HTTPException(404, "예약을 찾을 수 없습니다.")
+    if res.status == 'confirmed':
+        raise HTTPException(400, "이미 확정된 예약입니다.")
+
+    res.status = 'confirmed'
+    db.commit()
+    db.refresh(res)
+
+    broadcaster.publish("reservation_confirmed", {
+        "id": res.id,
+        "room_id": res.room_id,
+        "date": str(res.date),
+        "start_time": str(res.start_time),
+        "end_time": str(res.end_time),
+        "team_name": res.team_name,
+        "status": res.status,
+    })
+    log_event(
+        "reservation_confirmed",
+        id=res.id,
+        room_id=res.room_id,
+        date=str(res.date),
+        team=res.team_name,
+        by=admin.username,
+    )
+    return res
 
 
 @app.delete("/api/reservations/{reservation_id}")

@@ -35,6 +35,7 @@ class ReservationResponse(BaseModel):
     team_name: Optional[str] = None
     members: Optional[str] = None
     note: Optional[str] = None
+    status: str = 'pending'
     created_at: datetime
     room: Room
     model_config = {"from_attributes": True}

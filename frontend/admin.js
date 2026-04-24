@@ -13,7 +13,10 @@ let allReservations = [];
 let allUsers        = [];
 
 let deleteTargetId   = null;
+let confirmTargetId  = null;
 let editTargetUserId = null;
+
+const ROOM_PRICES = { 1: 15000, 2: 8000 };
 
 const DAY_KO   = ['일','월','화','수','목','금','토'];
 
@@ -357,20 +360,34 @@ function renderList(items) {
       const cls   = r.room_id === 1 ? 'r1' : 'r2';
       const name  = r.room_id === 1 ? '합주실' : '개인연습실';
       const det   = [r.members, r.note].filter(Boolean).join(' · ');
+      const isPending = r.status === 'pending';
+      const fee   = (ROOM_PRICES[r.room_id] || 0) * r.duration;
+
+      const statusBadge = isPending
+        ? `<span class="res-status-admin pending">🕐 입금 대기</span>`
+        : `<span class="res-status-admin confirmed">✅ 확정</span>`;
+
+      const confirmBtn = isPending
+        ? `<button class="btn-confirm-deposit" onclick="openConfirmModal(${r.id})" aria-label="확정">입금확인</button>`
+        : '';
 
       html += `
-        <div class="reservation-item">
+        <div class="reservation-item${isPending ? ' pending' : ''}">
           <span class="res-room-tag ${cls}">${name}</span>
           <div class="res-info">
-            <div class="res-date-label">${fmtDateKo(r.date)}</div>
+            <div class="res-date-label">${fmtDateKo(r.date)} ${statusBadge}</div>
             <div class="res-name">${escHtml(r.team_name || '(이름 없음)')}</div>
             ${det ? `<div class="res-detail">👥 ${escHtml(det)}</div>` : ''}
+            <div class="res-fee">💰 ${fee.toLocaleString()}원</div>
           </div>
           <div class="res-time-info">
             <div class="res-time-main">${fmtTime(r.start_time)} ~ ${fmtTime(r.end_time)}</div>
             <div class="res-duration">${r.duration}시간</div>
           </div>
-          <button class="btn-delete" onclick="openDeleteModal(${r.id})" aria-label="삭제">🗑</button>
+          <div class="res-actions">
+            ${confirmBtn}
+            <button class="btn-delete" onclick="openDeleteModal(${r.id})" aria-label="삭제">🗑</button>
+          </div>
         </div>`;
     });
   });
@@ -424,6 +441,56 @@ document.getElementById('confirmDeleteBtn').addEventListener('click', async () =
 
 document.getElementById('deleteOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeDeleteModal();
+});
+
+/* ============================================================
+   Reservation Confirm (deposit verified) Modal
+   ============================================================ */
+function openConfirmModal(id) {
+  const r = allReservations.find(x => x.id === id);
+  if (!r) return;
+  confirmTargetId = id;
+  const name = r.room_id === 1 ? '합주실' : '개인연습실';
+  const fee  = (ROOM_PRICES[r.room_id] || 0) * r.duration;
+  document.getElementById('confirmTarget').innerHTML = `
+    <b>${escHtml(r.team_name || '(이름 없음)')}</b><br>
+    ${name} · ${fmtTime(r.start_time)} ~ ${fmtTime(r.end_time)} (${r.duration}시간)<br>
+    ${fmtDateKo(r.date)}<br>
+    💰 ${fee.toLocaleString()}원
+    ${r.members ? `<br>👥 ${escHtml(r.members)}` : ''}
+  `;
+  document.getElementById('confirmOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeConfirmModal() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  document.body.style.overflow = '';
+  confirmTargetId = null;
+}
+
+document.getElementById('confirmReservationBtn').addEventListener('click', async () => {
+  if (!confirmTargetId) return;
+  const btn = document.getElementById('confirmReservationBtn');
+  btn.disabled = true; btn.textContent = '확정 중...';
+  try {
+    const res = await api(`/api/reservations/${confirmTargetId}/confirm`, { method: 'POST' });
+    if (!res.ok) {
+      const e = await res.json();
+      throw new Error(e.detail || '확정 실패');
+    }
+    closeConfirmModal();
+    await loadAllReservations();
+    showToast('예약이 확정되었습니다.', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '예약 확정';
+  }
+});
+
+document.getElementById('confirmOverlay').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeConfirmModal();
 });
 
 

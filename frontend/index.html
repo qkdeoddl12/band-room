@@ -129,7 +129,24 @@
               placeholder="특이사항이 있다면 적어주세요"></textarea>
           </div>
 
-          <button type="submit" class="btn-submit" id="submitBtn">예약 확정</button>
+          <!-- Fee & Deposit Info -->
+          <div class="fee-box">
+            <div class="fee-row">
+              <span class="fee-label">이용 요금</span>
+              <span class="fee-value" id="feeAmount">—</span>
+            </div>
+            <div class="fee-breakdown" id="feeBreakdown">시간당 요금 안내</div>
+            <div class="fee-divider"></div>
+            <div class="fee-deposit-title">입금 계좌</div>
+            <div class="fee-deposit">
+              <div class="fee-deposit-bank">농협 <b>352-1068-1777-83</b></div>
+              <div class="fee-deposit-name">예금주: 황은희</div>
+              <button type="button" class="btn-copy-account" id="copyAccountBtn">계좌번호 복사</button>
+            </div>
+            <div class="fee-notice">입금 확인 후 예약이 확정됩니다.</div>
+          </div>
+
+          <button type="submit" class="btn-submit" id="submitBtn">예약 신청</button>
         </form>
       </div>
     </div>

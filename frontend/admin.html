@@ -272,6 +272,31 @@
     </div>
   </div>
 
+  <!-- Confirm Deposit Modal -->
+  <div class="modal-overlay" id="confirmOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">입금 확인 · 예약 확정</h3>
+        <button class="modal-close" onclick="closeConfirmModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:15px;color:var(--text-sub);margin-bottom:8px;">
+          아래 예약의 입금이 확인되었습니까? 확정하면 사용자에게 실시간으로 알림이 전송됩니다.
+        </p>
+        <div id="confirmTarget" style="
+          background:var(--bg);border-radius:var(--radius-sm);
+          padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);
+          margin-bottom:24px;line-height:1.6;
+        "></div>
+        <div style="display:flex;gap:10px;">
+          <button onclick="closeConfirmModal()" class="btn-secondary">취소</button>
+          <button id="confirmReservationBtn" class="btn-primary">예약 확정</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Create User Modal -->
   <div class="modal-overlay" id="createUserOverlay" style="z-index:300;">
     <div class="modal">

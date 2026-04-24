@@ -25,6 +25,7 @@ class Reservation(Base):
     team_name = Column(String(200))
     members = Column(Text)
     note = Column(Text)
+    status = Column(String(20), nullable=False, server_default='pending')
     created_at = Column(DateTime, server_default=func.now())
 
     room = relationship("Room", back_populates="reservations")
