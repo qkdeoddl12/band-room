@@ -48,11 +48,14 @@ def generate_temp_password(length: int = 10) -> str:
 
 # ========== DB migrations (lightweight) ==========
 def migrate_schema():
-    # Add must_change_password column if missing (for existing deployments).
     with engine.begin() as conn:
         conn.execute(text(
             "ALTER TABLE admin_users "
             "ADD COLUMN IF NOT EXISTS must_change_password BOOLEAN NOT NULL DEFAULT FALSE"
+        ))
+        conn.execute(text(
+            "ALTER TABLE reservations "
+            "ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'pending'"
         ))
 
 
@@ -240,6 +243,33 @@ def create_reservation(
             )
             raise HTTPException(400, "해당 시간에 이미 예약이 있습니다.")
 
+    blocked = db.query(models.BlockedPeriod).filter(
+        models.BlockedPeriod.date == reservation.date,
+    ).all()
+    for b in blocked:
+        if b.room_id is not None and b.room_id != reservation.room_id:
+            continue
+        if b.start_time is None or b.end_time is None:
+            overlaps = True
+        else:
+            overlaps = not (end_time <= b.start_time or reservation.start_time >= b.end_time)
+        if overlaps:
+            log_event(
+                "reservation_blocked",
+                level=logging.WARNING,
+                client=request.client.host if request.client else None,
+                room_id=reservation.room_id,
+                date=str(reservation.date),
+                start=str(reservation.start_time),
+                end=str(end_time),
+                blocked_id=b.id,
+                reason=b.reason,
+            )
+            msg = "해당 시간은 예약이 차단되어 있습니다."
+            if b.reason:
+                msg += f" ({b.reason})"
+            raise HTTPException(400, msg)
+
     db_r = models.Reservation(
         room_id=reservation.room_id,
         date=reservation.date,
@@ -261,6 +291,7 @@ def create_reservation(
         "start_time": str(db_r.start_time),
         "end_time": str(db_r.end_time),
         "team_name": db_r.team_name,
+        "status": db_r.status,
     })
     log_event(
         "reservation_created",
@@ -270,9 +301,46 @@ def create_reservation(
         start=str(db_r.start_time),
         end=str(db_r.end_time),
         team=db_r.team_name,
+        status=db_r.status,
         client=request.client.host if request.client else None,
     )
     return db_r
+
+
+@app.post("/api/reservations/{reservation_id}/confirm", response_model=schemas.ReservationResponse)
+def confirm_reservation(
+    reservation_id: int,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    res = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
+    if not res:
+        raise HTTPException(404, "예약을 찾을 수 없습니다.")
+    if res.status == 'confirmed':
+        raise HTTPException(400, "이미 확정된 예약입니다.")
+
+    res.status = 'confirmed'
+    db.commit()
+    db.refresh(res)
+
+    broadcaster.publish("reservation_confirmed", {
+        "id": res.id,
+        "room_id": res.room_id,
+        "date": str(res.date),
+        "start_time": str(res.start_time),
+        "end_time": str(res.end_time),
+        "team_name": res.team_name,
+        "status": res.status,
+    })
+    log_event(
+        "reservation_confirmed",
+        id=res.id,
+        room_id=res.room_id,
+        date=str(res.date),
+        team=res.team_name,
+        by=admin.username,
+    )
+    return res
 
 
 @app.delete("/api/reservations/{reservation_id}")
@@ -498,4 +566,155 @@ def delete_admin_user(
     db.delete(user)
     db.commit()
     log_event("user_deleted", by=admin.username, target=target_username)
+    return {"message": "삭제되었습니다."}
+
+
+# ========== Inquiries ==========
+@app.post("/api/inquiries", response_model=schemas.InquiryResponse)
+def create_inquiry(
+    data: schemas.InquiryCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    inq = models.Inquiry(
+        category=data.category,
+        content=data.content.strip(),
+        contact_name=(data.contact_name or '').strip() or None,
+        contact_phone=(data.contact_phone or '').strip() or None,
+    )
+    db.add(inq)
+    db.commit()
+    db.refresh(inq)
+    log_event(
+        "inquiry_created",
+        id=inq.id,
+        category=inq.category,
+        has_contact=bool(inq.contact_phone or inq.contact_name),
+        client=request.client.host if request.client else None,
+    )
+    return inq
+
+
+@app.get("/api/admin/inquiries", response_model=List[schemas.InquiryResponse])
+def list_inquiries(
+    status: Optional[str] = None,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.Inquiry)
+    if status in ('new', 'resolved'):
+        query = query.filter(models.Inquiry.status == status)
+    return query.order_by(models.Inquiry.created_at.desc()).all()
+
+
+@app.post("/api/admin/inquiries/{inquiry_id}/resolve", response_model=schemas.InquiryResponse)
+def resolve_inquiry(
+    inquiry_id: int,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    inq = db.query(models.Inquiry).filter(models.Inquiry.id == inquiry_id).first()
+    if not inq:
+        raise HTTPException(404, "문의를 찾을 수 없습니다.")
+    if inq.status == 'resolved':
+        raise HTTPException(400, "이미 처리된 문의입니다.")
+    inq.status = 'resolved'
+    inq.resolved_by = admin.username
+    inq.resolved_at = datetime.utcnow()
+    db.commit()
+    db.refresh(inq)
+    log_event("inquiry_resolved", id=inq.id, category=inq.category, by=admin.username)
+    return inq
+
+
+@app.delete("/api/admin/inquiries/{inquiry_id}")
+def delete_inquiry(
+    inquiry_id: int,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    inq = db.query(models.Inquiry).filter(models.Inquiry.id == inquiry_id).first()
+    if not inq:
+        raise HTTPException(404, "문의를 찾을 수 없습니다.")
+    db.delete(inq)
+    db.commit()
+    log_event("inquiry_deleted", id=inquiry_id, by=admin.username)
+    return {"message": "삭제되었습니다."}
+
+
+# ========== Blocked Periods ==========
+@app.get("/api/blocked", response_model=List[schemas.BlockedPeriodResponse])
+def list_blocked(
+    date: Optional[str] = None,
+    room_id: Optional[int] = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(models.BlockedPeriod)
+    if date:
+        query = query.filter(models.BlockedPeriod.date == date)
+    if room_id is not None:
+        query = query.filter(
+            (models.BlockedPeriod.room_id == room_id) | (models.BlockedPeriod.room_id.is_(None))
+        )
+    return query.order_by(
+        models.BlockedPeriod.date,
+        models.BlockedPeriod.start_time.nullsfirst(),
+    ).all()
+
+
+@app.post("/api/admin/blocked", response_model=schemas.BlockedPeriodResponse)
+def create_blocked(
+    data: schemas.BlockedPeriodCreate,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    if (data.start_time is None) != (data.end_time is None):
+        raise HTTPException(400, "시작·종료 시간은 함께 지정하거나 비워야 합니다.")
+    if data.start_time is not None and data.start_time >= data.end_time:
+        raise HTTPException(400, "종료 시간은 시작 시간 이후여야 합니다.")
+    if data.room_id is not None:
+        if not db.query(models.Room).filter(models.Room.id == data.room_id).first():
+            raise HTTPException(400, "존재하지 않는 공간입니다.")
+
+    blk = models.BlockedPeriod(
+        date=data.date,
+        start_time=data.start_time,
+        end_time=data.end_time,
+        room_id=data.room_id,
+        reason=data.reason,
+        created_by=admin.username,
+    )
+    db.add(blk)
+    db.commit()
+    db.refresh(blk)
+    log_event(
+        "blocked_created",
+        id=blk.id,
+        date=str(blk.date),
+        start=str(blk.start_time) if blk.start_time else "all-day",
+        end=str(blk.end_time) if blk.end_time else "all-day",
+        room_id=blk.room_id,
+        by=admin.username,
+    )
+    return blk
+
+
+@app.delete("/api/admin/blocked/{blocked_id}")
+def delete_blocked(
+    blocked_id: int,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    blk = db.query(models.BlockedPeriod).filter(models.BlockedPeriod.id == blocked_id).first()
+    if not blk:
+        raise HTTPException(404, "차단 설정을 찾을 수 없습니다.")
+    payload_date = str(blk.date)
+    db.delete(blk)
+    db.commit()
+    log_event(
+        "blocked_deleted",
+        id=blocked_id,
+        date=payload_date,
+        by=admin.username,
+    )
     return {"message": "삭제되었습니다."}

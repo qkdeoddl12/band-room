@@ -16,7 +16,10 @@
       <span class="logo-icon">🎸</span>
       <span class="logo-text">Band Room</span>
     </div>
-    <a href="/admin" class="admin-link">관리자</a>
+    <div class="header-actions">
+      <button class="header-link" onclick="openInquiryModal()" aria-label="문의/신고">📩 문의·신고</button>
+      <a href="/admin" class="admin-link">관리자</a>
+    </div>
   </header>
 
   <main class="main">
@@ -129,7 +132,84 @@
               placeholder="특이사항이 있다면 적어주세요"></textarea>
           </div>
 
-          <button type="submit" class="btn-submit" id="submitBtn">예약 확정</button>
+          <!-- Fee & Deposit Info -->
+          <div class="fee-box">
+            <div class="fee-row">
+              <span class="fee-label">이용 요금</span>
+              <span class="fee-value" id="feeAmount">—</span>
+            </div>
+            <div class="fee-breakdown" id="feeBreakdown">시간당 요금 안내</div>
+            <div class="fee-divider"></div>
+            <div class="fee-deposit-title">입금 계좌</div>
+            <div class="fee-deposit">
+              <div class="fee-deposit-bank">농협 <b>352-1068-1777-83</b></div>
+              <div class="fee-deposit-name">예금주: 황은희</div>
+              <button type="button" class="btn-copy-account" id="copyAccountBtn">계좌번호 복사</button>
+            </div>
+            <div class="fee-notice">입금 확인 후 예약이 확정됩니다.</div>
+          </div>
+
+          <button type="submit" class="btn-submit" id="submitBtn">예약 신청</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inquiry Modal -->
+  <div class="modal-overlay" id="inquiryOverlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">문의·신고</h3>
+        <button class="modal-close" onclick="closeInquiryModal()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="inquiryForm" autocomplete="off">
+
+          <div class="form-group">
+            <label class="form-label">유형 <span style="color:var(--danger)">*</span></label>
+            <div class="inquiry-cats">
+              <label class="inquiry-cat active">
+                <input type="radio" name="inqCat" value="question" checked>
+                <span class="inquiry-cat-icon">💬</span>
+                <span class="inquiry-cat-name">문의</span>
+              </label>
+              <label class="inquiry-cat">
+                <input type="radio" name="inqCat" value="complaint">
+                <span class="inquiry-cat-icon">🛠</span>
+                <span class="inquiry-cat-name">불편사항</span>
+              </label>
+              <label class="inquiry-cat">
+                <input type="radio" name="inqCat" value="incident">
+                <span class="inquiry-cat-icon">⚠️</span>
+                <span class="inquiry-cat-name">사고 접수</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inqContent">내용 <span style="color:var(--danger)">*</span></label>
+            <textarea class="form-textarea" id="inqContent"
+              placeholder="상세 내용을 적어주세요" maxlength="2000" required></textarea>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inqName">
+              이름
+              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
+            </label>
+            <input type="text" class="form-input" id="inqName" placeholder="홍길동" maxlength="100">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="inqPhone">
+              연락처
+              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택 · 회신이 필요한 경우)</span>
+            </label>
+            <input type="tel" class="form-input" id="inqPhone" placeholder="010-0000-0000" maxlength="30">
+          </div>
+
+          <button type="submit" class="btn-submit" id="inqSubmitBtn">접수하기</button>
         </form>
       </div>
     </div>
