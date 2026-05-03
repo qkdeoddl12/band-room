@@ -29,7 +29,7 @@ services:
       INITIAL_ADMIN_PASSWORD: superadmin1234
       TZ: Asia/Seoul
     ports:
-      - "8000:8000"
+      - "8010:8000"
     depends_on:
       db:
         condition: service_healthy
