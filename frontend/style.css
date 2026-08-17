@@ -2417,3 +2417,19 @@ a { text-decoration: none; }
   border-bottom: 1px solid var(--border);
   cursor: pointer;
 }
+
+/* 팀 상세 — 읽기 전용 1인 회비 */
+.team-fee-note {
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--bg); border-radius: var(--radius-sm);
+}
+.team-fee-note.own { background: var(--info-light); }
+.team-fee-line {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--text-sub);
+}
+.team-fee-line b { font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
+.team-fee-note.own .team-fee-line b { color: var(--info-ink); }
+.team-fee-src { font-size: 11px; font-weight: 700; color: var(--text-light); }
+.team-fee-note.own .team-fee-src { color: var(--info-ink); }
+.team-fee-hint { margin-top: 6px; font-size: 11px; color: var(--text-sub); line-height: 1.6; }

@@ -32,6 +32,15 @@ function filterTeams() {
 }
 
 /* 금액을 따로 안 정했으면 환경 설정의 기본값을 보여준다. */
+/* 이 팀의 1인 회비와 그 출처.
+   dues_fee 는 입력칸이 없어 값이 있어도 화면에서 안 보이던 값이라
+   배지와 팀 상세에서 같은 함수로 꺼내 쓴다. */
+function teamDuesFee(t) {
+  return t.dues_fee != null
+    ? { fee: t.dues_fee, own: true }
+    : { fee: settingNum('default_monthly_fee'), own: false };
+}
+
 function teamBillingBadge(t) {
   const meta = BILLING[t.billing_type] || BILLING.hourly;
   let amount = '';
@@ -40,7 +49,7 @@ function teamBillingBadge(t) {
     if (fee) amount = ` ${fee.toLocaleString()}원`;
   }
   if (t.billing_type === 'dues') {
-    const fee = settingNum('default_monthly_fee');
+    const { fee } = teamDuesFee(t);
     if (fee) amount = ` 1인 ${fee.toLocaleString()}원`;
   }
   return `<span class="fee-badge ${meta.cls}">${meta.label}${amount}</span>`;
@@ -216,6 +225,27 @@ bindOverlayClose('teamDetailOverlay', closeTeamDetail);
 function teamDetailPrevMonth() { detailCursor.setMonth(detailCursor.getMonth() - 1); renderTeamDetail(); }
 function teamDetailNextMonth() { detailCursor.setMonth(detailCursor.getMonth() + 1); renderTeamDetail(); }
 
+/* 월회비 팀의 1인 회비를 읽기 전용으로 보여준다.
+   팀에만 지정된 금액은 어디서도 볼 수 없던 값이라 출처를 함께 적는다. */
+function teamDuesNote(team) {
+  if (team.billing_type !== 'dues') return '';
+  const { fee, own } = teamDuesFee(team);
+  const base = settingNum('default_monthly_fee');
+  return `
+    <div class="team-fee-note${own ? ' own' : ''}">
+      <div class="team-fee-line">
+        <span>1인 회비</span>
+        <b>${fee.toLocaleString()}원</b>
+        <span class="team-fee-src">${own ? '이 팀에 지정됨' : '환경 설정 기본값'}</span>
+      </div>
+      ${own ? `<div class="team-fee-hint">
+        기본값 ${base.toLocaleString()}원 대신 이 팀에만 적용됩니다.
+        화면에서 바꿀 수 없고, 과금 방식을 다른 것으로 바꾸면 사라집니다.
+        멤버별로 다르게 받으려면 멤버 수정에서 금액을 지정하세요.
+      </div>` : ''}
+    </div>`;
+}
+
 async function renderTeamDetail() {
   const team = allTeams.find(t => t.id === detailTeamId);
   const body = document.getElementById('teamDetailBody');
@@ -231,6 +261,7 @@ async function renderTeamDetail() {
       ${team.phone ? `<span>📞 ${escHtml(formatPhone(team.phone))}</span>` : ''}
       <span>📋 예약 ${team.reservation_count}건</span>
     </div>
+    ${teamDuesNote(team)}
     ${team.memo ? `<div class="team-detail-memo">${escHtml(team.memo)}</div>` : ''}
   `;
   body.innerHTML = head + '<div class="spinner"></div>';
