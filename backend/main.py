@@ -51,6 +51,11 @@ def migrate_schema():
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id)",
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS is_doors BOOLEAN NOT NULL DEFAULT TRUE",
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS needs_check BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS booking_mode VARCHAR(20) NOT NULL DEFAULT 'team'",
+        "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS member_id INTEGER REFERENCES members(id)",
+        "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booker_name VARCHAR(50)",
+        "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booker_phone VARCHAR(30)",
+        "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS is_free BOOLEAN NOT NULL DEFAULT FALSE",
     ]
     with engine.begin() as conn:
         for stmt in statements:
@@ -61,12 +66,24 @@ def migrate_schema():
             "UPDATE teams SET billing_type = 'monthly' "
             "WHERE monthly_fee IS NOT NULL AND billing_type = 'hourly'"
         ))
+        # is_free 도입 전 예약은 선불 팀 여부로 되짚어 채운다.
+        conn.execute(text(
+            "UPDATE reservations r SET is_free = TRUE FROM teams t "
+            "WHERE r.team_id = t.id AND t.billing_type <> 'hourly' AND r.is_free = FALSE"
+        ))
+        # 개인연습실은 팀이 아니라 개인이 쓴다. 아직 개인용 방이 하나도 없을 때만
+        # 한 번 지정한다 (관리자가 나중에 바꾼 설정을 되돌리지 않도록).
+        conn.execute(text(
+            "UPDATE rooms SET booking_mode = 'personal' WHERE name = '개인연습실' "
+            "AND NOT EXISTS (SELECT 1 FROM rooms WHERE booking_mode = 'personal')"
+        ))
 
 
 # ========== Initial data ==========
 ROOM_SEED = [
-    ("합주실", "드럼 · 기타앰프 · 베이스앰프 · 보컬PA", 15000),
-    ("개인연습실", "개인 · 소규모 연습 공간", 8000),
+    # (이름, 설명, 시간당 요금, 예약 단위)
+    ("합주실", "드럼 · 기타앰프 · 베이스앰프 · 보컬PA", 15000, "team"),
+    ("개인연습실", "개인 · 소규모 연습 공간", 8000, "personal"),
 ]
 
 
@@ -75,13 +92,13 @@ def init_data():
     try:
         if db.query(models.Room).count() == 0:
             db.add_all([
-                models.Room(name=name, description=desc, hourly_price=price)
-                for name, desc, price in ROOM_SEED
+                models.Room(name=name, description=desc, hourly_price=price, booking_mode=mode)
+                for name, desc, price, mode in ROOM_SEED
             ])
             db.commit()
         else:
             # Existing DBs get hourly_price=0 from the migration — backfill the known defaults.
-            for name, _desc, price in ROOM_SEED:
+            for name, _desc, price, _mode in ROOM_SEED:
                 room = db.query(models.Room).filter(models.Room.name == name).first()
                 if room and not room.hourly_price:
                     room.hourly_price = price

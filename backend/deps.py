@@ -146,6 +146,20 @@ def resolve_member_fee(member, team, fallback: int) -> int:
     return fallback
 
 
+def member_dues_ok(db: Session, member, year_month: str) -> bool:
+    """이번 달 회비가 해결된 상태인지. 면제 회원과 팀이 월 이용료를 내는 회원도
+    '해결됨'으로 본다 — 개인이 더 낼 것이 없기 때문."""
+    if member.dues_exempt:
+        return True
+    if member.team is not None and member.team.billing_type == 'monthly':
+        return True
+    row = db.query(models.MemberDues).filter(
+        models.MemberDues.member_id == member.id,
+        models.MemberDues.year_month == year_month,
+    ).first()
+    return bool(row and row.status in ('paid', 'exempt'))
+
+
 def default_monthly_fee(db: Session) -> int:
     try:
         return int(get_settings(db)["default_monthly_fee"])

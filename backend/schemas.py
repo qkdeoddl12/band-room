@@ -1,5 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import date, time, datetime
+import datetime as dt
 from typing import Optional, List, Dict
 
 
@@ -12,13 +13,19 @@ class RoomBase(BaseModel):
 class Room(RoomBase):
     id: int
     hourly_price: int = 0
+    booking_mode: str = 'team'
     model_config = {"from_attributes": True}
 
 
 # ========== Reservation ==========
 class ReservationCreate(BaseModel):
     room_id: int
-    team_id: int
+    # 방의 booking_mode 에 따라 무엇이 필요한지 갈린다 (서버에서 검증).
+    #   team     → team_id 필수
+    #   personal → booker_name 필수, 멤버가 아니면 booker_phone 도 필수
+    team_id: Optional[int] = None
+    booker_name: Optional[str] = Field(None, max_length=50)
+    booker_phone: Optional[str] = Field(None, max_length=30)
     date: date
     start_time: time
     duration: int = Field(..., ge=1, le=14)
@@ -35,9 +42,13 @@ class ReservationResponse(BaseModel):
     end_time: time
     duration: int
     team_name: Optional[str] = None
+    member_id: Optional[int] = None
+    booker_name: Optional[str] = None
+    booker_phone: Optional[str] = None
     members: Optional[str] = None
     note: Optional[str] = None
     status: str = 'pending'
+    is_free: bool = False
     created_at: datetime
     room: Room
     model_config = {"from_attributes": True}
@@ -333,6 +344,23 @@ class TicketPublic(BaseModel):
     aspect: str
     elements: List[TicketElement] = []
     model_config = {"from_attributes": True}
+
+
+class MemberCheckRequest(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+    # 어느 달 회비를 볼지. 예약하려는 날짜를 넘긴다 (없으면 오늘).
+    # 주의: 기본값이 있는 필드는 클래스 속성을 만들어 같은 이름의 타입을 가린다.
+    # `date: Optional[date] = None` 로 쓰면 타입이 NoneType 이 되어 422 가 난다.
+    date: Optional[dt.date] = None
+
+
+class MemberCheckResponse(BaseModel):
+    """예약 페이지에서 이름만 확인한다. 명단이 새 나가지 않도록
+    이름 존재 여부와 회비 상태 외에는 아무것도 돌려주지 않는다."""
+    is_member: bool = False
+    dues_ok: bool = False
+    ambiguous: bool = False
+    message: str = ''
 
 
 # ========== Settings ==========

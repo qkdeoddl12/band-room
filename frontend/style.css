@@ -2244,3 +2244,17 @@ a { text-decoration: none; }
 .dashboard-card .settings-group-label:first-of-type { margin-top: 4px; padding-top: 0; border-top: none; }
 
 .field-hint { margin-top: 8px; font-size: 12px; color: var(--text-light); line-height: 1.5; }
+
+.booker-status {
+  margin-top: 8px; font-size: 13px; font-weight: 600;
+  color: var(--text-sub); line-height: 1.5; min-height: 18px;
+}
+.booker-status.ok   { color: var(--success); }
+.booker-status.warn { color: var(--warning); }
+
+.booker-tag {
+  margin-left: 6px; font-size: 10px; font-weight: 800;
+  padding: 2px 6px; border-radius: 5px; vertical-align: middle;
+}
+.booker-tag.member { background: var(--room2-light); color: var(--room2); }
+.booker-tag.guest  { background: #FEF3C7; color: #B45309; }

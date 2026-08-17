@@ -246,7 +246,12 @@ function renderList(items) {
           <span class="res-room-tag ${roomTagCls(r.room_id)}">${escHtml(roomName(r.room_id))}</span>
           <div class="res-info">
             <div class="res-date-label">${fmtDateKo(r.date)} ${statusBadge}</div>
-            <div class="res-name">${escHtml(r.team_name || '(이름 없음)')}</div>
+            <div class="res-name">
+              ${escHtml(r.team_name || r.booker_name || '(이름 없음)')}
+              ${r.member_id ? '<span class="booker-tag member">멤버</span>' : ''}
+              ${r.booker_name && !r.member_id ? '<span class="booker-tag guest">게스트</span>' : ''}
+            </div>
+            ${r.booker_phone ? `<div class="res-detail">📞 ${escHtml(formatPhone(r.booker_phone))}</div>` : ''}
             ${det ? `<div class="res-detail">👥 ${escHtml(det)}</div>` : ''}
             <div class="res-fee">💰 ${resFeeLabel(r)}</div>
           </div>

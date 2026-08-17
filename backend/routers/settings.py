@@ -32,7 +32,11 @@ def admin_settings(
     return {
         "values": get_settings(db),
         "rooms": [
-            {"id": r.id, "name": r.name, "hourly_price": r.hourly_price}
+            {
+                "id": r.id, "name": r.name,
+                "hourly_price": r.hourly_price,
+                "booking_mode": r.booking_mode,
+            }
             for r in rooms
         ],
     }
@@ -83,6 +87,19 @@ def update_room_price(
     if price < 0:
         raise HTTPException(400, "요금은 0 이상이어야 합니다.")
     room.hourly_price = price
+
+    mode = payload.get("booking_mode")
+    if mode is not None:
+        if mode not in ("team", "personal"):
+            raise HTTPException(400, "예약 단위는 team 또는 personal 이어야 합니다.")
+        room.booking_mode = mode
+
     db.commit()
-    log_event("room_price_updated", room_id=room_id, price=price, by=admin.username)
-    return {"id": room.id, "name": room.name, "hourly_price": room.hourly_price}
+    log_event(
+        "room_updated", room_id=room_id, price=price,
+        mode=room.booking_mode, by=admin.username,
+    )
+    return {
+        "id": room.id, "name": room.name,
+        "hourly_price": room.hourly_price, "booking_mode": room.booking_mode,
+    }

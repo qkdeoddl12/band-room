@@ -17,10 +17,19 @@ async function loadSettings() {
     document.getElementById('setTeamFee').value = data.values.default_team_fee || '';
 
     body.innerHTML = data.rooms.map(r => `
-      <div class="form-group">
-        <label class="form-label" for="roomPrice${r.id}">${escHtml(r.name)} 시간당 요금</label>
-        <input type="number" min="0" step="1000" class="form-input"
-               id="roomPrice${r.id}" data-room-id="${r.id}" value="${r.hourly_price}">
+      <div class="tk-panel-row">
+        <div class="form-group">
+          <label class="form-label" for="roomPrice${r.id}">${escHtml(r.name)} 시간당 요금</label>
+          <input type="number" min="0" step="1000" class="form-input"
+                 id="roomPrice${r.id}" data-room-id="${r.id}" value="${r.hourly_price}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="roomMode${r.id}">예약 단위</label>
+          <select class="form-select" id="roomMode${r.id}" data-room-mode="${r.id}">
+            <option value="team"${r.booking_mode === 'team' ? ' selected' : ''}>팀</option>
+            <option value="personal"${r.booking_mode === 'personal' ? ' selected' : ''}>개인 · 게스트</option>
+          </select>
+        </div>
       </div>
     `).join('');
   } catch (e) {
@@ -48,9 +57,10 @@ document.getElementById('settingsForm').addEventListener('submit', async e => {
     });
 
     for (const input of document.querySelectorAll('#settingsRooms input[data-room-id]')) {
+      const mode = document.getElementById(`roomMode${input.dataset.roomId}`)?.value;
       await apiJson(`/api/admin/rooms/${input.dataset.roomId}/price`, {
         method: 'PUT',
-        body: JSON.stringify({ hourly_price: Number(input.value || 0) }),
+        body: JSON.stringify({ hourly_price: Number(input.value || 0), booking_mode: mode }),
       });
     }
 

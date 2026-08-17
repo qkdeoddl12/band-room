@@ -14,6 +14,9 @@ class Room(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text)
     hourly_price = Column(Integer, nullable=False, server_default='0')
+    # 'team'     = 등록된 팀이 예약 (합주실)
+    # 'personal' = 멤버 본인 또는 게스트가 예약 (개인연습실)
+    booking_mode = Column(String(20), nullable=False, server_default='team')
     reservations = relationship("Reservation", back_populates="room")
 
 
@@ -53,13 +56,21 @@ class Reservation(Base):
     end_time = Column(Time, nullable=False)
     duration = Column(Integer, nullable=False)
     team_name = Column(String(200))  # snapshot of team.name at booking time
+    # 개인연습실 예약용. member_id 가 있으면 우리 멤버, 없으면 게스트.
+    member_id = Column(Integer, ForeignKey("members.id"))
+    booker_name = Column(String(50))
+    booker_phone = Column(String(30))
     members = Column(Text)
     note = Column(Text)
     status = Column(String(20), nullable=False, server_default='pending')
+    # 예약 시점의 과금 판정을 그대로 남긴다. 나중에 팀 과금 방식이나 회비 상태가
+    # 바뀌어도 지난 예약의 요금이 따라 바뀌지 않게.
+    is_free = Column(Boolean, nullable=False, server_default='false')
     created_at = Column(DateTime, server_default=func.now())
 
     room = relationship("Room", back_populates="reservations")
     team = relationship("Team")
+    member = relationship("Member")
 
 
 class AdminUser(Base):

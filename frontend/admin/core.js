@@ -224,12 +224,17 @@ function roomName(id) {
 function roomTagCls(id) { return id === 1 ? 'r1' : (id === 2 ? 'r2' : 'all'); }
 function roomPrice(id)  { return roomsById[id]?.hourly_price || 0; }
 function resFee(r) {
-  if (isPrepaidTeam(r.team_id)) return 0;
+  // is_free 는 예약 시점 판정이라 나중에 팀 과금이 바뀌어도 흔들리지 않는다.
+  if (r.is_free || isPrepaidTeam(r.team_id)) return 0;
   return roomPrice(r.room_id) * (r.duration || 0);
 }
 function resFeeLabel(r) {
-  if (!isPrepaidTeam(r.team_id)) return `${resFee(r).toLocaleString()}원`;
-  return teamsById[r.team_id].billing_type === 'dues' ? '월회비 팀' : '월 이용료 팀';
+  if (resFee(r) > 0) return `${resFee(r).toLocaleString()}원`;
+  if (r.member_id) return '회비 납부 멤버';
+  const billing = teamsById[r.team_id]?.billing_type;
+  if (billing === 'dues') return '월회비 팀';
+  if (billing === 'monthly') return '월 이용료 팀';
+  return '무료';
 }
 
 /* ============================================================

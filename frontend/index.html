@@ -97,17 +97,36 @@
           </div>
           <div class="time-max-hint" id="timeMaxHint"></div>
 
-          <!-- Team -->
-          <div class="form-group">
+          <!-- Team (합주실 등 팀 단위 공간) -->
+          <div class="form-group" id="teamField">
             <label class="form-label" for="teamSelect">
               예약 팀 <span style="color:var(--danger)">*</span>
             </label>
-            <select class="form-select" id="teamSelect" required>
+            <select class="form-select" id="teamSelect">
               <option value="">팀을 선택하세요</option>
             </select>
             <button type="button" class="link-inline" onclick="closeModal(); openInquiryModal();">
               팀이 목록에 없나요? 문의하기 →
             </button>
+          </div>
+
+          <!-- 개인 단위 공간 (개인연습실) -->
+          <div id="personalFields" style="display:none;">
+            <div class="form-group">
+              <label class="form-label" for="bookerName">
+                이용자 이름 <span style="color:var(--danger)">*</span>
+              </label>
+              <input type="text" class="form-input" id="bookerName" maxlength="50"
+                     placeholder="이름을 입력하세요" autocomplete="off">
+              <div class="booker-status" id="bookerStatus"></div>
+            </div>
+            <div class="form-group" id="bookerPhoneField">
+              <label class="form-label" for="bookerPhone">
+                연락처 <span style="color:var(--danger)">*</span>
+              </label>
+              <input type="tel" class="form-input" id="bookerPhone" maxlength="30"
+                     placeholder="010-0000-0000">
+            </div>
           </div>
 
           <!-- Members -->

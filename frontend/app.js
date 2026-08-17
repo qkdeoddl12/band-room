@@ -27,6 +27,7 @@ function roomCls(id) {
   return `room${Math.min(2, Math.max(1, idx + 1))}`;
 }
 function roomTagCls(id) { return roomCls(id).replace('room', 'r'); }
+function isPersonalRoom(id) { return roomById(id)?.booking_mode === 'personal'; }
 
 /* ============================================================
    Date helpers
@@ -278,6 +279,12 @@ function openModal(defaultHour = null) {
   populateEndTimes();
 
   document.getElementById('teamSelect').value = '';
+  document.getElementById('bookerName').value = '';
+  document.getElementById('bookerPhone').value = '';
+  document.getElementById('bookerStatus').className = 'booker-status';
+  document.getElementById('bookerStatus').textContent = '';
+  memberCheck = null;
+  applyBookingMode();
   document.getElementById('members').value  = '';
   document.getElementById('note').value     = '';
 
@@ -400,11 +407,33 @@ function selectedTeam() {
   return teams.find(t => t.id === id) || null;
 }
 
+/* 개인 단위 공간이면 팀 선택 대신 이름·연락처를 받는다. */
+function applyBookingMode() {
+  const personal = isPersonalRoom(currentRoomId);
+  document.getElementById('teamField').style.display = personal ? 'none' : '';
+  document.getElementById('personalFields').style.display = personal ? '' : 'none';
+  syncBookerPhoneField();
+  updateTimeSummary();
+}
+
+/* 멤버로 확인되면 연락처는 안 받아도 된다. */
+function syncBookerPhoneField() {
+  const known = memberCheck?.is_member;
+  const field = document.getElementById('bookerPhoneField');
+  field.style.display = known ? 'none' : '';
+}
+
 /* 시간당이 아닌 팀(월 이용료 · 월회비)은 건별로 낼 게 없다. */
 const PREPAID_LABEL = { monthly: '월 이용료 팀', dues: '월회비 팀' };
 
 function isPrepaidTeam(team) {
   return !!team && team.billing_type && team.billing_type !== 'hourly';
+}
+
+/* 요금이 붙지 않는 예약인지 — 선불 팀이거나, 회비를 낸 멤버 */
+function isFreeBooking() {
+  if (isPersonalRoom(currentRoomId)) return !!(memberCheck?.is_member && memberCheck?.dues_ok);
+  return isPrepaidTeam(selectedTeam());
 }
 
 /* 선불 팀이면 요금·입금 계좌를 통째로 감춘다. */
@@ -413,11 +442,13 @@ function updateFeeBox(dur) {
   const feeBox  = document.getElementById('feeBox');
   const prepaid = document.getElementById('prepaidNote');
 
-  if (isPrepaidTeam(team)) {
+  if (isFreeBooking()) {
     feeBox.style.display = 'none';
     prepaid.style.display = '';
-    prepaid.innerHTML =
-      `<b>${escHtml(PREPAID_LABEL[team.billing_type] || '선불 팀')}</b>` +
+    const label = isPersonalRoom(currentRoomId)
+      ? '회비 납부 멤버'
+      : (PREPAID_LABEL[team?.billing_type] || '선불 팀');
+    prepaid.innerHTML = `<b>${escHtml(label)}</b>` +
       '<span>이용 요금이 따로 청구되지 않습니다. 신청 즉시 예약이 확정됩니다.</span>';
     return;
   }
@@ -441,6 +472,51 @@ document.getElementById('startTime').addEventListener('change', () => {
 document.getElementById('endTime').addEventListener('change', updateTimeSummary);
 document.getElementById('teamSelect').addEventListener('change', updateTimeSummary);
 
+/* ============================================================
+   개인연습실 — 이름으로 멤버·회비 확인
+   ============================================================ */
+let memberCheck = null;
+let memberCheckTimer = null;
+
+document.getElementById('bookerName').addEventListener('input', () => {
+  clearTimeout(memberCheckTimer);
+  memberCheck = null;
+  const status = document.getElementById('bookerStatus');
+  status.className = 'booker-status';
+  status.textContent = '';
+  syncBookerPhoneField();
+  updateTimeSummary();
+  // 타자 칠 때마다 부르지 않도록 잠깐 기다린다.
+  memberCheckTimer = setTimeout(runMemberCheck, 450);
+});
+
+async function runMemberCheck() {
+  const name = document.getElementById('bookerName').value.trim();
+  const status = document.getElementById('bookerStatus');
+  if (name.length < 2) return;
+
+  try {
+    const res = await fetch('/api/members/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // 회비는 달마다 다르므로 보고 있는 날짜를 함께 보낸다.
+      body: JSON.stringify({ name, date: toDateStr(currentDate) }),
+    });
+    if (!res.ok) return;
+    memberCheck = await res.json();
+  } catch { return; }
+
+  // 응답이 늦게 온 사이 이름이 바뀌었으면 버린다.
+  if (document.getElementById('bookerName').value.trim() !== name) return;
+
+  const cls = memberCheck.ambiguous ? 'warn'
+            : (memberCheck.is_member ? (memberCheck.dues_ok ? 'ok' : 'warn') : '');
+  status.className = `booker-status ${cls}`;
+  status.textContent = memberCheck.message;
+  syncBookerPhoneField();
+  updateTimeSummary();
+}
+
 /* Close on overlay backdrop click */
 document.getElementById('modalOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget) closeModal();
@@ -463,8 +539,22 @@ document.getElementById('copyAccountBtn').addEventListener('click', async () => 
 document.getElementById('reservationForm').addEventListener('submit', async e => {
   e.preventDefault();
 
+  const personal = isPersonalRoom(currentRoomId);
   const teamId = Number(document.getElementById('teamSelect').value);
-  if (!teamId) { showToast('예약할 팀을 선택해주세요.', 'error'); return; }
+  const bookerName = document.getElementById('bookerName').value.trim();
+  const bookerPhone = document.getElementById('bookerPhone').value.trim();
+
+  if (personal) {
+    if (!bookerName) { showToast('이용자 이름을 입력해주세요.', 'error'); return; }
+    if (memberCheck?.ambiguous) { showToast(memberCheck.message, 'error'); return; }
+    if (!memberCheck?.is_member && !bookerPhone) {
+      showToast('게스트 예약은 연락처가 필요합니다.', 'error');
+      return;
+    }
+  } else if (!teamId) {
+    showToast('예약할 팀을 선택해주세요.', 'error');
+    return;
+  }
 
   const startTime = document.getElementById('startTime').value;
   const endTime   = document.getElementById('endTime').value;
@@ -490,7 +580,9 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         room_id:   currentRoomId,
-        team_id:   teamId,
+        team_id:   personal ? null : teamId,
+        booker_name:  personal ? bookerName : null,
+        booker_phone: personal ? (bookerPhone || null) : null,
         date:      toDateStr(currentDate),
         start_time: startTime + ':00',
         duration:  duration,
@@ -595,6 +687,7 @@ document.getElementById('prevDay').addEventListener('click', () => {
   updateDateDisplay();
   renderWeekStrip();
   loadReservations();
+  runMemberCheck();
 });
 
 document.getElementById('nextDay').addEventListener('click', () => {
@@ -602,6 +695,7 @@ document.getElementById('nextDay').addEventListener('click', () => {
   updateDateDisplay();
   renderWeekStrip();
   loadReservations();
+  runMemberCheck();
 });
 
 /* ============================================================
