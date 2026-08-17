@@ -261,7 +261,7 @@ function renderList(items) {
             <div class="res-fee">💰 ${resFeeLabel(r)}</div>
           </div>
           <div class="res-time-info">
-            <div class="res-time-main">${fmtTime(r.start_time)} ~ ${fmtTime(r.end_time)}</div>
+            <div class="res-time-main">${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)}</div>
             <div class="res-duration">${r.duration}시간</div>
           </div>
           <div class="res-actions">
@@ -284,7 +284,7 @@ function openDeleteModal(id) {
   deleteTargetId = id;
   document.getElementById('deleteTarget').innerHTML = `
     <b>${escHtml(r.team_name || '(이름 없음)')}</b><br>
-    ${escHtml(roomName(r.room_id))} · ${fmtTime(r.start_time)} ~ ${fmtTime(r.end_time)} (${r.duration}시간)<br>
+    ${escHtml(roomName(r.room_id))} · ${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)} (${r.duration}시간)<br>
     ${fmtDateKo(r.date)}
     ${r.members ? `<br>👥 ${escHtml(r.members)}` : ''}
   `;
@@ -323,7 +323,7 @@ function openConfirmModal(id) {
   confirmTargetId = id;
   document.getElementById('confirmTarget').innerHTML = `
     <b>${escHtml(r.team_name || '(이름 없음)')}</b><br>
-    ${escHtml(roomName(r.room_id))} · ${fmtTime(r.start_time)} ~ ${fmtTime(r.end_time)} (${r.duration}시간)<br>
+    ${escHtml(roomName(r.room_id))} · ${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)} (${r.duration}시간)<br>
     ${fmtDateKo(r.date)}<br>
     💰 ${resFeeLabel(r)}
     ${r.members ? `<br>👥 ${escHtml(r.members)}` : ''}
@@ -439,7 +439,7 @@ function openDayDetail(dateStr) {
     html += '<div class="cal-detail-label">🚫 차단</div>';
     dayBlk.forEach(b => {
       const allDay = !b.start_time || !b.end_time;
-      const timeStr = allDay ? '하루 종일' : `${fmtTime(b.start_time)} ~ ${fmtTime(b.end_time)}`;
+      const timeStr = allDay ? '하루 종일' : `${fmtTime(b.start_time)} ~ ${fmtEndTime(b.end_time)}`;
       html += `
         <div class="cal-detail-blocked">
           <span class="res-room-tag ${roomTagCls(b.room_id)}">${escHtml(roomName(b.room_id))}</span>
@@ -464,7 +464,7 @@ function openDayDetail(dateStr) {
           <div class="cal-detail-res-head">
             <span class="res-room-tag ${roomTagCls(r.room_id)}">${escHtml(roomName(r.room_id))}</span>
             ${statusBadge}
-            <span class="cal-detail-time">${fmtTime(r.start_time)} ~ ${fmtTime(r.end_time)}</span>
+            <span class="cal-detail-time">${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)}</span>
           </div>
           <div class="cal-detail-res-body">
             <b>${escHtml(r.team_name || '(이름 없음)')}</b>

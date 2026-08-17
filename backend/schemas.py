@@ -28,7 +28,7 @@ class ReservationCreate(BaseModel):
     booker_phone: Optional[str] = Field(None, max_length=30)
     date: date
     start_time: time
-    duration: int = Field(..., ge=1, le=14)
+    duration: int = Field(..., ge=1, le=24)   # 24시간 운영
     members: Optional[str] = None
     note: Optional[str] = None
 

@@ -3,8 +3,8 @@
 /* ============================================================
    Constants
    ============================================================ */
-const HOURS_START = 9;
-const HOURS_END   = 23;   // timeline shows 09:00 ~ 23:00
+const HOURS_START = 0;
+const HOURS_END   = 24;   // 24시간 운영 — 타임라인은 00:00 ~ 24:00
 const SLOT_H      = 64;   // px per hour slot
 const DAY_NAMES   = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -51,6 +51,17 @@ function fmtTime(t) {
 function timeToMinutes(t) {
   const [h, m] = String(t).split(':').map(Number);
   return h * 60 + m;
+}
+
+/* 종료 시각 00:00 은 '다음날 0시'가 아니라 '그날 24시'다.
+   서버 _end_mins 와 같은 규칙. 시작 시각에는 적용하지 않는다. */
+function endMinutes(t) {
+  const m = timeToMinutes(t);
+  return m === 0 ? 24 * 60 : m;
+}
+function fmtEndTime(t) {
+  const s = fmtTime(t);
+  return s === '00:00' ? '24:00' : s;
 }
 
 /* ============================================================
@@ -137,7 +148,7 @@ function renderBlockedLayer() {
   blocks.forEach(b => {
     const allDay = !b.start_time || !b.end_time;
     const startH = allDay ? HOURS_START : timeToMinutes(b.start_time) / 60;
-    const endH   = allDay ? HOURS_END   : timeToMinutes(b.end_time)   / 60;
+    const endH   = allDay ? HOURS_END   : endMinutes(b.end_time)   / 60;
     const clampedStart = Math.max(HOURS_START, startH);
     const clampedEnd   = Math.min(HOURS_END,   endH);
     if (clampedEnd <= clampedStart) return;
@@ -172,7 +183,7 @@ function renderReservations() {
 
   dayRes.forEach(r => {
     const startMin = timeToMinutes(r.start_time);
-    const endMin   = timeToMinutes(r.end_time);
+    const endMin   = endMinutes(r.end_time);
     const startH   = startMin / 60;
     const durH     = (endMin - startMin) / 60;
 
@@ -194,7 +205,7 @@ function renderReservations() {
           ? '<span class="res-status-badge pending">입금 대기</span>'
           : '<span class="res-status-badge confirmed">확정</span>'}
       </div>
-      <div class="res-time">${fmtTime(r.start_time)} ~ ${fmtTime(r.end_time)}</div>
+      <div class="res-time">${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)}</div>
       ${r.members ? `<div class="res-members">👥 ${escHtml(r.members)}</div>` : ''}
     `;
     layer.appendChild(block);
@@ -303,7 +314,7 @@ function hourBlocked(hour) {
   for (const b of blocks) {
     if (!b.start_time || !b.end_time) return true;
     const bStart = timeToMinutes(b.start_time) / 60;
-    const bEnd   = timeToMinutes(b.end_time)   / 60;
+    const bEnd   = endMinutes(b.end_time)   / 60;
     if (!(hour + 1 <= bStart || hour >= bEnd)) return true;
   }
   return false;
@@ -314,7 +325,7 @@ function hourTaken(hour) {
   return reservations.some(r => {
     if (r.room_id !== currentRoomId) return false;
     const s = timeToMinutes(r.start_time) / 60;
-    const e = timeToMinutes(r.end_time)   / 60;
+    const e = endMinutes(r.end_time)   / 60;
     return !(hour + 1 <= s || hour >= e);
   });
 }
@@ -759,7 +770,7 @@ function connectRealtime() {
       if (onCurrentDate) loadReservations();
       if (onCurrentDate && data.room_id === currentRoomId) {
         const s = fmtTime(data.start_time);
-        const eTime = fmtTime(data.end_time);
+        const eTime = fmtEndTime(data.end_time);
         showToast(`새 예약 신청: ${data.team_name || ''} ${s}~${eTime}`, 'info');
       }
     } else if (event === 'reservation_deleted') {

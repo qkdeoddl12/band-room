@@ -5,6 +5,7 @@ from typing import List, Optional
 from database import get_db
 from app_logging import log_event
 from deps import get_current_admin, audit, get_or_404
+from routers.reservations import _mins, _end_mins
 import models
 import schemas
 
@@ -39,7 +40,8 @@ def create_blocked(
 ):
     if (data.start_time is None) != (data.end_time is None):
         raise HTTPException(400, "시작·종료 시간은 함께 지정하거나 비워야 합니다.")
-    if data.start_time is not None and data.start_time >= data.end_time:
+    # 종료 00:00 은 '그날 24시'로 본다 (24시간 운영).
+    if data.start_time is not None and _mins(data.start_time) >= _end_mins(data.end_time):
         raise HTTPException(400, "종료 시간은 시작 시간 이후여야 합니다.")
     if data.room_id is not None:
         if not db.query(models.Room).filter(models.Room.id == data.room_id).first():

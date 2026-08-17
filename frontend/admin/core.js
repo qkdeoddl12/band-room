@@ -40,6 +40,8 @@ function ymStr(d) {
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
 }
 function fmtTime(t) { return String(t).substring(0, 5); }
+/* 종료 00:00 은 '그날 24시'라는 뜻이라 그대로 두면 00:00 으로 보인다. */
+function fmtEndTime(t) { return fmtTime(t) === '00:00' ? '24:00' : fmtTime(t); }
 function fmtDateKo(s) {
   const d = new Date(s + 'T00:00:00');
   return `${d.getMonth()+1}월 ${d.getDate()}일 (${DAY_KO[d.getDay()]})`;

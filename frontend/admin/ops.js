@@ -191,7 +191,7 @@ function renderBlocked() {
     const allDay = !b.start_time || !b.end_time;
     const timeStr = allDay
       ? '<span class="blocked-allday">하루 종일</span>'
-      : `${fmtTime(b.start_time)} ~ ${fmtTime(b.end_time)}`;
+      : `${fmtTime(b.start_time)} ~ ${fmtEndTime(b.end_time)}`;
     return `
       <div class="blocked-item">
         <div class="blocked-date">
@@ -244,16 +244,16 @@ function populateBlockTimes() {
   const end   = document.getElementById('blockEnd');
   start.innerHTML = '';
   end.innerHTML   = '';
-  for (let h = 9; h < 23; h++) {
+  // 24시간 운영 — 종료 24:00 은 서버에 00:00 으로 보낸다 (그날 24시를 뜻함).
+  for (let h = 0; h < 24; h++) {
     const v = `${String(h).padStart(2,'0')}:00`;
     start.innerHTML += `<option value="${v}">${v}</option>`;
   }
-  for (let h = 10; h <= 23; h++) {
-    const v = `${String(h).padStart(2,'0')}:00`;
-    end.innerHTML += `<option value="${v}">${v}</option>`;
+  for (let h = 1; h <= 24; h++) {
+    end.innerHTML += `<option value="${h}">${String(h).padStart(2,'0')}:00</option>`;
   }
-  start.value = '09:00';
-  end.value   = '23:00';
+  start.value = '00:00';
+  end.value   = '24';
 }
 
 document.getElementById('blockAllDay').addEventListener('change', e => {
@@ -264,11 +264,10 @@ document.getElementById('blockStart').addEventListener('change', () => {
   const s = Number(document.getElementById('blockStart').value.split(':')[0]);
   const end = document.getElementById('blockEnd');
   end.innerHTML = '';
-  for (let h = s + 1; h <= 23; h++) {
-    const v = `${String(h).padStart(2,'0')}:00`;
-    end.innerHTML += `<option value="${v}">${v}</option>`;
+  for (let h = s + 1; h <= 24; h++) {
+    end.innerHTML += `<option value="${h}">${String(h).padStart(2,'0')}:00</option>`;
   }
-  end.value = `${String(Math.min(23, s + 1)).padStart(2,'0')}:00`;
+  end.value = String(s + 1);
 });
 
 document.getElementById('createBlockedForm').addEventListener('submit', async e => {
@@ -283,10 +282,14 @@ document.getElementById('createBlockedForm').addEventListener('submit', async e 
   if (roomVal) body.room_id = Number(roomVal);
   if (!allDay) {
     const s = document.getElementById('blockStart').value;
-    const ed = document.getElementById('blockEnd').value;
-    if (s >= ed) { showToast('종료 시간은 시작 시간 이후여야 합니다.', 'error'); return; }
+    const endH = Number(document.getElementById('blockEnd').value);
+    if (Number(s.split(':')[0]) >= endH) {
+      showToast('종료 시간은 시작 시간 이후여야 합니다.', 'error');
+      return;
+    }
     body.start_time = s + ':00';
-    body.end_time   = ed + ':00';
+    // 24시는 00:00 으로 저장한다 — 서버가 '그날 24시'로 읽는다.
+    body.end_time = `${String(endH % 24).padStart(2, '0')}:00:00`;
   }
 
   const btn = document.getElementById('createBlockedBtn');
@@ -310,7 +313,7 @@ function openDeleteBlockedModal(id) {
   if (!b) return;
   deleteBlockedTargetId = id;
   const allDay = !b.start_time || !b.end_time;
-  const timeStr = allDay ? '하루 종일' : `${fmtTime(b.start_time)} ~ ${fmtTime(b.end_time)}`;
+  const timeStr = allDay ? '하루 종일' : `${fmtTime(b.start_time)} ~ ${fmtEndTime(b.end_time)}`;
   document.getElementById('deleteBlockedTarget').innerHTML = `
     <b>${fmtDateKo(b.date)}</b><br>
     ${escHtml(roomName(b.room_id))} · ${timeStr}

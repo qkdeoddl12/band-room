@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from sse_starlette.sse import EventSourceResponse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 import asyncio
 import logging
@@ -16,6 +16,26 @@ import models
 import schemas
 
 router = APIRouter(tags=["reservations"])
+
+
+# 24시간 운영이라 자정에 끝나는 예약(23:00~24:00)이 정상이다.
+# 종료 시각 00:00 은 '다음날 0시'가 아니라 '그날 24시'를 뜻하므로
+# 비교할 때만 1440분으로 바꿔 쓴다. 시작 시각에는 이 규칙을 적용하지 않는다.
+DAY_MINUTES = 24 * 60
+
+
+def _mins(t) -> int:
+    return t.hour * 60 + t.minute
+
+
+def _end_mins(t) -> int:
+    m = _mins(t)
+    return DAY_MINUTES if m == 0 else m
+
+
+def _overlaps(a_start, a_end, b_start, b_end) -> bool:
+    """[a_start, a_end) 와 [b_start, b_end) 가 겹치는지. 모두 분 단위."""
+    return not (a_end <= b_start or a_start >= b_end)
 
 
 def _sse_payload(r: models.Reservation) -> dict:
@@ -154,16 +174,20 @@ def create_reservation(
 
     start_dt = datetime.combine(reservation.date, reservation.start_time)
     end_dt = start_dt + timedelta(hours=reservation.duration)
-    if end_dt.date() != reservation.date:
+    # 자정 정각까지는 허용하고, 그보다 넘어가면 거부한다.
+    if end_dt > datetime.combine(reservation.date, time(0, 0)) + timedelta(days=1):
         raise HTTPException(400, "예약은 자정을 넘길 수 없습니다.")
     end_time = end_dt.time()
+
+    new_start = _mins(reservation.start_time)
+    new_end = _end_mins(end_time)
 
     existing = db.query(models.Reservation).filter(
         models.Reservation.room_id == reservation.room_id,
         models.Reservation.date == reservation.date,
     ).all()
     for r in existing:
-        if not (end_time <= r.start_time or reservation.start_time >= r.end_time):
+        if _overlaps(new_start, new_end, _mins(r.start_time), _end_mins(r.end_time)):
             log_event(
                 "reservation_conflict",
                 level=logging.WARNING,
@@ -185,7 +209,7 @@ def create_reservation(
         if b.start_time is None or b.end_time is None:
             overlaps = True
         else:
-            overlaps = not (end_time <= b.start_time or reservation.start_time >= b.end_time)
+            overlaps = _overlaps(new_start, new_end, _mins(b.start_time), _end_mins(b.end_time))
         if overlaps:
             log_event(
                 "reservation_blocked",
