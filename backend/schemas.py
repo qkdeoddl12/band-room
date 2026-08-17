@@ -274,6 +274,18 @@ class DuesRow(BaseModel):
     memo: Optional[str] = None
 
 
+class TeamDuesRow(BaseModel):
+    """월 이용료를 팀이 통째로 내는 경우의 한 달치."""
+    team_id: int
+    name: str
+    member_count: int = 0
+    fee: int
+    status: str
+    amount: int
+    paid_on: Optional[date] = None
+    memo: Optional[str] = None
+
+
 class DuesMonthResponse(BaseModel):
     year_month: str
     rows: List[DuesRow]
@@ -283,6 +295,19 @@ class DuesMonthResponse(BaseModel):
     pending_count: int
     exempt_count: int
     covered_count: int = 0
+    # 월 이용료 팀은 사람 단위가 아니라 팀 단위로 낸다 — 합계도 따로 센다.
+    team_rows: List[TeamDuesRow] = []
+    team_total_expected: int = 0
+    team_total_paid: int = 0
+
+
+class DuesHistoryRow(BaseModel):
+    """멤버·팀 상세에서 보는 달별 입금 이력 한 줄."""
+    year_month: str
+    status: str
+    amount: int
+    paid_on: Optional[date] = None
+    memo: Optional[str] = None
 
 
 class DuesSummaryRow(BaseModel):

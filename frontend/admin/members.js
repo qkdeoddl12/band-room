@@ -149,6 +149,7 @@ function openMemberModal(memberId = null, presetTeamId = null) {
 
   document.getElementById('memberDeleteBtn').style.display = m ? '' : 'none';
   document.getElementById('memberSaveBtn').textContent = m ? '변경 저장' : '멤버 등록';
+  renderDuesHistory('memberHistory', m ? `/api/admin/dues/history/member/${m.id}` : null);
 
   openOverlay('memberOverlay');
 }

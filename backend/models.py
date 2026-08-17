@@ -39,6 +39,7 @@ class Team(Base):
     created_at = Column(DateTime, server_default=func.now())
 
     members = relationship("Member", back_populates="team")
+    dues = relationship("TeamDues", back_populates="team", cascade="all, delete-orphan")
 
     @property
     def is_hourly(self) -> bool:
@@ -172,6 +173,23 @@ class MemberDues(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     member = relationship("Member", back_populates="dues")
+
+
+class TeamDues(Base):
+    """월 이용료 팀의 달별 입금 기록. member_dues 와 같은 모양 — 내는 주체만 다르다."""
+    __tablename__ = "team_dues"
+    __table_args__ = (UniqueConstraint('team_id', 'year_month', name='uq_team_dues_month'),)
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    year_month = Column(String(7), nullable=False, index=True)  # 'YYYY-MM'
+    status = Column(String(20), nullable=False, server_default='unpaid')  # paid|unpaid|exempt|pending
+    amount = Column(Integer, nullable=False, server_default='0')
+    paid_on = Column(Date)
+    memo = Column(Text)
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    team = relationship("Team", back_populates="dues")
 
 
 class Ticket(Base):

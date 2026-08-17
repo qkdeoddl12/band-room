@@ -491,7 +491,7 @@
             <div class="kpi-card">
               <div class="kpi-period">미납</div>
               <div class="kpi-main"><span class="kpi-value" id="duesUnpaid">—</span><span class="kpi-unit">명</span></div>
-              <div class="kpi-sub">입금 확인 필요</div>
+              <div class="kpi-sub" id="duesUnpaidSub">입금 확인 필요</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-period">확인중</div>
@@ -801,7 +801,7 @@
           padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);
           margin-bottom:24px;line-height:1.6;
         "></div>
-        <div style="display:flex;gap:10px;">
+        <div class="modal-actions">
           <button onclick="closeDeleteModal()" class="btn-secondary">취소</button>
           <button id="confirmDeleteBtn" class="btn-danger">예약 취소 확정</button>
         </div>
@@ -826,7 +826,7 @@
           padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);
           margin-bottom:24px;line-height:1.6;
         "></div>
-        <div style="display:flex;gap:10px;">
+        <div class="modal-actions">
           <button onclick="closeConfirmModal()" class="btn-secondary">취소</button>
           <button id="confirmReservationBtn" class="btn-primary">예약 확정</button>
         </div>
@@ -933,7 +933,7 @@
           padding:14px 16px;font-size:14px;font-weight:600;color:var(--text);
           margin-bottom:24px;line-height:1.6;
         "></div>
-        <div style="display:flex;gap:10px;">
+        <div class="modal-actions">
           <button onclick="closeDeleteBlockedModal()" class="btn-secondary">취소</button>
           <button id="confirmDeleteBlockedBtn" class="btn-danger">해제</button>
         </div>
@@ -1097,9 +1097,9 @@
             </label>
           </div>
 
-          <div style="display:flex;gap:10px;margin-top:8px;">
-            <button type="button" onclick="deleteCurrentUser()" class="btn-danger" style="flex:1;">계정 삭제</button>
-            <button type="submit" class="btn-submit" id="editUserBtn" style="flex:2;margin-top:0;">변경 저장</button>
+          <div class="modal-actions">
+            <button type="button" onclick="deleteCurrentUser()" class="btn-danger">계정 삭제</button>
+            <button type="submit" class="btn-submit" id="editUserBtn">변경 저장</button>
           </div>
         </form>
       </div>
@@ -1185,9 +1185,11 @@
               <input type="checkbox" class="toggle-switch" id="teamActive" checked>
             </label>
           </div>
+          <div id="teamHistory"></div>
+
           <div class="modal-actions">
-            <button type="button" id="teamDeleteBtn" onclick="deleteCurrentTeam()" class="btn-danger" style="flex:1;">삭제</button>
-            <button type="submit" class="btn-submit" id="teamSaveBtn" style="flex:2;margin-top:0;">팀 등록</button>
+            <button type="button" id="teamDeleteBtn" onclick="deleteCurrentTeam()" class="btn-danger">삭제</button>
+            <button type="submit" class="btn-submit" id="teamSaveBtn">팀 등록</button>
           </div>
         </form>
       </div>
@@ -1301,9 +1303,11 @@
             </div>
           </div>
 
+          <div id="memberHistory"></div>
+
           <div class="modal-actions">
-            <button type="button" id="memberDeleteBtn" onclick="deleteCurrentMember()" class="btn-danger" style="flex:1;">삭제</button>
-            <button type="submit" class="btn-submit" id="memberSaveBtn" style="flex:2;margin-top:0;">멤버 등록</button>
+            <button type="button" id="memberDeleteBtn" onclick="deleteCurrentMember()" class="btn-danger">삭제</button>
+            <button type="submit" class="btn-submit" id="memberSaveBtn">멤버 등록</button>
           </div>
         </form>
       </div>

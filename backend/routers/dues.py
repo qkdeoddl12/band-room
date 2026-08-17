@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 from datetime import date
 from typing import List, Optional
@@ -91,6 +92,8 @@ def get_dues_month(
             fee=fee, status=status, amount=amount, paid_on=paid_on, memo=memo,
         ))
 
+    team_rows, team_expected, team_paid = _team_rows(db, year_month, team_id)
+
     return schemas.DuesMonthResponse(
         year_month=year_month,
         rows=rows,
@@ -100,6 +103,144 @@ def get_dues_month(
         pending_count=pending,
         exempt_count=exempt,
         covered_count=covered,
+        team_rows=team_rows,
+        team_total_expected=team_expected,
+        team_total_paid=team_paid,
+    )
+
+
+def _team_rows(db: Session, year_month: str, team_id=None):
+    """월 이용료 팀의 그 달 납부 현황. 기록이 없으면 미납으로 채워 보낸다
+    (멤버 쪽과 같은 규칙 — 조회만으로 row 를 만들지 않는다)."""
+    query = db.query(models.Team).filter(
+        models.Team.is_active == True,
+        models.Team.billing_type == 'monthly',
+    )
+    if team_id is not None:
+        query = query.filter(models.Team.id == team_id)
+    teams = query.order_by(models.Team.name).all()
+    if not teams:
+        return [], 0, 0
+
+    existing = {
+        d.team_id: d
+        for d in db.query(models.TeamDues).filter(
+            models.TeamDues.year_month == year_month,
+            models.TeamDues.team_id.in_([t.id for t in teams]),
+        ).all()
+    }
+    counts = dict(
+        db.query(models.Member.team_id, func.count(models.Member.id))
+        .filter(models.Member.is_active == True,
+                models.Member.team_id.in_([t.id for t in teams]))
+        .group_by(models.Member.team_id).all()
+    )
+
+    rows, expected, paid = [], 0, 0
+    for team in teams:
+        fee = team.monthly_fee or 0
+        rec = existing.get(team.id)
+        status = rec.status if rec else 'unpaid'
+        if status != 'exempt':
+            expected += fee
+        if status == 'paid':
+            paid += rec.amount
+        rows.append(schemas.TeamDuesRow(
+            team_id=team.id, name=team.name,
+            member_count=counts.get(team.id, 0), fee=fee,
+            status=status,
+            amount=rec.amount if rec else 0,
+            paid_on=rec.paid_on if rec else None,
+            memo=rec.memo if rec else None,
+        ))
+    return rows, expected, paid
+
+
+@router.get("/history/member/{member_id}", response_model=List[schemas.DuesHistoryRow])
+def member_dues_history(
+    member_id: int,
+    months: int = 12,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    get_or_404(db, models.Member, member_id, "멤버를 찾을 수 없습니다.")
+    return _history(db.query(models.MemberDues).filter(
+        models.MemberDues.member_id == member_id
+    ).order_by(models.MemberDues.year_month.desc()), months)
+
+
+@router.get("/history/team/{team_id}", response_model=List[schemas.DuesHistoryRow])
+def team_dues_history(
+    team_id: int,
+    months: int = 12,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    get_or_404(db, models.Team, team_id, "팀을 찾을 수 없습니다.")
+    return _history(db.query(models.TeamDues).filter(
+        models.TeamDues.team_id == team_id
+    ).order_by(models.TeamDues.year_month.desc()), months)
+
+
+def _history(query, months: int):
+    """기록이 있는 달만 최근 순으로. 없는 달은 아무 일도 없었던 달이다."""
+    records = query.limit(max(1, min(months, 60))).all()
+    return [
+        schemas.DuesHistoryRow(
+            year_month=r.year_month, status=r.status, amount=r.amount,
+            paid_on=r.paid_on, memo=r.memo,
+        )
+        for r in records
+    ]
+
+
+# 아래 PUT /{member_id}/{year_month} 보다 먼저 선언해야 'team' 이
+# member_id 로 해석되지 않는다.
+@router.put("/team/{team_id}/{year_month}", response_model=schemas.TeamDuesRow)
+def upsert_team_dues(
+    team_id: int,
+    year_month: str,
+    data: schemas.DuesUpsert,
+    request: Request,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    _check_year_month(year_month)
+    team = get_or_404(db, models.Team, team_id, "팀을 찾을 수 없습니다.")
+    if team.billing_type != 'monthly':
+        raise HTTPException(400, "월 이용료 팀만 팀 단위로 입금 기록을 남깁니다.")
+
+    fee = team.monthly_fee or 0
+    rec = db.query(models.TeamDues).filter(
+        models.TeamDues.team_id == team_id,
+        models.TeamDues.year_month == year_month,
+    ).first()
+    if not rec:
+        rec = models.TeamDues(team_id=team_id, year_month=year_month)
+        db.add(rec)
+
+    rec.status = data.status
+    if data.status == 'paid':
+        rec.amount = data.amount if data.amount is not None else fee
+        rec.paid_on = data.paid_on or date.today()
+    else:
+        rec.amount = data.amount or 0
+        rec.paid_on = data.paid_on
+    rec.memo = (data.memo or '').strip() or None
+
+    db.commit()
+    db.refresh(rec)
+    log_event(
+        "team_dues_updated",
+        team_id=team_id, team=team.name, month=year_month,
+        status=rec.status, amount=rec.amount, by=admin.username,
+    )
+    audit(db, admin, "dues.team_update", f"{team.name} {year_month}",
+          f"{rec.status} {rec.amount:,}원", request)
+    return schemas.TeamDuesRow(
+        team_id=team.id, name=team.name, fee=fee,
+        status=rec.status, amount=rec.amount,
+        paid_on=rec.paid_on, memo=rec.memo,
     )
 
 
@@ -111,17 +252,21 @@ def get_dues_summary(
 ):
     if not (2000 <= year <= 2999):
         raise HTTPException(400, "연도가 올바르지 않습니다.")
-    records = db.query(models.MemberDues).filter(
-        models.MemberDues.year_month.like(f"{year}-%")
-    ).all()
-
+    like = f"{year}-%"
     paid_by_month = {}
     unpaid_by_month = {}
-    for r in records:
+    # 멤버 회비 + 팀 월 이용료 = 그 달에 실제로 들어온 돈
+    for r in db.query(models.MemberDues).filter(
+        models.MemberDues.year_month.like(like)
+    ).all():
         if r.status == 'paid':
             paid_by_month[r.year_month] = paid_by_month.get(r.year_month, 0) + r.amount
         elif r.status == 'unpaid':
             unpaid_by_month[r.year_month] = unpaid_by_month.get(r.year_month, 0) + 1
+    for r in db.query(models.TeamDues).filter(
+        models.TeamDues.year_month.like(like), models.TeamDues.status == 'paid'
+    ).all():
+        paid_by_month[r.year_month] = paid_by_month.get(r.year_month, 0) + r.amount
 
     return [
         schemas.DuesSummaryRow(

@@ -118,6 +118,9 @@ function openTeamModal(teamId = null) {
 
   document.getElementById('teamDeleteBtn').style.display = t ? '' : 'none';
   document.getElementById('teamSaveBtn').textContent = t ? '변경 저장' : '팀 등록';
+  // 팀 단위 입금은 월 이용료 팀만 있다. 나머지는 멤버별로 낸다.
+  renderDuesHistory('teamHistory',
+    t && t.billing_type === 'monthly' ? `/api/admin/dues/history/team/${t.id}` : null);
 
   openOverlay('teamOverlay');
 }

@@ -47,21 +47,28 @@ function renderDues() {
   const list = document.getElementById('duesList');
   const d = duesData;
 
-  document.getElementById('duesPaid').textContent    = d.total_paid.toLocaleString();
-  document.getElementById('duesExpected').textContent = d.total_expected.toLocaleString();
-  document.getElementById('duesUnpaid').textContent  = d.unpaid_count;
-  document.getElementById('duesPending').textContent = d.pending_count;
+  // 합계는 멤버 회비 + 팀 월 이용료 — 그 달에 들어와야 할 돈 전체다.
+  const paid     = d.total_paid + d.team_total_paid;
+  const expected = d.total_expected + d.team_total_expected;
+  const teamUnpaid = d.team_rows.filter(r => r.status === 'unpaid').length;
 
-  const pct = d.total_expected ? Math.round(d.total_paid / d.total_expected * 100) : 0;
+  document.getElementById('duesPaid').textContent     = paid.toLocaleString();
+  document.getElementById('duesExpected').textContent = expected.toLocaleString();
+  document.getElementById('duesUnpaid').textContent   = d.unpaid_count;
+  document.getElementById('duesPending').textContent  = d.pending_count;
+  document.getElementById('duesUnpaidSub').textContent =
+    teamUnpaid ? `+ 미납 ${teamUnpaid}팀` : '입금 확인 필요';
+
+  const pct = expected ? Math.round(paid / expected * 100) : 0;
   document.getElementById('duesProgressFill').style.width = `${Math.min(100, pct)}%`;
   document.getElementById('duesProgressText').textContent = `수납률 ${pct}%`;
 
-  if (d.rows.length === 0) {
+  if (d.rows.length === 0 && d.team_rows.length === 0) {
     list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">💸</span><div class="admin-empty-text">활동 중인 멤버가 없습니다. 멤버 관리에서 먼저 등록해주세요.</div></div>';
     return;
   }
 
-  list.innerHTML = '<div class="dues-list">' + d.rows.map(r => `
+  list.innerHTML = renderTeamDues(d) + '<div class="dues-list">' + d.rows.map(r => `
     <div class="dues-row status-${r.covered_by_team ? 'covered' : r.status}">
       <div class="dues-member">
         <div class="dues-name">
@@ -86,6 +93,53 @@ function renderDues() {
   `).join('') + '</div>';
 }
 
+/* 월 이용료 팀은 사람이 아니라 팀이 낸다 — 멤버 목록 위에 따로 묶어 보여준다. */
+function renderTeamDues(d) {
+  if (!d.team_rows.length) return '';
+  const head = `${d.team_rows.length}팀 · ${d.team_total_paid.toLocaleString()}원 / ${d.team_total_expected.toLocaleString()}원`;
+  return `
+    <div class="dues-section">
+      <div class="dues-section-head">월 이용료 (팀 납부)<span>${head}</span></div>
+      <div class="dues-list">
+        ${d.team_rows.map(r => `
+          <div class="dues-row status-${r.status}">
+            <div class="dues-member">
+              <div class="dues-name">${escHtml(r.name)}
+                <span class="dues-team">멤버 ${r.member_count}명</span>
+              </div>
+              <div class="dues-sub">
+                ${r.fee.toLocaleString()}원
+                ${r.paid_on ? ` · ${r.paid_on} 입금` : ''}
+              </div>
+            </div>
+            <div class="dues-chips">
+              ${Object.entries(DUES_STATUS).map(([key, meta]) => `
+                <button class="dues-chip ${meta.cls}${r.status === key ? ' active' : ''}"
+                        onclick="setTeamDuesStatus(${r.team_id}, '${key}')">${meta.label}</button>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+    <div class="dues-section-head">월회비 (멤버 납부)</div>`;
+}
+
+async function setTeamDuesStatus(teamId, status) {
+  const row = duesData?.team_rows.find(r => r.team_id === teamId);
+  if (!row || row.status === status) return;
+  try {
+    await apiJson(`/api/admin/dues/team/${teamId}/${ymStr(duesCursor)}`, {
+      method: 'PUT',
+      body: JSON.stringify({ status }),
+    });
+    await loadDues();
+    showToast(`${row.name} · ${DUES_STATUS[status].label} 처리`, 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
 async function setDuesStatus(memberId, status) {
   const row = duesData?.rows.find(r => r.member_id === memberId);
   if (!row || row.status === status) return;
@@ -104,7 +158,7 @@ async function setDuesStatus(memberId, status) {
 
 async function loadDuesSummary(year) {
   const chart = document.getElementById('duesYearChart');
-  document.getElementById('duesYearLabel').textContent = `${year}년 월별 수납`;
+  document.getElementById('duesYearLabel').textContent = `${year}년 월별 수납 (회비 + 팀 이용료)`;
   try {
     const rows = await apiJson(`/api/admin/dues/summary?year=${year}`);
     if (!rows.some(r => r.paid)) {

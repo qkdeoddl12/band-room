@@ -438,3 +438,41 @@ function closeMoreMenu() {
   if (el && el.classList.contains('open')) closeOverlay('moreMenuOverlay');
 }
 bindOverlayClose('moreMenuOverlay');
+
+/* ============================================================
+   입금 이력 — 멤버 상세와 팀 상세가 같은 모양을 쓴다
+   ============================================================ */
+const DUES_LABEL = { paid: '납부', unpaid: '미납', pending: '확인중', exempt: '면제' };
+
+async function renderDuesHistory(elId, path) {
+  const box = document.getElementById(elId);
+  if (!box) return;
+  if (!path) { box.innerHTML = ''; return; }
+
+  box.innerHTML = '<div class="dues-hist"><div class="dues-hist-head">입금 이력</div><div class="spinner"></div></div>';
+  let rows;
+  try {
+    rows = await apiJson(path);
+  } catch {
+    box.innerHTML = '';   // 이력을 못 받아도 수정은 되어야 한다
+    return;
+  }
+
+  const body = rows.length === 0
+    ? '<div class="dues-hist-empty">아직 입금 기록이 없습니다.</div>'
+    : rows.map(r => `
+        <div class="dues-hist-row">
+          <span class="dh-ym">${escHtml(r.year_month)}</span>
+          <span class="dh-status ${r.status}">${DUES_LABEL[r.status] || r.status}</span>
+          <span class="dh-amt">${r.amount ? r.amount.toLocaleString() + '원' : '—'}</span>
+          <span class="dh-date">${r.paid_on ? escHtml(r.paid_on.slice(5)) : ''}</span>
+        </div>
+        ${r.memo ? `<div class="dh-memo">${escHtml(r.memo)}</div>` : ''}
+      `).join('');
+
+  box.innerHTML = `
+    <div class="dues-hist">
+      <div class="dues-hist-head">입금 이력<span>최근 ${rows.length}건</span></div>
+      <div class="dues-hist-rows">${body}</div>
+    </div>`;
+}

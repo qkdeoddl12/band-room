@@ -198,6 +198,7 @@ def test_members_and_dues(h):
 
     bad = client.put(f"/api/admin/dues/{m['id']}/2099-13", headers=h, json={"status": "paid"})
     assert bad.status_code == 400, "invalid month must be rejected"
+    return m["id"]
 
 
 def test_tickets(h):
@@ -267,6 +268,39 @@ def test_settings(h):
     assert bad.status_code == 400, "unknown setting keys must be rejected"
 
 
+def test_team_dues(h, team, member_id):
+    """월 이용료 팀은 팀 단위로 입금 기록을 남기고, 상세에서 이력을 본다."""
+    ym = "2099-01"
+    tid = team["id"]
+
+    # 시간당 팀에는 팀 단위 입금 기록을 못 남긴다
+    bad = client.put(f"/api/admin/dues/team/{tid}/{ym}", headers=h, json={"status": "paid"})
+    assert bad.status_code == 400, f"시간당 팀은 거부돼야 한다, got {bad.status_code}"
+
+    upd = client.patch(f"/api/admin/teams/{tid}", headers=h,
+                       json={"billing_type": "monthly", "monthly_fee": 200000})
+    assert upd.status_code == 200, upd.text
+
+    paid = client.put(f"/api/admin/dues/team/{tid}/{ym}", headers=h, json={"status": "paid"})
+    assert paid.status_code == 200, paid.text
+    assert paid.json()["amount"] == 200000, "금액을 안 주면 팀 월 이용료로 채운다"
+
+    month = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+    row = next(r for r in month["team_rows"] if r["team_id"] == tid)
+    assert row["status"] == "paid" and month["team_total_paid"] >= 200000, month
+
+    hist = client.get(f"/api/admin/dues/history/team/{tid}", headers=h).json()
+    assert len(hist) == 1 and hist[0]["year_month"] == ym, hist
+
+    mhist = client.get(f"/api/admin/dues/history/member/{member_id}", headers=h).json()
+    assert [r["year_month"] for r in mhist] == [ym], mhist
+
+    # 연간 차트에 팀 이용료도 잡힌다
+    summary = client.get("/api/admin/dues/summary?year=2099", headers=h).json()
+    jan = next(r for r in summary if r["year_month"] == ym)
+    assert jan["paid"] >= 200000, jan
+
+
 def cleanup(h):
     for key in ("reservation", "reservation2", "reservation3", "reservation4", "overnight"):
         if created[key]:
@@ -296,7 +330,8 @@ def main():
         test_reservation(h, team);             steps.append("reservations")
         test_overnight(h, team);               steps.append("overnight")
         test_personal_room(h);                 steps.append("personal room")
-        test_members_and_dues(h);              steps.append("members + dues")
+        member_id = test_members_and_dues(h);   steps.append("members + dues")
+        test_team_dues(h, team, member_id);     steps.append("team dues")
         test_tickets(h);                       steps.append("tickets")
         test_upload_guards(h);                 steps.append("upload guards")
         test_settings(h);                      steps.append("settings")

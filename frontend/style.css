@@ -1819,7 +1819,18 @@ a { text-decoration: none; }
   margin-bottom: 14px;
 }
 
+/* 나란히 놓이는 버튼은 높이·모서리·글자 크기를 맞춘다.
+   .btn-submit(54px/큰 모서리)와 .btn-danger(48px/작은 모서리)가 달라 보이던 문제. */
 .modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions > button {
+  height: 52px; margin-top: 0;
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+.modal-actions .btn-secondary { flex: 1; }
+.modal-actions .btn-danger { flex: 1; }
+.modal-actions .btn-submit,
+.modal-actions .btn-primary { flex: 2; justify-content: center; }
 .modal-target-sub { color: var(--text-sub); font-weight: 500; font-size: 13px; }
 
 .toggle-title { font-size: 14px; font-weight: 600; color: var(--text); display: block; }
@@ -1908,6 +1919,15 @@ a { text-decoration: none; }
 }
 
 .dues-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* 팀 납부 / 멤버 납부를 갈라 보여주는 소제목 */
+.dues-section { margin-bottom: 18px; }
+.dues-section-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  margin-bottom: 8px;
+}
+.dues-section-head span { font-weight: 600; color: var(--text-light); }
 /* 한 사람당 높이를 줄인다. 상태는 왼쪽 색선이 이미 말해주므로
    칩은 작게, 채도는 낮게. 강한 색은 목표 상태(납부)에만. */
 .dues-row {
@@ -2440,3 +2460,47 @@ a { text-decoration: none; }
 .team-fee-src { font-size: 11px; font-weight: 700; color: var(--text-light); }
 .team-fee-note.own .team-fee-src { color: var(--info-ink); }
 .team-fee-hint { margin-top: 6px; font-size: 11px; color: var(--text-sub); line-height: 1.6; }
+
+/* ============================================================
+   ADMIN: 입금 이력 (멤버 상세 · 팀 상세 공용)
+   ============================================================ */
+.dues-hist {
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.dues-hist-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  margin-bottom: 8px;
+}
+.dues-hist-head span { font-weight: 600; color: var(--text-light); }
+.dues-hist-rows { max-height: 190px; overflow-y: auto; }
+.dues-hist-row {
+  display: grid;
+  grid-template-columns: 62px 52px 1fr 40px;
+  align-items: center; gap: 8px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.dues-hist-row:last-child { border-bottom: 0; }
+.dh-ym   { font-weight: 700; color: var(--text); }
+.dh-amt  { text-align: right; color: var(--text); font-weight: 600; }
+.dh-date { text-align: right; color: var(--text-light); font-size: 11px; }
+.dh-status {
+  padding: 1px 0; border-radius: 4px; text-align: center;
+  font-size: 11px; font-weight: 700;
+}
+.dh-status.paid    { background: #E3F5EC; color: #0A7A55; }
+.dh-status.unpaid  { background: #FDECEC; color: #B4232A; }
+.dh-status.pending { background: #FEF3E0; color: #96590A; }
+.dh-status.exempt  { background: var(--neutral-light); color: var(--text-sub); }
+.dh-memo {
+  padding: 0 2px 7px; font-size: 11px; color: var(--text-light);
+  border-bottom: 1px solid var(--border);
+}
+.dues-hist-empty {
+  padding: 14px; text-align: center;
+  font-size: 12px; color: var(--text-light);
+  background: var(--bg); border-radius: var(--radius-sm);
+}
