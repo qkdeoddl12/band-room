@@ -91,7 +91,9 @@ function attachPhoneMask(input) {
    포지션(파트) 피커 — 팀·멤버가 같은 UI 와 같은 콤마 문자열을 쓴다.
    고정 항목은 체크박스, 그 외는 자유 입력으로 받는다.
    ============================================================ */
-const FIXED_PARTS = ['보컬', '기타', '베이스', '드럼', '키보드'];
+/* 한 팀에 기타가 둘일 수 있어 리드·세컨을 따로 둔다.
+   저장은 콤마 문자열이고 같은 값만 중복 제거되므로 셋은 공존한다. */
+const FIXED_PARTS = ['보컬', '기타', '리드기타', '세컨기타', '베이스', '드럼', '키보드'];
 
 function splitParts(parts) {
   return String(parts || '').split(',').map(s => s.trim()).filter(Boolean);
