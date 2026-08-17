@@ -2279,3 +2279,53 @@ a { text-decoration: none; }
 .audit-meta { flex: none; text-align: right; }
 .audit-time { font-size: 12px; font-weight: 700; color: var(--text-sub); white-space: nowrap; }
 .audit-user { margin-top: 2px; font-size: 11px; color: var(--text-light); }
+
+/* ============================================================
+   ADMIN: 연락망
+   ============================================================ */
+.contact-group {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+.contact-group-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 16px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.contact-group-name { font-size: 14px; font-weight: 800; color: var(--text); }
+.contact-group-count { font-size: 12px; color: var(--text-sub); }
+
+.contact-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.contact-row:last-child { border-bottom: none; }
+.contact-who { flex: 1; min-width: 0; }
+.contact-name {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 15px; font-weight: 700; color: var(--text);
+}
+.contact-tag {
+  font-size: 10px; font-weight: 800;
+  padding: 2px 6px; border-radius: 5px;
+  background: var(--primary-light); color: var(--primary-dark);
+}
+.contact-sub { margin-top: 4px; font-size: 12px; color: var(--text-sub); }
+.contact-sub .part-tags { margin-top: 0; }
+
+.contact-call {
+  flex: none;
+  padding: 9px 14px; border-radius: 999px;
+  background: var(--primary-light); color: var(--primary-dark);
+  font-size: 14px; font-weight: 700; text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.contact-call:active { background: var(--primary); color: #fff; }
+.contact-none { flex: none; font-size: 12px; color: var(--text-light); }
+.contact-empty { padding: 14px 16px; font-size: 13px; color: var(--text-light); }

@@ -135,6 +135,9 @@
           <li class="sidebar-item" data-page="dues" onclick="switchPage('dues')">
             <span class="sidebar-icon">💰</span> 정산 관리
           </li>
+          <li class="sidebar-item" data-page="contacts" onclick="switchPage('contacts')">
+            <span class="sidebar-icon">📇</span> 연락망
+          </li>
 
           <li class="sidebar-group">콘텐츠</li>
           <li class="sidebar-item" data-page="tickets" onclick="switchPage('tickets')">
@@ -447,6 +450,24 @@
           </div>
 
           <div id="memberList"><div class="spinner"></div></div>
+        </div>
+
+        <!-- ===== CONTACTS PAGE (연락망) ===== -->
+        <div class="admin-page" id="contactsPage" style="display:none;">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">연락망</h2>
+              <p class="page-subtitle" id="contactCount">—</p>
+            </div>
+            <button class="btn-secondary tk-back" id="contactCopyBtn" onclick="copyContacts()">전체 복사</button>
+          </div>
+
+          <div class="filter-panel">
+            <input type="text" class="filter-search" id="contactSearch"
+              placeholder="🔍 이름, 팀, 번호, 포지션 검색..." oninput="filterContacts()">
+          </div>
+
+          <div id="contactList"><div class="spinner"></div></div>
         </div>
 
         <!-- ===== DUES PAGE (월회비 정산) ===== -->
@@ -1330,6 +1351,7 @@
           <button class="more-item" onclick="switchPage('stats')"><span>📈</span>통계</button>
           <button class="more-item" onclick="switchPage('teams')"><span>🎸</span>팀 관리</button>
           <button class="more-item" onclick="switchPage('members')"><span>🥁</span>멤버 관리</button>
+          <button class="more-item" onclick="switchPage('contacts')"><span>📇</span>연락망</button>
           <button class="more-item" onclick="switchPage('inquiries')">
             <span>📩</span>문의/민원
             <span class="nav-badge" id="moreInquiryBadge" style="display:none;"></span>
@@ -1353,6 +1375,7 @@
   <script src="/static/admin/teams.js"></script>
   <script src="/static/admin/members.js"></script>
   <script src="/static/admin/dues.js"></script>
+  <script src="/static/admin/contacts.js"></script>
   <script src="/static/admin/tickets.js"></script>
   <script src="/static/admin/users.js"></script>
   <script src="/static/admin/audit.js"></script>
