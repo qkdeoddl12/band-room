@@ -4,18 +4,11 @@ from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone
+from deps import get_current_admin, normalize_phone, clean_parts
 import models
 import schemas
 
 router = APIRouter(prefix="/api/admin/members", tags=["members"])
-
-
-def _clean_parts(parts: Optional[str]) -> Optional[str]:
-    if not parts:
-        return None
-    items = [p.strip() for p in parts.split(',') if p.strip()]
-    return ','.join(dict.fromkeys(items)) or None
 
 
 def _member_response(m: models.Member) -> schemas.MemberResponse:
@@ -59,7 +52,7 @@ def create_member(
         is_doors=data.is_doors,
         name=data.name.strip(),
         phone=normalize_phone(data.phone),
-        parts=_clean_parts(data.parts),
+        parts=clean_parts(data.parts),
         gender=data.gender,
         birth_year=data.birth_year,
         joined_on=data.joined_on,
@@ -93,7 +86,7 @@ def update_member(
     if 'phone' in fields:
         member.phone = normalize_phone(fields['phone'])
     if 'parts' in fields:
-        member.parts = _clean_parts(fields['parts'])
+        member.parts = clean_parts(fields['parts'])
     if 'memo' in fields:
         member.memo = (fields['memo'] or '').strip() or None
     if 'team_id' in fields:

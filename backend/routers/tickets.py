@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List
 from urllib.parse import urlparse
@@ -57,6 +58,29 @@ def get_public_ticket(slug: str, db: Session = Depends(get_db)):
     if not ticket:
         raise HTTPException(404, "티켓을 찾을 수 없습니다.")
     return ticket
+
+
+# 공유·복사 집계. 공개 엔드포인트라 인증이 없다 — 정확한 통계가 아니라 참고 수치다.
+COUNTABLE = {"share": "share_count", "copy": "copy_count"}
+
+
+@router.post("/api/tickets/{slug}/event")
+def record_ticket_event(slug: str, payload: dict, db: Session = Depends(get_db)):
+    column = COUNTABLE.get((payload or {}).get("type"))
+    if not column:
+        raise HTTPException(400, "알 수 없는 이벤트입니다.")
+    ticket = db.query(models.Ticket).filter(
+        models.Ticket.slug == slug,
+        models.Ticket.is_published == True,
+    ).first()
+    if not ticket:
+        raise HTTPException(404, "티켓을 찾을 수 없습니다.")
+    db.execute(
+        text(f"UPDATE tickets SET {column} = {column} + 1 WHERE id = :id"),
+        {"id": ticket.id},
+    )
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/api/admin/tickets", response_model=List[schemas.TicketResponse])

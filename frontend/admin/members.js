@@ -3,8 +3,6 @@
 /* ============================================================
    멤버 관리 — 도어즈 멤버 명부
    ============================================================ */
-const PARTS = ['보컬', '기타', '베이스', '드럼', '키보드', '기타파트'];
-
 let allMembers    = [];
 let memberSearch  = '';
 let memberTeamFil = '';
@@ -45,11 +43,6 @@ function renderTeamOptions() {
   const filter = document.getElementById('memberTeamFilter');
   filter.innerHTML = teamOptionsHtml(memberTeamFil, '전체 팀') +
     `<option value="none"${memberTeamFil === 'none' ? ' selected' : ''}>무소속</option>`;
-}
-
-function partTags(parts) {
-  if (!parts) return '<span class="part-tag empty">파트 미지정</span>';
-  return parts.split(',').map(p => `<span class="part-tag">${escHtml(p)}</span>`).join('');
 }
 
 const GENDER_KO = { male: '남', female: '여' };
@@ -107,7 +100,7 @@ function renderMembers() {
           ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
           ${feeBadge(m)}
         </div>
-        <div class="part-tags">${partTags(m.parts)}</div>
+        <div class="part-tags">${partTagsHtml(m.parts)}</div>
         <div class="entity-meta-bottom">
           <span>🎸 ${m.team_name ? escHtml(m.team_name) : '무소속'}</span>
           ${memberProfile(m) ? `<span>🎂 ${escHtml(memberProfile(m))}</span>` : ''}
@@ -118,21 +111,6 @@ function renderMembers() {
       <button class="btn-edit-user" onclick="openMemberModal(${m.id})">수정</button>
     </div>
   `).join('') + '</div>';
-}
-
-function renderPartCheckboxes(selected) {
-  const set = new Set((selected || '').split(',').map(s => s.trim()).filter(Boolean));
-  document.getElementById('memberParts').innerHTML = PARTS.map(p => `
-    <label class="part-check${set.has(p) ? ' active' : ''}">
-      <input type="checkbox" value="${escHtml(p)}" ${set.has(p) ? 'checked' : ''}
-             onchange="this.closest('.part-check').classList.toggle('active', this.checked)">
-      <span>${escHtml(p)}</span>
-    </label>
-  `).join('');
-}
-
-function selectedParts() {
-  return [...document.querySelectorAll('#memberParts input:checked')].map(i => i.value).join(',');
 }
 
 function openMemberModal(memberId = null, presetTeamId = null) {
@@ -154,7 +132,7 @@ function openMemberModal(memberId = null, presetTeamId = null) {
   document.getElementById('memberExempt').checked = m ? m.dues_exempt : false;
   document.getElementById('memberFee').value = (m && m.monthly_fee !== null && m.monthly_fee !== undefined)
     ? m.monthly_fee : '';
-  renderPartCheckboxes(m?.parts);
+  renderPartPicker('memberParts', 'memberPartsOther', m?.parts);
   syncMemberFeeState();
 
   document.getElementById('memberDeleteBtn').style.display = m ? '' : 'none';
@@ -191,7 +169,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
     is_doors:    document.getElementById('memberDoors').checked,
     name:        document.getElementById('memberName').value.trim(),
     phone:       document.getElementById('memberPhone').value.trim(),
-    parts:       selectedParts(),
+    parts:       readPartPicker('memberParts', 'memberPartsOther'),
     gender:      document.getElementById('memberGender').value || null,
     birth_year:  yearRaw === '' ? null : Number(yearRaw),
     joined_on:   document.getElementById('memberJoined').value || null,

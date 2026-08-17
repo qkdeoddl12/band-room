@@ -2112,3 +2112,113 @@ a { text-decoration: none; }
 .team-add-row .form-select { flex: 1; min-width: 0; }
 .team-add-row .btn-primary { flex: none; width: auto; padding: 0 18px; }
 .team-add-empty { font-size: 13px; color: var(--text-light); }
+
+.part-other { margin-top: 8px; }
+.part-tag.custom { background: #FEF3C7; color: #92400E; }
+
+
+/* ============================================================
+   공개 티켓 페이지 — /t/{slug} 와 관리자 미리보기가 함께 쓴다
+   ============================================================ */
+  /* --tkp-accent 는 배경 이미지에서 뽑은 색으로 ticket.js 가 덮어쓴다. */
+.tkp-page, :root {
+  --tkp-accent: 124 111 247;
+  --tkp-bg: 14 16 23;
+}
+
+  /* flex + align-items:center 로 가운데 정렬하면 내용이 화면보다 길 때
+   위쪽이 잘리고 스크롤로 닿지 못한다. block 레이아웃 + margin auto 로 처리. */
+.tkp-page {
+  background:
+  radial-gradient(120% 80% at 50% 0%,
+    rgb(var(--tkp-accent) / .20) 0%,
+    transparent 60%),
+  rgb(var(--tkp-bg));
+  background-attachment: fixed;
+  min-height: 100vh;
+  padding: 28px 16px calc(40px + env(safe-area-inset-bottom));
+  transition: background .5s ease;
+  }
+
+  .tkp-wrap { width: 100%; max-width: 420px; margin: 0 auto; }
+
+  .tkp-actions { display: flex; gap: 10px; margin-top: 14px; }
+
+  .tkp-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  height: 52px; padding: 0 16px;
+  border-radius: 14px;
+  border: 1px solid rgb(var(--tkp-accent) / .45);
+  background: rgb(var(--tkp-accent) / .16);
+  color: #fff;
+  font-size: 15px; font-weight: 700;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .18s, transform .12s, border-color .18s;
+  }
+  .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .26); }
+  .tkp-btn:active { transform: scale(.97); }
+
+  /* 길찾기는 주 동작이라 채워진 버튼으로 */
+  .tkp-map {
+  margin-top: 18px;
+  background: rgb(var(--tkp-accent) / .92);
+  border-color: transparent;
+  color: #0B0D14;
+  font-weight: 800;
+  box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .32);
+  }
+  .tkp-map:hover { background: rgb(var(--tkp-accent) / 1); }
+
+  .tkp-icon { font-size: 17px; line-height: 1; }
+
+  .tkp-note {
+  margin-top: 16px; text-align: center;
+  font-size: 12px; color: rgba(255,255,255,.38); line-height: 1.7;
+  }
+  .tkp-error {
+  text-align: center; color: rgba(255,255,255,.72);
+  font-size: 15px; line-height: 1.9; padding: 72px 0;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+  .tkp-page, .tkp-btn { transition: none; }
+  }
+
+/* 관리자 에디터의 폰 미리보기 */
+.tkp-preview-bar {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
+.tkp-phone {
+  width: 100%; max-width: var(--tkp-phone-w, 390px);
+  margin: 0 auto;
+  height: min(680px, 70vh);
+  overflow-y: auto;
+  border: 10px solid #1B1D26;
+  border-radius: 36px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  -webkit-overflow-scrolling: touch;
+}
+.tkp-phone .tkp-page { min-height: 100%; padding: 22px 14px 32px; }
+.tkp-phone .tkp-btn { pointer-events: none; }
+.tkp-preview-size {
+  font-size: 12px; color: var(--text-sub); text-align: center; margin-top: 10px;
+}
+
+.tk-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tk-stat {
+  padding: 12px 8px; text-align: center;
+  background: var(--bg); border-radius: var(--radius-sm);
+}
+.tk-stat-value { font-size: 17px; font-weight: 800; color: var(--text); }
+.tk-stat-label { margin-top: 3px; font-size: 11px; color: var(--text-sub); }
+
+.tk-stat-row { cursor: pointer; align-items: flex-start; }
+.tk-stat-thumb {
+  width: 52px; flex: none; aspect-ratio: 3 / 4;
+  border-radius: 8px; font-size: 20px;
+}

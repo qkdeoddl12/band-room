@@ -9,87 +9,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
-  <style>
-    /* --tkp-accent 는 배경 이미지에서 뽑은 색으로 ticket.js 가 덮어쓴다. */
-    :root {
-      --tkp-accent: 124 111 247;
-      --tkp-bg: 14 16 23;
-    }
-
-    /* flex + align-items:center 로 가운데 정렬하면 내용이 화면보다 길 때
-       위쪽이 잘리고 스크롤로 닿지 못한다. block 레이아웃 + margin auto 로 처리. */
-    body {
-      background:
-        radial-gradient(120% 80% at 50% 0%,
-          rgb(var(--tkp-accent) / .20) 0%,
-          transparent 60%),
-        rgb(var(--tkp-bg));
-      background-attachment: fixed;
-      min-height: 100vh;
-      padding: 28px 16px calc(40px + env(safe-area-inset-bottom));
-      transition: background .5s ease;
-    }
-
-    .tkp-wrap { width: 100%; max-width: 420px; margin: 0 auto; }
-
-    .tkp-brand {
-      text-align: center; margin-bottom: 18px;
-      font-size: 12px; font-weight: 700; letter-spacing: .16em;
-      color: rgb(var(--tkp-accent) / .85);
-      text-transform: uppercase;
-    }
-
-    .tkp-actions { display: flex; gap: 10px; margin-top: 14px; }
-
-    .tkp-btn {
-      flex: 1;
-      display: flex; align-items: center; justify-content: center; gap: 7px;
-      height: 52px; padding: 0 16px;
-      border-radius: 14px;
-      border: 1px solid rgb(var(--tkp-accent) / .45);
-      background: rgb(var(--tkp-accent) / .16);
-      color: #fff;
-      font-size: 15px; font-weight: 700;
-      font-family: inherit;
-      text-decoration: none;
-      cursor: pointer;
-      -webkit-tap-highlight-color: transparent;
-      transition: background .18s, transform .12s, border-color .18s;
-    }
-    .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .26); }
-    .tkp-btn:active { transform: scale(.97); }
-
-    /* 길찾기는 주 동작이라 채워진 버튼으로 */
-    .tkp-map {
-      margin-top: 18px;
-      background: rgb(var(--tkp-accent) / .92);
-      border-color: transparent;
-      color: #0B0D14;
-      font-weight: 800;
-      box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .32);
-    }
-    .tkp-map:hover { background: rgb(var(--tkp-accent) / 1); }
-
-    .tkp-icon { font-size: 17px; line-height: 1; }
-
-    .tkp-note {
-      margin-top: 16px; text-align: center;
-      font-size: 12px; color: rgba(255,255,255,.38); line-height: 1.7;
-    }
-    .tkp-error {
-      text-align: center; color: rgba(255,255,255,.72);
-      font-size: 15px; line-height: 1.9; padding: 72px 0;
-    }
-
-    @media (prefers-reduced-motion: reduce) {
-      body, .tkp-btn { transition: none; }
-    }
-  </style>
 </head>
-<body>
+<body class="tkp-page">
 
   <div class="tkp-wrap">
-    <div class="tkp-brand" id="tkpBrand">🎸 Band Room</div>
     <div class="tk-canvas" id="tkpCanvas"></div>
 
     <a class="tkp-btn tkp-map" id="tkpMap" style="display:none;" target="_blank" rel="noopener noreferrer">길찾기</a>

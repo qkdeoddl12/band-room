@@ -55,7 +55,9 @@ function renderTicketList() {
           ${t.is_published
             ? '<span class="ticket-pub published">공개중</span>'
             : '<span class="ticket-pub draft">비공개</span>'}
-          <span>요소 ${(t.elements || []).length}개</span>
+          <span>👁 ${t.view_count ?? 0}</span>
+          <span>↗ ${t.share_count ?? 0}</span>
+          <span>🔗 ${t.copy_count ?? 0}</span>
           <span>${fmtDateTime(t.created_at)}</span>
         </div>
       </div>
@@ -84,6 +86,7 @@ async function createTicket() {
 function showTicketList() {
   document.getElementById('ticketListView').style.display = '';
   document.getElementById('ticketEditView').style.display = 'none';
+  document.getElementById('ticketStatsView').style.display = 'none';
   currentTicket = null;
   tkSelectedId  = null;
   tkDirty       = false;
@@ -110,6 +113,7 @@ async function openTicketEditor(id) {
     `<option value="${a}"${a === currentTicket.aspect ? ' selected' : ''}>${a}</option>`).join('');
 
   document.getElementById('tkSlug').value = currentTicket.slug;
+  renderTicketStats();
   syncShareLink();
   syncShareState();
   tkDraw();
@@ -417,4 +421,149 @@ async function deleteTicket() {
   } catch (e) {
     showToast(e.message, 'error');
   }
+}
+
+
+/* 열람·공유 집계 (참고용 — 봇 접속도 함께 잡힌다) */
+function renderTicketStats() {
+  const box = document.getElementById('tkStats');
+  if (!box || !currentTicket) return;
+  const rows = [
+    ['👁', '열람', currentTicket.view_count ?? 0],
+    ['↗', '공유', currentTicket.share_count ?? 0],
+    ['🔗', '링크 복사', currentTicket.copy_count ?? 0],
+  ];
+  box.innerHTML = rows.map(([icon, label, n]) => `
+    <div class="tk-stat">
+      <div class="tk-stat-value">${icon} ${n.toLocaleString()}</div>
+      <div class="tk-stat-label">${label}</div>
+    </div>
+  `).join('');
+}
+
+/* ============================================================
+   스마트폰 미리보기
+   저장하지 않은 편집 내용을 공개 페이지와 같은 CSS·같은 tkRender 로 그린다.
+   따로 발행하지 않아도 실제 화면을 그대로 확인할 수 있다.
+   ============================================================ */
+const TK_DEVICES = [
+  { w: 360, label: '작은 폰 (360px · 갤럭시 S 미니급)' },
+  { w: 390, label: '기본 (390px · 아이폰 14/15)' },
+  { w: 430, label: '큰 폰 (430px · 프로 맥스)' },
+];
+let tkPreviewWidth = 390;
+
+function openTicketPreview() {
+  if (!currentTicket) return;
+  openOverlay('ticketPreviewOverlay');
+  renderTicketPreview();
+}
+
+function closeTicketPreview() { closeOverlay('ticketPreviewOverlay'); }
+bindOverlayClose('ticketPreviewOverlay', closeTicketPreview);
+
+function setPreviewWidth(w) {
+  tkPreviewWidth = w;
+  renderTicketPreview();
+}
+
+function renderTicketPreview() {
+  if (!currentTicket) return;
+
+  document.getElementById('tkPreviewSizes').innerHTML = TK_DEVICES.map(d => `
+    <button type="button" class="chip${d.w === tkPreviewWidth ? ' active' : ''}"
+            onclick="setPreviewWidth(${d.w})">${d.w}px</button>
+  `).join('');
+
+  const phone = document.getElementById('tkPreviewPhone');
+  phone.style.setProperty('--tkp-phone-w', `${tkPreviewWidth}px`);
+  document.getElementById('tkPreviewLabel').textContent =
+    TK_DEVICES.find(d => d.w === tkPreviewWidth)?.label || '';
+
+  tkRender(document.getElementById('tkPreviewCanvas'), currentTicket);
+
+  // 버튼 색도 실제와 같게 — 배경 이미지에서 뽑아 미리보기 안에만 적용한다.
+  tkTintFrom(currentTicket.bg_url, document.getElementById('tkPreviewPage'));
+
+  const mapUrl = document.getElementById('tkMapUrl').value.trim();
+  document.getElementById('tkPreviewMap').style.display =
+    /^https?:\/\//i.test(mapUrl) ? '' : 'none';
+}
+
+
+/* ============================================================
+   티켓별 통계
+   목록 API 가 이미 집계를 내려주므로 추가 호출이 없다.
+   ============================================================ */
+let tkSort = 'view';
+
+const TK_SORTS = {
+  view:   t => t.view_count  ?? 0,
+  share:  t => t.share_count ?? 0,
+  copy:   t => t.copy_count  ?? 0,
+  recent: t => new Date(t.created_at).getTime(),
+};
+
+function showTicketStats() {
+  document.getElementById('ticketListView').style.display = 'none';
+  document.getElementById('ticketEditView').style.display = 'none';
+  document.getElementById('ticketStatsView').style.display = '';
+  renderTicketStatsList();
+}
+
+function setTicketSort(key) {
+  tkSort = key;
+  document.querySelectorAll('#ticketStatsView .chip[data-tksort]').forEach(c => {
+    c.classList.toggle('active', c.dataset.tksort === key);
+  });
+  renderTicketStatsList();
+}
+
+function renderTicketStatsList() {
+  const list = document.getElementById('ticketStatsList');
+
+  const sum = key => allTickets.reduce((n, t) => n + (t[key] ?? 0), 0);
+  document.getElementById('tkTotalViews').textContent  = sum('view_count').toLocaleString();
+  document.getElementById('tkTotalShares').textContent = sum('share_count').toLocaleString();
+  document.getElementById('tkTotalCopies').textContent = sum('copy_count').toLocaleString();
+  document.getElementById('tkPublishedCount').textContent =
+    allTickets.filter(t => t.is_published).length;
+
+  if (allTickets.length === 0) {
+    list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">📊</span><div class="admin-empty-text">아직 만든 티켓이 없습니다.</div></div>';
+    return;
+  }
+
+  const pick = TK_SORTS[tkSort] || TK_SORTS.view;
+  const rows = allTickets.slice().sort((a, b) => pick(b) - pick(a));
+  const max = Math.max(1, ...rows.map(t => t.view_count ?? 0));
+
+  list.innerHTML = '<div class="entity-list">' + rows.map(t => {
+    const views = t.view_count ?? 0;
+    return `
+      <div class="entity-item tk-stat-row" onclick="openTicketEditor(${t.id})">
+        <div class="ticket-thumb tk-stat-thumb${t.bg_url ? '' : ' no-bg'}"
+             style="${t.bg_url ? `background-image:url('${encodeURI(t.bg_url)}')` : ''}">
+          ${t.bg_url ? '' : '🎫'}
+        </div>
+        <div class="entity-meta">
+          <div class="entity-meta-top">
+            <span class="entity-name">${escHtml(t.title)}</span>
+            ${t.is_published
+              ? '<span class="ticket-pub published">공개중</span>'
+              : '<span class="ticket-pub draft">비공개</span>'}
+          </div>
+          <div class="room-row-meter" style="margin:8px 0 6px;">
+            <div class="room-row-meter-fill r1" style="width:${(views / max) * 100}%"></div>
+          </div>
+          <div class="entity-meta-bottom">
+            <span>👁 열람 ${views.toLocaleString()}</span>
+            <span>↗ 공유 ${(t.share_count ?? 0).toLocaleString()}</span>
+            <span>🔗 복사 ${(t.copy_count ?? 0).toLocaleString()}</span>
+            <span>${fmtDateTime(t.created_at)}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('') + '</div>';
 }

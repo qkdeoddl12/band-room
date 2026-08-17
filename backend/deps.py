@@ -91,6 +91,15 @@ def require_system_admin(
     return admin
 
 
+# ========== Parts (포지션) ==========
+def clean_parts(parts: Optional[str]) -> Optional[str]:
+    """콤마 문자열로 저장한다. 공백 정리 + 중복 제거, 순서는 입력 그대로."""
+    if not parts:
+        return None
+    items = [p.strip() for p in parts.split(',') if p.strip()]
+    return ','.join(dict.fromkeys(items)) or None
+
+
 # ========== Phone ==========
 _PHONEISH = re.compile(r'^[\d\s\-()+.]+$')
 

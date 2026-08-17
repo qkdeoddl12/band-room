@@ -5,7 +5,7 @@ from typing import List
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone
+from deps import get_current_admin, normalize_phone, clean_parts
 import models
 import schemas
 
@@ -15,7 +15,7 @@ router = APIRouter(tags=["teams"])
 def _team_response(t: models.Team, res_count: int = 0, member_count: int = 0) -> schemas.TeamResponse:
     return schemas.TeamResponse(
         id=t.id, name=t.name, leader_name=t.leader_name, phone=t.phone,
-        memo=t.memo, billing_type=t.billing_type, monthly_fee=t.monthly_fee,
+        parts=t.parts, memo=t.memo, billing_type=t.billing_type, monthly_fee=t.monthly_fee,
         dues_fee=t.dues_fee, is_active=t.is_active, created_at=t.created_at,
         reservation_count=res_count, member_count=member_count,
     )
@@ -74,6 +74,7 @@ def create_team(
         name=name,
         leader_name=(data.leader_name or '').strip() or None,
         phone=normalize_phone(data.phone),
+        parts=clean_parts(data.parts),
         memo=(data.memo or '').strip() or None,
         is_active=data.is_active,
     )
@@ -112,6 +113,8 @@ def update_team(
             setattr(team, field, (fields[field] or '').strip() or None)
     if 'phone' in fields:
         team.phone = normalize_phone(fields['phone'])
+    if 'parts' in fields:
+        team.parts = clean_parts(fields['parts'])
     if fields.get('is_active') is not None:
         team.is_active = fields['is_active']
 

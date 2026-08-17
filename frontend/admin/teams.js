@@ -68,6 +68,7 @@ function renderTeams() {
           ${t.is_active ? '' : '<span class="user-inactive-tag">비활성</span>'}
           ${teamBillingBadge(t)}
         </div>
+        ${t.parts ? `<div class="part-tags">${partTagsHtml(t.parts)}</div>` : ''}
         <div class="entity-meta-bottom">
           ${t.leader_name ? `<span>👤 ${escHtml(t.leader_name)}</span>` : ''}
           ${t.phone ? `<span>📞 ${escHtml(formatPhone(t.phone))}</span>` : ''}
@@ -92,6 +93,7 @@ function openTeamModal(teamId = null) {
   document.getElementById('teamLeader').value     = t?.leader_name || '';
   document.getElementById('teamPhone').value      = formatPhone(t?.phone);
   document.getElementById('teamMemo').value       = t?.memo || '';
+  renderPartPicker('teamParts', 'teamPartsOther', t?.parts);
   document.getElementById('teamActive').checked   = t ? t.is_active : true;
 
   const billing = t?.billing_type || 'hourly';
@@ -143,6 +145,7 @@ document.getElementById('teamForm').addEventListener('submit', async e => {
     name:         document.getElementById('teamName').value.trim(),
     leader_name:  document.getElementById('teamLeader').value.trim(),
     phone:        document.getElementById('teamPhone').value.trim(),
+    parts:        readPartPicker('teamParts', 'teamPartsOther'),
     memo:         document.getElementById('teamMemo').value.trim(),
     billing_type: billing,
     monthly_fee:  billing === 'monthly' ? Number(feeRaw || 0)  : null,
@@ -222,6 +225,7 @@ async function renderTeamDetail() {
   document.getElementById('teamDetailTitle').textContent = team.name;
 
   const head = `
+    ${team.parts ? `<div class="part-tags" style="margin-bottom:10px;">${partTagsHtml(team.parts)}</div>` : ''}
     <div class="team-detail-head">
       ${teamBillingBadge(team)}
       ${team.leader_name ? `<span>👤 ${escHtml(team.leader_name)}</span>` : ''}

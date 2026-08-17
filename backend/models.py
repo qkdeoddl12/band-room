@@ -24,6 +24,7 @@ class Team(Base):
     name = Column(String(100), unique=True, nullable=False, index=True)
     leader_name = Column(String(50))
     phone = Column(String(30))
+    parts = Column(String(200))  # 팀 구성 포지션. 멤버와 같은 콤마 문자열
     memo = Column(Text)
     # 'hourly'  = 이용할 때마다 시간당 결제
     # 'monthly' = 팀이 월 이용료를 한 번에 납부 (monthly_fee)
@@ -167,6 +168,10 @@ class Ticket(Base):
     aspect = Column(String(10), nullable=False, server_default='3:4')
     elements = Column(JSON, nullable=False, server_default='[]')
     is_published = Column(Boolean, default=False, nullable=False)
+    # 열람·공유 집계. 원자적 UPDATE 로만 올린다 (updated_at 을 건드리지 않기 위해 raw SQL).
+    view_count = Column(Integer, nullable=False, server_default='0')
+    share_count = Column(Integer, nullable=False, server_default='0')
+    copy_count = Column(Integer, nullable=False, server_default='0')
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 

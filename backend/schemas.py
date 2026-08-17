@@ -137,6 +137,7 @@ class TeamCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     leader_name: Optional[str] = Field(None, max_length=50)
     phone: Optional[str] = Field(None, max_length=30)
+    parts: Optional[str] = Field(None, max_length=200)
     memo: Optional[str] = None
     # hourly = 시간당 / monthly = 팀 월 이용료 / dues = 멤버별 월회비
     billing_type: str = Field('hourly', pattern=BILLING_PATTERN)
@@ -149,6 +150,7 @@ class TeamUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     leader_name: Optional[str] = Field(None, max_length=50)
     phone: Optional[str] = Field(None, max_length=30)
+    parts: Optional[str] = Field(None, max_length=200)
     memo: Optional[str] = None
     billing_type: Optional[str] = Field(None, pattern=BILLING_PATTERN)
     monthly_fee: Optional[int] = Field(None, ge=0)
@@ -168,6 +170,7 @@ class TeamResponse(BaseModel):
     name: str
     leader_name: Optional[str] = None
     phone: Optional[str] = None
+    parts: Optional[str] = None
     memo: Optional[str] = None
     billing_type: str = 'hourly'
     monthly_fee: Optional[int] = None
@@ -311,6 +314,9 @@ class TicketResponse(BaseModel):
     aspect: str
     elements: List[TicketElement] = []
     is_published: bool
+    view_count: int = 0
+    share_count: int = 0
+    copy_count: int = 0
     created_at: datetime
     updated_at: Optional[datetime] = None
     model_config = {"from_attributes": True}

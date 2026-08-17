@@ -42,8 +42,12 @@ def migrate_schema():
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS gender VARCHAR(10)",
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS birth_year INTEGER",
         "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS map_url VARCHAR(500)",
+        "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS view_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS share_count INTEGER NOT NULL DEFAULT 0",
+        "ALTER TABLE tickets ADD COLUMN IF NOT EXISTS copy_count INTEGER NOT NULL DEFAULT 0",
         "ALTER TABLE teams ADD COLUMN IF NOT EXISTS billing_type VARCHAR(20) NOT NULL DEFAULT 'hourly'",
         "ALTER TABLE teams ADD COLUMN IF NOT EXISTS dues_fee INTEGER",
+        "ALTER TABLE teams ADD COLUMN IF NOT EXISTS parts VARCHAR(200)",
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id)",
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS is_doors BOOLEAN NOT NULL DEFAULT TRUE",
     ]
@@ -187,6 +191,13 @@ async def ticket_page(slug: str, request: Request, db: Session = Depends(get_db)
     ).first()
     if not ticket:
         raise HTTPException(404, "티켓을 찾을 수 없습니다.")
+
+    # 페이지가 실제로 열릴 때만 센다. 카톡 미리보기 봇도 함께 잡히므로 참고용 수치다.
+    db.execute(
+        text("UPDATE tickets SET view_count = view_count + 1 WHERE id = :id"),
+        {"id": ticket.id},
+    )
+    db.commit()
 
     with open(f"{FRONTEND_DIR}/ticket.html", encoding="utf-8") as f:
         page = f.read()

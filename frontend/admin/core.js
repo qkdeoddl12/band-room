@@ -87,6 +87,47 @@ function attachPhoneMask(input) {
   });
 }
 
+/* ============================================================
+   포지션(파트) 피커 — 팀·멤버가 같은 UI 와 같은 콤마 문자열을 쓴다.
+   고정 항목은 체크박스, 그 외는 자유 입력으로 받는다.
+   ============================================================ */
+const FIXED_PARTS = ['보컬', '기타', '베이스', '드럼', '키보드'];
+
+function splitParts(parts) {
+  return String(parts || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+/* 저장된 값 중 고정 항목은 체크하고, 나머지는 자유 입력칸에 되돌려 놓는다. */
+function renderPartPicker(boxId, textId, parts) {
+  const all    = splitParts(parts);
+  const fixed  = new Set(all.filter(p => FIXED_PARTS.includes(p)));
+  const custom = all.filter(p => !FIXED_PARTS.includes(p));
+
+  document.getElementById(boxId).innerHTML = FIXED_PARTS.map(p => `
+    <label class="part-check${fixed.has(p) ? ' active' : ''}">
+      <input type="checkbox" value="${escHtml(p)}" ${fixed.has(p) ? 'checked' : ''}
+             onchange="this.closest('.part-check').classList.toggle('active', this.checked)">
+      <span>${escHtml(p)}</span>
+    </label>
+  `).join('');
+  document.getElementById(textId).value = custom.join(', ');
+}
+
+function readPartPicker(boxId, textId) {
+  const checked = [...document.querySelectorAll(`#${boxId} input:checked`)].map(i => i.value);
+  const custom  = splitParts(document.getElementById(textId).value);
+  return [...new Set([...checked, ...custom])].join(',');
+}
+
+/* 목록에 뿌릴 태그. 고정 항목이 아닌 것은 다른 색으로 구분한다. */
+function partTagsHtml(parts) {
+  const all = splitParts(parts);
+  if (!all.length) return '<span class="part-tag empty">포지션 미지정</span>';
+  return all.map(p =>
+    `<span class="part-tag${FIXED_PARTS.includes(p) ? '' : ' custom'}">${escHtml(p)}</span>`
+  ).join('');
+}
+
 function escHtml(str) {
   return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -154,9 +195,10 @@ async function loadTeamsCache() {
   } catch { teamsById = {}; }
 }
 
-function isMonthlyTeam(teamId) {
-  const fee = teamsById[teamId]?.monthly_fee;
-  return fee !== null && fee !== undefined;
+/* 시간당이 아닌 팀(월 이용료 · 월회비)은 예약 건별로 청구하지 않는다. */
+function isPrepaidTeam(teamId) {
+  const billing = teamsById[teamId]?.billing_type;
+  return !!billing && billing !== 'hourly';
 }
 
 function roomName(id) {
@@ -166,11 +208,12 @@ function roomName(id) {
 function roomTagCls(id) { return id === 1 ? 'r1' : (id === 2 ? 'r2' : 'all'); }
 function roomPrice(id)  { return roomsById[id]?.hourly_price || 0; }
 function resFee(r) {
-  if (isMonthlyTeam(r.team_id)) return 0;   // 월정액 팀은 건별 청구 없음
+  if (isPrepaidTeam(r.team_id)) return 0;
   return roomPrice(r.room_id) * (r.duration || 0);
 }
 function resFeeLabel(r) {
-  return isMonthlyTeam(r.team_id) ? '월 이용료 팀' : `${resFee(r).toLocaleString()}원`;
+  if (!isPrepaidTeam(r.team_id)) return `${resFee(r).toLocaleString()}원`;
+  return teamsById[r.team_id].billing_type === 'dues' ? '월회비 팀' : '월 이용료 팀';
 }
 
 /* ============================================================

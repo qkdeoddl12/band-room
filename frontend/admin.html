@@ -497,17 +497,64 @@
                 <h2 class="page-title">온라인 티켓</h2>
                 <p class="page-subtitle">공연 티켓을 만들고 공유 링크로 배포합니다.</p>
               </div>
-              <button class="btn-primary" onclick="createTicket()">
-                <span style="font-size:18px;">+</span> 새 티켓
-              </button>
+              <div style="display:flex;gap:8px;">
+                <button class="btn-secondary tk-back" onclick="showTicketStats()">📊 통계</button>
+                <button class="btn-primary" onclick="createTicket()">
+                  <span style="font-size:18px;">+</span> 새 티켓
+                </button>
+              </div>
             </div>
-            <div id="ticketList"><div class="spinner"></div></div>
+              <div id="ticketList"><div class="spinner"></div></div>
+          </div>
+
+          <div id="ticketStatsView" style="display:none;">
+            <div class="page-header">
+              <div>
+                <h2 class="page-title">티켓 통계</h2>
+                <p class="page-subtitle">공개된 티켓의 열람 · 공유 집계</p>
+              </div>
+              <button class="btn-secondary tk-back" onclick="showTicketList()">← 목록</button>
+            </div>
+
+            <div class="kpi-grid">
+              <div class="kpi-card revenue">
+                <div class="kpi-period">전체 열람</div>
+                <div class="kpi-main"><span class="kpi-value" id="tkTotalViews">—</span><span class="kpi-unit">회</span></div>
+                <div class="kpi-sub">공개 티켓 <span id="tkPublishedCount">0</span>개</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-period">공유</div>
+                <div class="kpi-main"><span class="kpi-value" id="tkTotalShares">—</span><span class="kpi-unit">회</span></div>
+                <div class="kpi-sub">공유하기 버튼</div>
+              </div>
+              <div class="kpi-card">
+                <div class="kpi-period">링크 복사</div>
+                <div class="kpi-main"><span class="kpi-value" id="tkTotalCopies">—</span><span class="kpi-unit">회</span></div>
+                <div class="kpi-sub">링크 복사 버튼</div>
+              </div>
+            </div>
+
+            <div class="filter-panel">
+              <div class="chip-row" role="tablist" aria-label="정렬">
+                <button class="chip active" data-tksort="view" onclick="setTicketSort('view')">열람순</button>
+                <button class="chip" data-tksort="share" onclick="setTicketSort('share')">공유순</button>
+                <button class="chip" data-tksort="copy" onclick="setTicketSort('copy')">복사순</button>
+                <button class="chip" data-tksort="recent" onclick="setTicketSort('recent')">최신순</button>
+              </div>
+            </div>
+
+            <div id="ticketStatsList"></div>
+
+            <div class="admin-note" style="margin-top:14px;">
+              열람 수에는 카카오톡·메신저의 링크 미리보기 접속도 함께 잡힙니다. 정확한 방문자 수가 아니라 추이 참고용입니다.
+            </div>
           </div>
 
           <div id="ticketEditView" style="display:none;">
             <div class="tk-topbar">
               <button class="btn-secondary tk-back" onclick="backToTicketList()">← 목록</button>
               <input type="text" class="form-input tk-title-input" id="tkTitle" placeholder="티켓 이름" maxlength="200">
+              <button class="btn-secondary tk-back" onclick="openTicketPreview()">📱 미리보기</button>
               <button class="btn-primary" id="tkSaveBtn" onclick="saveTicket()">저장</button>
             </div>
 
@@ -540,6 +587,14 @@
                     <h3 class="dashboard-card-title">요소 편집</h3>
                   </div>
                   <div id="tkPanel"></div>
+                </div>
+
+                <div class="dashboard-card">
+                  <div class="dashboard-card-header">
+                    <h3 class="dashboard-card-title">열람 현황</h3>
+                    <div class="dashboard-card-sub">공개 후 집계됩니다. 메신저 미리보기 봇도 함께 잡히니 참고용입니다.</div>
+                  </div>
+                  <div class="tk-stats" id="tkStats"></div>
                 </div>
 
                 <div class="dashboard-card">
@@ -1058,6 +1113,13 @@
           </div>
 
           <div class="form-group">
+            <label class="form-label">팀 구성 포지션</label>
+            <div class="part-checks" id="teamParts"></div>
+            <input type="text" class="form-input part-other" id="teamPartsOther"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
+          </div>
+
+          <div class="form-group">
             <label class="form-label" for="teamMemo">메모</label>
             <textarea class="form-textarea" id="teamMemo" rows="2"></textarea>
           </div>
@@ -1121,8 +1183,10 @@
             </label>
           </div>
           <div class="form-group">
-            <label class="form-label">가능한 파트</label>
+            <label class="form-label">가능한 포지션</label>
             <div class="part-checks" id="memberParts"></div>
+            <input type="text" class="form-input part-other" id="memberPartsOther"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
           </div>
           <div class="tk-panel-row">
             <div class="form-group">
@@ -1180,6 +1244,34 @@
             <button type="submit" class="btn-submit" id="memberSaveBtn" style="flex:2;margin-top:0;">멤버 등록</button>
           </div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 티켓 폰 미리보기 -->
+  <div class="modal-overlay" id="ticketPreviewOverlay" style="z-index:310;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">스마트폰 미리보기</h3>
+        <button class="modal-close" onclick="closeTicketPreview()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="tkp-preview-bar" id="tkPreviewSizes"></div>
+        <div class="tkp-phone" id="tkPreviewPhone">
+          <div class="tkp-page" id="tkPreviewPage">
+            <div class="tkp-wrap">
+              <div class="tk-canvas" id="tkPreviewCanvas"></div>
+              <a class="tkp-btn tkp-map" id="tkPreviewMap" style="display:none;">길찾기</a>
+              <div class="tkp-actions">
+                <button type="button" class="tkp-btn">공유하기</button>
+                <button type="button" class="tkp-btn">링크 복사</button>
+              </div>
+              <div class="tkp-note">스크린샷으로 저장해 입장 시 보여주세요.</div>
+            </div>
+          </div>
+        </div>
+        <div class="tkp-preview-size" id="tkPreviewLabel"></div>
       </div>
     </div>
   </div>
