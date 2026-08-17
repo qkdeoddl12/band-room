@@ -1,21 +1,26 @@
 version: '3.8'
 
+# 비밀값은 전부 .env 에서 온다 (.env 는 git 에 안 올라감).
+# 처음 받았으면: cp .env.example .env  후 값 채우기.
+# `:?` 문법 덕에 값이 비면 조용히 빈 문자열로 뜨지 않고 에러로 멈춘다.
+
 services:
   db:
     image: postgres:15-alpine
     container_name: bandroom_db
     environment:
-      POSTGRES_DB: bandroom
-      POSTGRES_USER: bandroom
-      POSTGRES_PASSWORD: bandroom123
+      POSTGRES_DB: ${DB_NAME:-bandroom}
+      POSTGRES_USER: ${DB_USER:-bandroom}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?.env 에 DB_PASSWORD 를 설정하세요}
       TZ: Asia/Seoul
       PGTZ: Asia/Seoul
     volumes:
       - postgres_data:/var/lib/postgresql/data
     ports:
-      - "5433:5432"
+      # 로컬에서 DB 툴로 붙을 때만 쓴다. 외부·LAN 노출 금지.
+      - "127.0.0.1:5433:5432"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U bandroom"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-bandroom}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,11 +29,18 @@ services:
     build: ./backend
     container_name: bandroom_app
     environment:
-      DATABASE_URL: postgresql://bandroom:bandroom123@db:5432/bandroom
-      INITIAL_ADMIN_USERNAME: superadmin
-      INITIAL_ADMIN_PASSWORD: superadmin1234
+      DATABASE_URL: postgresql://${DB_USER:-bandroom}:${DB_PASSWORD:?.env 에 DB_PASSWORD 를 설정하세요}@db:5432/${DB_NAME:-bandroom}
+      # admin_users 테이블이 비어 있을 때만 쓰이는 최초 계정.
+      # 이미 계정이 있으면 무시된다.
+      INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-superadmin}
+      INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?.env 에 INITIAL_ADMIN_PASSWORD 를 설정하세요}
+      UPLOAD_DIR: /app/uploads
+      # 티켓 배경 이미지 최대 크기(MB). 0 이면 제한 없음.
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
       TZ: Asia/Seoul
     ports:
+      # 시놀로지 역방향 프록시가 LAN 으로 붙어야 하므로 0.0.0.0 유지.
+      # 공유기에서는 80/443 만 포워딩하고 이 포트는 열지 말 것.
       - "8010:8000"
     depends_on:
       db:
@@ -36,15 +48,17 @@ services:
     volumes:
       - ./frontend:/app/frontend
       - ./backend/logs:/app/logs
+      - ./uploads:/app/uploads
 
+  # DB 를 GUI 로 볼 일이 없으면 이 서비스는 통째로 지워도 된다.
   pgadmin:
     image: dpage/pgadmin4
     container_name: bandroom_pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@bandroom.com
-      PGADMIN_DEFAULT_PASSWORD: admin1234
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@bandroom.com}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:?.env 에 PGADMIN_PASSWORD 를 설정하세요}
     ports:
-      - "5050:80"
+      - "127.0.0.1:5050:80"
     depends_on:
       - db
 

@@ -1,6 +1,6 @@
 from pydantic import BaseModel, Field
 from datetime import date, time, datetime
-from typing import Optional
+from typing import Optional, List, Dict
 
 
 # ========== Room ==========
@@ -11,16 +11,17 @@ class RoomBase(BaseModel):
 
 class Room(RoomBase):
     id: int
+    hourly_price: int = 0
     model_config = {"from_attributes": True}
 
 
 # ========== Reservation ==========
 class ReservationCreate(BaseModel):
     room_id: int
+    team_id: int
     date: date
     start_time: time
-    duration: int
-    team_name: Optional[str] = None
+    duration: int = Field(..., ge=1, le=14)
     members: Optional[str] = None
     note: Optional[str] = None
 
@@ -28,6 +29,7 @@ class ReservationCreate(BaseModel):
 class ReservationResponse(BaseModel):
     id: int
     room_id: int
+    team_id: Optional[int] = None
     date: date
     start_time: time
     end_time: time
@@ -125,3 +127,211 @@ class BlockedPeriodResponse(BaseModel):
     created_by: Optional[str] = None
     created_at: datetime
     model_config = {"from_attributes": True}
+
+
+# ========== Team ==========
+BILLING_PATTERN = '^(hourly|monthly|dues)$'
+
+
+class TeamCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=100)
+    leader_name: Optional[str] = Field(None, max_length=50)
+    phone: Optional[str] = Field(None, max_length=30)
+    memo: Optional[str] = None
+    # hourly = 시간당 / monthly = 팀 월 이용료 / dues = 멤버별 월회비
+    billing_type: str = Field('hourly', pattern=BILLING_PATTERN)
+    monthly_fee: Optional[int] = Field(None, ge=0)
+    dues_fee: Optional[int] = Field(None, ge=0)
+    is_active: bool = True
+
+
+class TeamUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    leader_name: Optional[str] = Field(None, max_length=50)
+    phone: Optional[str] = Field(None, max_length=30)
+    memo: Optional[str] = None
+    billing_type: Optional[str] = Field(None, pattern=BILLING_PATTERN)
+    monthly_fee: Optional[int] = Field(None, ge=0)
+    dues_fee: Optional[int] = Field(None, ge=0)
+    is_active: Optional[bool] = None
+
+
+class TeamPublic(BaseModel):
+    id: int
+    name: str
+    billing_type: str = 'hourly'
+    model_config = {"from_attributes": True}
+
+
+class TeamResponse(BaseModel):
+    id: int
+    name: str
+    leader_name: Optional[str] = None
+    phone: Optional[str] = None
+    memo: Optional[str] = None
+    billing_type: str = 'hourly'
+    monthly_fee: Optional[int] = None
+    dues_fee: Optional[int] = None
+    is_active: bool
+    created_at: datetime
+    reservation_count: int = 0
+    member_count: int = 0
+    model_config = {"from_attributes": True}
+
+
+# ========== Member (도어즈) ==========
+GENDER_PATTERN = '^(male|female)$'
+
+
+class MemberCreate(BaseModel):
+    team_id: Optional[int] = None
+    is_doors: bool = True
+    name: str = Field(..., min_length=1, max_length=50)
+    phone: Optional[str] = Field(None, max_length=30)
+    parts: Optional[str] = Field(None, max_length=200)
+    gender: Optional[str] = Field(None, pattern=GENDER_PATTERN)
+    birth_year: Optional[int] = Field(None, ge=1900, le=2100)
+    joined_on: Optional[date] = None
+    is_active: bool = True
+    dues_exempt: bool = False
+    monthly_fee: Optional[int] = Field(None, ge=0)
+    memo: Optional[str] = None
+
+
+class MemberUpdate(BaseModel):
+    team_id: Optional[int] = None
+    is_doors: Optional[bool] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=50)
+    phone: Optional[str] = Field(None, max_length=30)
+    parts: Optional[str] = Field(None, max_length=200)
+    gender: Optional[str] = Field(None, pattern=GENDER_PATTERN)
+    birth_year: Optional[int] = Field(None, ge=1900, le=2100)
+    joined_on: Optional[date] = None
+    is_active: Optional[bool] = None
+    dues_exempt: Optional[bool] = None
+    monthly_fee: Optional[int] = Field(None, ge=0)
+    memo: Optional[str] = None
+
+
+class MemberResponse(BaseModel):
+    id: int
+    team_id: Optional[int] = None
+    team_name: Optional[str] = None
+    is_doors: bool = True
+    name: str
+    phone: Optional[str] = None
+    parts: Optional[str] = None
+    gender: Optional[str] = None
+    birth_year: Optional[int] = None
+    joined_on: Optional[date] = None
+    is_active: bool
+    dues_exempt: bool
+    monthly_fee: Optional[int] = None
+    memo: Optional[str] = None
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+# ========== Dues (월회비) ==========
+class DuesUpsert(BaseModel):
+    status: str = Field(..., pattern='^(paid|unpaid|exempt|pending)$')
+    amount: Optional[int] = Field(None, ge=0)
+    paid_on: Optional[date] = None
+    memo: Optional[str] = None
+
+
+class DuesRow(BaseModel):
+    member_id: int
+    team_id: Optional[int] = None
+    team_name: Optional[str] = None
+    # 소속 팀이 월 이용료를 내는 경우 — 개인 회비 대상이 아니다.
+    covered_by_team: bool = False
+    name: str
+    parts: Optional[str] = None
+    dues_exempt: bool
+    fee: int
+    status: str
+    amount: int
+    paid_on: Optional[date] = None
+    memo: Optional[str] = None
+
+
+class DuesMonthResponse(BaseModel):
+    year_month: str
+    rows: List[DuesRow]
+    total_expected: int
+    total_paid: int
+    unpaid_count: int
+    pending_count: int
+    exempt_count: int
+    covered_count: int = 0
+
+
+class DuesSummaryRow(BaseModel):
+    year_month: str
+    paid: int
+    unpaid_count: int
+
+
+# ========== Ticket ==========
+class TicketElement(BaseModel):
+    id: str = Field(..., max_length=20)
+    text: str = Field('', max_length=300)
+    x: float = Field(50, ge=0, le=100)
+    y: float = Field(50, ge=0, le=100)
+    size: float = Field(6, ge=0.5, le=40)
+    color: str = Field('#FFFFFF', pattern='^#[0-9a-fA-F]{6}$')
+    weight: int = Field(700, ge=100, le=900)
+    align: str = Field('center', pattern='^(left|center|right)$')
+    shadow: bool = True
+
+
+class TicketCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+
+
+class TicketUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    # 공유 주소 뒷부분(/t/여기). 영소문자·숫자·하이픈만.
+    slug: Optional[str] = Field(None, min_length=3, max_length=32,
+                                pattern=r'^[a-z0-9][a-z0-9-]*[a-z0-9]$')
+    bg_url: Optional[str] = Field(None, max_length=300)
+    map_url: Optional[str] = Field(None, max_length=500)
+    aspect: Optional[str] = Field(None, pattern=r'^\d{1,2}:\d{1,2}$')
+    elements: Optional[List[TicketElement]] = Field(None, max_length=40)
+    is_published: Optional[bool] = None
+
+
+class TicketResponse(BaseModel):
+    id: int
+    slug: str
+    title: str
+    bg_url: Optional[str] = None
+    map_url: Optional[str] = None
+    aspect: str
+    elements: List[TicketElement] = []
+    is_published: bool
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    model_config = {"from_attributes": True}
+
+
+class TicketPublic(BaseModel):
+    slug: str
+    title: str
+    bg_url: Optional[str] = None
+    map_url: Optional[str] = None
+    aspect: str
+    elements: List[TicketElement] = []
+    model_config = {"from_attributes": True}
+
+
+# ========== Settings ==========
+class PublicSettings(BaseModel):
+    deposit_bank: str = ''
+    deposit_account: str = ''
+    deposit_holder: str = ''
+
+
+class SettingsUpdate(BaseModel):
+    values: Dict[str, str]

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Band Room — 관리자</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
@@ -109,8 +110,8 @@
 
       <!-- Sidebar (menu only) -->
       <aside class="admin-sidebar">
-        <div class="sidebar-title">메뉴</div>
         <ul class="sidebar-nav">
+          <li class="sidebar-group">예약</li>
           <li class="sidebar-item active" data-page="dashboard" onclick="switchPage('dashboard')">
             <span class="sidebar-icon">📊</span> 대시보드
           </li>
@@ -123,15 +124,36 @@
           <li class="sidebar-item" data-page="stats" onclick="switchPage('stats')">
             <span class="sidebar-icon">📈</span> 통계
           </li>
+
+          <li class="sidebar-group">조직</li>
+          <li class="sidebar-item" data-page="teams" onclick="switchPage('teams')">
+            <span class="sidebar-icon">🎸</span> 팀 관리
+          </li>
+          <li class="sidebar-item" data-page="members" onclick="switchPage('members')">
+            <span class="sidebar-icon">🥁</span> 멤버 관리
+          </li>
+          <li class="sidebar-item" data-page="dues" onclick="switchPage('dues')">
+            <span class="sidebar-icon">💰</span> 정산 관리
+          </li>
+
+          <li class="sidebar-group">콘텐츠</li>
+          <li class="sidebar-item" data-page="tickets" onclick="switchPage('tickets')">
+            <span class="sidebar-icon">🎫</span> 티켓
+          </li>
+
+          <li class="sidebar-group">운영</li>
           <li class="sidebar-item" data-page="inquiries" onclick="switchPage('inquiries')">
             <span class="sidebar-icon">📩</span> 문의/민원
             <span class="nav-badge" id="navInquiryBadge" style="display:none;"></span>
           </li>
-          <li class="sidebar-item" data-page="blocked" onclick="switchPage('blocked')">
+          <li class="sidebar-item system-only" data-page="blocked" onclick="switchPage('blocked')">
             <span class="sidebar-icon">🚫</span> 차단 설정
           </li>
           <li class="sidebar-item system-only" data-page="users" onclick="switchPage('users')">
             <span class="sidebar-icon">👥</span> 계정 관리
+          </li>
+          <li class="sidebar-item system-only" data-page="settings" onclick="switchPage('settings')">
+            <span class="sidebar-icon">⚙️</span> 환경 설정
           </li>
         </ul>
       </aside>
@@ -370,6 +392,255 @@
           </div>
         </div>
 
+        <!-- ===== TEAMS PAGE ===== -->
+        <div class="admin-page" id="teamsPage" style="display:none;">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">팀 관리</h2>
+              <p class="page-subtitle" id="teamCount">—</p>
+            </div>
+            <button class="btn-primary" onclick="openTeamModal()">
+              <span style="font-size:18px;">+</span> 팀 등록
+            </button>
+          </div>
+
+          <div class="filter-panel">
+            <input type="text" class="filter-search" id="teamSearch"
+              placeholder="🔍 팀명, 리더, 연락처 검색..." oninput="filterTeams()">
+          </div>
+
+          <div class="admin-note">
+            예약 페이지에서는 여기 등록된 <b>활성 팀만</b> 고를 수 있습니다.
+            새 팀은 문의로 접수된 뒤 여기서 등록해주세요.
+          </div>
+
+          <div id="teamList"><div class="spinner"></div></div>
+        </div>
+
+        <!-- ===== MEMBERS PAGE (도어즈) ===== -->
+        <div class="admin-page" id="membersPage" style="display:none;">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">멤버 관리</h2>
+              <p class="page-subtitle" id="memberCount">—</p>
+            </div>
+            <button class="btn-primary" onclick="openMemberModal()">
+              <span style="font-size:18px;">+</span> 멤버 등록
+            </button>
+          </div>
+
+          <div class="filter-panel">
+            <select class="form-select" id="memberTeamFilter" onchange="filterMembers()"
+                    style="margin-bottom:10px;">
+              <option value="">전체 팀</option>
+            </select>
+            <input type="text" class="filter-search" id="memberSearch"
+              placeholder="🔍 이름, 파트, 연락처 검색..." oninput="filterMembers()">
+          </div>
+
+          <div id="memberList"><div class="spinner"></div></div>
+        </div>
+
+        <!-- ===== DUES PAGE (월회비 정산) ===== -->
+        <div class="admin-page" id="duesPage" style="display:none;">
+          <div class="cal-header">
+            <button class="btn-nav" onclick="duesPrevMonth()" aria-label="이전 달">&#8249;</button>
+            <div class="cal-title-wrap">
+              <h2 class="cal-title" id="duesTitle">—</h2>
+              <button class="cal-today-btn" onclick="duesThisMonth()">이번 달</button>
+            </div>
+            <button class="btn-nav" onclick="duesNextMonth()" aria-label="다음 달">&#8250;</button>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card revenue">
+              <div class="kpi-period">수납 합계</div>
+              <div class="kpi-main"><span class="kpi-value" id="duesPaid">—</span><span class="kpi-unit">원</span></div>
+              <div class="kpi-sub">예상 <span id="duesExpected">0</span>원</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-period">미납</div>
+              <div class="kpi-main"><span class="kpi-value" id="duesUnpaid">—</span><span class="kpi-unit">명</span></div>
+              <div class="kpi-sub">입금 확인 필요</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-period">확인중</div>
+              <div class="kpi-main"><span class="kpi-value" id="duesPending">—</span><span class="kpi-unit">명</span></div>
+              <div class="kpi-sub">보류 상태</div>
+            </div>
+          </div>
+
+          <div class="dues-progress">
+            <div class="dues-progress-track">
+              <div class="dues-progress-fill" id="duesProgressFill" style="width:0%"></div>
+            </div>
+            <div class="dues-progress-text" id="duesProgressText">수납률 0%</div>
+          </div>
+
+          <div id="duesList"><div class="spinner"></div></div>
+
+          <div class="dashboard-card" style="margin-top:16px;">
+            <div class="dashboard-card-header">
+              <h3 class="dashboard-card-title" id="duesYearLabel">월별 수납</h3>
+              <div class="dashboard-card-sub">납부 완료 기준</div>
+            </div>
+            <div class="bar-chart mini" id="duesYearChart"></div>
+          </div>
+        </div>
+
+        <!-- ===== TICKETS PAGE ===== -->
+        <div class="admin-page" id="ticketsPage" style="display:none;">
+
+          <div id="ticketListView">
+            <div class="page-header">
+              <div>
+                <h2 class="page-title">온라인 티켓</h2>
+                <p class="page-subtitle">공연 티켓을 만들고 공유 링크로 배포합니다.</p>
+              </div>
+              <button class="btn-primary" onclick="createTicket()">
+                <span style="font-size:18px;">+</span> 새 티켓
+              </button>
+            </div>
+            <div id="ticketList"><div class="spinner"></div></div>
+          </div>
+
+          <div id="ticketEditView" style="display:none;">
+            <div class="tk-topbar">
+              <button class="btn-secondary tk-back" onclick="backToTicketList()">← 목록</button>
+              <input type="text" class="form-input tk-title-input" id="tkTitle" placeholder="티켓 이름" maxlength="200">
+              <button class="btn-primary" id="tkSaveBtn" onclick="saveTicket()">저장</button>
+            </div>
+
+            <div class="tk-toolbar">
+              <button type="button" class="btn-secondary" id="tkBgBtn"
+                      onclick="document.getElementById('tkBgInput').click()">🖼 배경 이미지</button>
+              <input type="file" id="tkBgInput" accept="image/jpeg,image/png,image/webp" hidden>
+              <button type="button" class="btn-secondary" onclick="tkClearBg()">배경 제거</button>
+              <select class="form-select tk-aspect" id="tkAspect" onchange="tkSetAspect(this.value)"></select>
+            </div>
+
+            <div class="tk-toolbar">
+              <span class="tk-toolbar-label">요소 추가</span>
+              <button type="button" class="chip" onclick="tkAddElement('title')">공연명</button>
+              <button type="button" class="chip" onclick="tkAddElement('date')">일자</button>
+              <button type="button" class="chip" onclick="tkAddElement('place')">장소</button>
+              <button type="button" class="chip" onclick="tkAddElement('lineup')">참여팀</button>
+              <button type="button" class="chip" onclick="tkAddElement()">+ 텍스트</button>
+            </div>
+
+            <div class="tk-editor">
+              <div class="tk-stage">
+                <div class="tk-canvas" id="tkCanvas"></div>
+                <div class="tk-hint">요소를 끌어서 위치를 옮기세요. 탭하면 편집할 수 있습니다.</div>
+              </div>
+
+              <div class="tk-side">
+                <div class="dashboard-card">
+                  <div class="dashboard-card-header">
+                    <h3 class="dashboard-card-title">요소 편집</h3>
+                  </div>
+                  <div id="tkPanel"></div>
+                </div>
+
+                <div class="dashboard-card">
+                  <div class="dashboard-card-header">
+                    <h3 class="dashboard-card-title">지도 링크</h3>
+                    <div class="dashboard-card-sub">넣으면 티켓 아래 "길찾기" 버튼이 생깁니다.</div>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label" for="tkMapUrl">공연장 지도 주소</label>
+                    <input type="url" class="form-input" id="tkMapUrl" maxlength="500"
+                           placeholder="https://naver.me/xxxxx">
+                  </div>
+                  <div class="admin-note" style="margin:0;">
+                    네이버지도·카카오맵·구글맵에서 <b>공유 → 링크 복사</b> 해서 붙여넣으면 됩니다.
+                  </div>
+                </div>
+
+                <div class="dashboard-card">
+                  <div class="dashboard-card-header">
+                    <h3 class="dashboard-card-title">공유</h3>
+                  </div>
+                  <label class="toggle-row">
+                    <span>
+                      <span class="toggle-title">링크 공개</span>
+                      <span class="toggle-desc" id="tkShareHint">—</span>
+                    </span>
+                    <input type="checkbox" class="toggle-switch" id="tkPublished">
+                  </label>
+                  <div class="form-group">
+                    <label class="form-label" for="tkSlug">공유 주소</label>
+                    <div class="tk-slug-row">
+                      <span class="tk-slug-prefix">/t/</span>
+                      <input type="text" class="form-input" id="tkSlug" maxlength="32"
+                             placeholder="autumn-live" pattern="[a-z0-9][a-z0-9-]*[a-z0-9]">
+                    </div>
+                    <div class="tk-slug-hint">영소문자·숫자·하이픈만. 바꾸면 이전에 보낸 링크는 열리지 않습니다.</div>
+                  </div>
+
+                  <div class="tk-share" id="tkShareBox">
+                    <input type="text" class="form-input" id="tkShareLink" readonly>
+                    <button type="button" class="btn-secondary" id="tkCopyBtn" onclick="copyTicketLink()">링크 복사</button>
+                  </div>
+                  <button type="button" class="btn-danger tk-del" onclick="deleteTicket()">티켓 삭제</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== SETTINGS PAGE (system admin only) ===== -->
+        <div class="admin-page" id="settingsPage" style="display:none;">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">환경 설정</h2>
+              <p class="page-subtitle">입금 계좌 · 기본 월회비 · 공간별 요금</p>
+            </div>
+          </div>
+
+          <form id="settingsForm" autocomplete="off">
+            <div class="dashboard-card">
+              <div class="dashboard-card-header">
+                <h3 class="dashboard-card-title">입금 계좌</h3>
+                <div class="dashboard-card-sub">예약 페이지에 그대로 표시됩니다.</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="setBank">은행</label>
+                <input type="text" class="form-input" id="setBank" maxlength="30">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="setAccount">계좌번호</label>
+                <input type="text" class="form-input" id="setAccount" maxlength="40">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="setHolder">예금주</label>
+                <input type="text" class="form-input" id="setHolder" maxlength="30">
+              </div>
+            </div>
+
+            <div class="dashboard-card">
+              <div class="dashboard-card-header">
+                <h3 class="dashboard-card-title">월회비</h3>
+                <div class="dashboard-card-sub">멤버별로 다르게 지정하지 않은 경우 이 금액을 씁니다.</div>
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="setFee">기본 월회비 (원)</label>
+                <input type="number" min="0" step="1000" class="form-input" id="setFee">
+              </div>
+            </div>
+
+            <div class="dashboard-card">
+              <div class="dashboard-card-header">
+                <h3 class="dashboard-card-title">이용 요금</h3>
+                <div class="dashboard-card-sub">예약 페이지 요금 계산에 쓰입니다.</div>
+              </div>
+              <div id="settingsRooms"><div class="spinner"></div></div>
+            </div>
+
+            <button type="submit" class="btn-submit" id="settingsSaveBtn">설정 저장</button>
+          </form>
+        </div>
+
       </main>
     </div>
 
@@ -380,23 +651,17 @@
           <span class="mobile-nav-icon">📊</span>대시보드
         </div>
         <div class="mobile-nav-item" data-mtab="reservations" onclick="switchPageMobile('reservations')">
-          <span class="mobile-nav-icon">📋</span>예약 관리
+          <span class="mobile-nav-icon">📋</span>예약
         </div>
-        <div class="mobile-nav-item" data-mtab="calendar" onclick="switchPageMobile('calendar')">
-          <span class="mobile-nav-icon">📅</span>캘린더
+        <div class="mobile-nav-item" data-mtab="dues" onclick="switchPageMobile('dues')">
+          <span class="mobile-nav-icon">💰</span>정산
         </div>
-        <div class="mobile-nav-item" data-mtab="stats" onclick="switchPageMobile('stats')">
-          <span class="mobile-nav-icon">📈</span>통계
+        <div class="mobile-nav-item" data-mtab="tickets" onclick="switchPageMobile('tickets')">
+          <span class="mobile-nav-icon">🎫</span>티켓
         </div>
-        <div class="mobile-nav-item" data-mtab="inquiries" onclick="switchPageMobile('inquiries')">
-          <span class="mobile-nav-icon">📩</span>문의
+        <div class="mobile-nav-item" onclick="openMoreMenu()">
+          <span class="mobile-nav-icon">☰</span>더보기
           <span class="nav-badge mobile" id="mobileInquiryBadge" style="display:none;"></span>
-        </div>
-        <div class="mobile-nav-item" data-mtab="blocked" onclick="switchPageMobile('blocked')">
-          <span class="mobile-nav-icon">🚫</span>차단
-        </div>
-        <div class="mobile-nav-item system-only" data-mtab="users" onclick="switchPageMobile('users')">
-          <span class="mobile-nav-icon">👥</span>계정 관리
         </div>
       </div>
     </nav>
@@ -519,10 +784,9 @@
 
           <div class="form-group">
             <label class="form-label">대상 공간</label>
+            <!-- options filled from /api/rooms by ops.js -->
             <select class="form-select" id="blockRoom">
               <option value="">전체 공간</option>
-              <option value="1">합주실</option>
-              <option value="2">개인연습실</option>
             </select>
           </div>
 
@@ -731,9 +995,234 @@
     </div>
   </div>
 
+  <!-- Team Modal -->
+  <div class="modal-overlay" id="teamOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="teamModalTitle">팀 등록</h3>
+        <button class="modal-close" onclick="closeTeamModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="teamForm" autocomplete="off">
+          <div class="form-group">
+            <label class="form-label" for="teamName">팀 이름 <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="teamName" maxlength="100" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="teamLeader">리더 / 담당자</label>
+            <input type="text" class="form-input" id="teamLeader" maxlength="50">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="teamPhone">연락처</label>
+            <input type="tel" class="form-input" id="teamPhone" maxlength="30" placeholder="010-0000-0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label">과금 방식 <span style="color:var(--danger)">*</span></label>
+            <div class="role-select">
+              <label class="role-option active">
+                <input type="radio" name="teamBilling" value="hourly" checked>
+                <div class="role-info">
+                  <div class="role-name">⏱ 시간당</div>
+                  <div class="role-desc">쓸 때마다 시간당 요금 · 입금 확인 후 확정</div>
+                </div>
+              </label>
+              <label class="role-option">
+                <input type="radio" name="teamBilling" value="monthly">
+                <div class="role-info">
+                  <div class="role-name">📅 월 이용료</div>
+                  <div class="role-desc">팀이 매달 한 번에 납부 · 예약 즉시 확정</div>
+                </div>
+              </label>
+              <label class="role-option">
+                <input type="radio" name="teamBilling" value="dues">
+                <div class="role-info">
+                  <div class="role-name">👥 월회비</div>
+                  <div class="role-desc">멤버가 각자 납부 · 팀 상세에서 납부 현황 확인</div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="form-group" id="teamMonthlyFeeRow" style="display:none;">
+            <label class="form-label" for="teamFee">월 이용료 (원)</label>
+            <input type="number" min="0" step="10000" class="form-input" id="teamFee" placeholder="예: 200000">
+          </div>
+
+          <div class="form-group" id="teamDuesFeeRow" style="display:none;">
+            <label class="form-label" for="teamDuesFee">
+              1인 월회비 (원)
+              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(멤버별로 다르면 멤버 쪽이 우선)</span>
+            </label>
+            <input type="number" min="0" step="10000" class="form-input" id="teamDuesFee" placeholder="예: 30000">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="teamMemo">메모</label>
+            <textarea class="form-textarea" id="teamMemo" rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-title">예약 가능</span>
+                <span class="toggle-desc">끄면 예약 페이지 목록에서 사라집니다.</span>
+              </span>
+              <input type="checkbox" class="toggle-switch" id="teamActive" checked>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="teamDeleteBtn" onclick="deleteCurrentTeam()" class="btn-danger" style="flex:1;">삭제</button>
+            <button type="submit" class="btn-submit" id="teamSaveBtn" style="flex:2;margin-top:0;">팀 등록</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Team Detail (멤버 납부 현황) -->
+  <div class="modal-overlay" id="teamDetailOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="teamDetailTitle">팀 상세</h3>
+        <button class="modal-close" onclick="closeTeamDetail()">✕</button>
+      </div>
+      <div class="modal-body" id="teamDetailBody"></div>
+    </div>
+  </div>
+
+  <!-- Member Modal -->
+  <div class="modal-overlay" id="memberOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title" id="memberModalTitle">멤버 등록</h3>
+        <button class="modal-close" onclick="closeMemberModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="memberForm" autocomplete="off">
+          <div class="form-group">
+            <label class="form-label" for="memberName">이름 <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="memberName" maxlength="50" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="memberTeam">소속 팀</label>
+            <select class="form-select" id="memberTeam">
+              <option value="">무소속</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-title">도어즈 멤버</span>
+                <span class="toggle-desc">팀 소속과 별개입니다. 팀으로 옮겨가도 도어즈 명부에는 남습니다.</span>
+              </span>
+              <input type="checkbox" class="toggle-switch" id="memberDoors" checked>
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">가능한 파트</label>
+            <div class="part-checks" id="memberParts"></div>
+          </div>
+          <div class="tk-panel-row">
+            <div class="form-group">
+              <label class="form-label" for="memberGender">성별</label>
+              <select class="form-select" id="memberGender">
+                <option value="">선택 안 함</option>
+                <option value="male">남</option>
+                <option value="female">여</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="memberBirthYear">출생년도</label>
+              <input type="number" class="form-input" id="memberBirthYear"
+                     min="1900" max="2100" step="1" placeholder="예: 1995">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="memberPhone">연락처</label>
+            <input type="tel" class="form-input" id="memberPhone" maxlength="30" placeholder="010-0000-0000">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="memberJoined">가입일</label>
+            <input type="date" class="form-input" id="memberJoined">
+          </div>
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-title">월회비 면제</span>
+                <span class="toggle-desc">면제 회원은 정산에서 자동으로 제외됩니다.</span>
+              </span>
+              <input type="checkbox" class="toggle-switch" id="memberExempt">
+            </label>
+          </div>
+          <div class="form-group" id="memberFeeRow">
+            <label class="form-label" for="memberFee">
+              월회비 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(비우면 기본 금액)</span>
+            </label>
+            <input type="number" min="0" step="1000" class="form-input" id="memberFee" placeholder="예: 50000">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="memberMemo">메모</label>
+            <textarea class="form-textarea" id="memberMemo" rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-title">활동 중</span>
+                <span class="toggle-desc">끄면 정산 목록에서 제외됩니다.</span>
+              </span>
+              <input type="checkbox" class="toggle-switch" id="memberActive" checked>
+            </label>
+          </div>
+          <div class="modal-actions">
+            <button type="button" id="memberDeleteBtn" onclick="deleteCurrentMember()" class="btn-danger" style="flex:1;">삭제</button>
+            <button type="submit" class="btn-submit" id="memberSaveBtn" style="flex:2;margin-top:0;">멤버 등록</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile "더보기" Menu -->
+  <div class="modal-overlay" id="moreMenuOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">전체 메뉴</h3>
+        <button class="modal-close" onclick="closeMoreMenu()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="more-menu">
+          <button class="more-item" onclick="switchPage('calendar')"><span>📅</span>캘린더</button>
+          <button class="more-item" onclick="switchPage('stats')"><span>📈</span>통계</button>
+          <button class="more-item" onclick="switchPage('teams')"><span>🎸</span>팀 관리</button>
+          <button class="more-item" onclick="switchPage('members')"><span>🥁</span>멤버 관리</button>
+          <button class="more-item" onclick="switchPage('inquiries')">
+            <span>📩</span>문의/민원
+            <span class="nav-badge" id="moreInquiryBadge" style="display:none;"></span>
+          </button>
+          <button class="more-item system-only" onclick="switchPage('blocked')"><span>🚫</span>차단 설정</button>
+          <button class="more-item system-only" onclick="switchPage('users')"><span>👥</span>계정 관리</button>
+          <button class="more-item system-only" onclick="switchPage('settings')"><span>⚙️</span>환경 설정</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast -->
   <div class="admin-toast" id="adminToast"></div>
 
-  <script src="/static/admin.js"></script>
+  <script src="/static/ticket-render.js"></script>
+  <script src="/static/admin/core.js"></script>
+  <script src="/static/admin/reservations.js"></script>
+  <script src="/static/admin/ops.js"></script>
+  <script src="/static/admin/teams.js"></script>
+  <script src="/static/admin/members.js"></script>
+  <script src="/static/admin/dues.js"></script>
+  <script src="/static/admin/tickets.js"></script>
+  <script src="/static/admin/users.js"></script>
+  <script src="/static/admin/settings.js"></script>
+  <script>init();</script>
 </body>
 </html>

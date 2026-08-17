@@ -533,6 +533,10 @@ a { text-decoration: none; }
   background: rgba(255, 255, 255, 0.85);
   color: #c2410c;
 }
+.res-status-badge.confirmed {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
 
 /* Blocked period overlay on timeline */
 .blocked-block {
@@ -1744,3 +1748,353 @@ a { text-decoration: none; }
   body:has(.admin-dashboard) .modal-header { padding-top: 20px; }
   body:has(.admin-dashboard) .modal-body   { padding-bottom: 24px; }
 }
+
+
+/* ============================================================
+   ADMIN: Sidebar groups · shared bits
+   ============================================================ */
+.sidebar-group {
+  padding: 16px 16px 6px;
+  font-size: 11px; font-weight: 800;
+  color: var(--text-light);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.sidebar-nav > .sidebar-group:first-child { padding-top: 4px; }
+
+.admin-note {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px; line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-target-sub { color: var(--text-sub); font-weight: 500; font-size: 13px; }
+
+.toggle-title { font-size: 14px; font-weight: 600; color: var(--text); display: block; }
+.toggle-desc  { font-size: 12px; color: var(--text-sub); }
+
+.form-group.disabled { opacity: .45; pointer-events: none; }
+
+/* ============================================================
+   ADMIN: Entity list (teams · members)
+   ============================================================ */
+.entity-list { display: flex; flex-direction: column; gap: 10px; }
+.entity-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.entity-item.inactive { opacity: .55; }
+.entity-avatar {
+  width: 42px; height: 42px; flex: none;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #fff;
+}
+.entity-avatar.team   { background: var(--room1); }
+.entity-avatar.member { background: var(--room2); }
+.entity-meta { flex: 1; min-width: 0; }
+.entity-meta-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.entity-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.entity-meta-bottom {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: 12px; color: var(--text-sub);
+}
+
+.part-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.part-tag {
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px; border-radius: 6px;
+  background: var(--room2-light); color: var(--room2);
+}
+.part-tag.empty { background: var(--bg); color: var(--text-light); font-weight: 500; }
+
+.fee-badge {
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px; border-radius: 6px;
+  background: var(--primary-light); color: var(--primary-dark);
+}
+.fee-badge.exempt  { background: #F3F4F6; color: var(--text-sub); }
+.fee-badge.default { background: var(--bg); color: var(--text-sub); }
+
+.part-checks { display: flex; gap: 8px; flex-wrap: wrap; }
+.part-check {
+  position: relative;
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px; font-weight: 600; color: var(--text-sub);
+  cursor: pointer; user-select: none;
+  transition: all .15s;
+}
+.part-check input { position: absolute; opacity: 0; pointer-events: none; }
+.part-check.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+/* ============================================================
+   ADMIN: Dues (월회비)
+   ============================================================ */
+.dues-progress { margin: 4px 0 16px; }
+.dues-progress-track {
+  height: 10px; border-radius: 5px;
+  background: var(--border); overflow: hidden;
+}
+.dues-progress-fill {
+  height: 100%; border-radius: 5px;
+  background: var(--success);
+  transition: width .35s cubic-bezier(.2,.8,.3,1);
+}
+.dues-progress-text {
+  margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--text-sub);
+}
+
+.dues-list { display: flex; flex-direction: column; gap: 8px; }
+.dues-row {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+.dues-row.status-paid    { border-left-color: var(--success); }
+.dues-row.status-unpaid  { border-left-color: var(--danger); }
+.dues-row.status-pending { border-left-color: var(--warning); }
+.dues-row.status-exempt  { border-left-color: var(--text-light); opacity: .7; }
+.dues-member { flex: 1; min-width: 140px; }
+.dues-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.dues-sub  { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+.dues-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.dues-chip {
+  padding: 7px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  cursor: pointer; transition: all .15s;
+}
+.dues-chip:hover { border-color: var(--text-light); }
+.dues-chip.paid.active    { background: var(--success);     border-color: var(--success);     color: #fff; }
+.dues-chip.unpaid.active  { background: var(--danger);      border-color: var(--danger);      color: #fff; }
+.dues-chip.pending.active { background: var(--warning);     border-color: var(--warning);     color: #fff; }
+.dues-chip.exempt.active  { background: var(--text-light);  border-color: var(--text-light);  color: #fff; }
+
+/* ============================================================
+   ADMIN: Tickets — list
+   ============================================================ */
+.ticket-cards {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.ticket-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s, box-shadow .15s;
+}
+.ticket-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.ticket-thumb {
+  aspect-ratio: 3 / 4;
+  background: #1F2230 center/cover no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
+}
+.ticket-card-body { padding: 12px 14px; }
+.ticket-card-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.ticket-card-sub {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 6px; font-size: 12px; color: var(--text-sub);
+}
+.ticket-pub { font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+.ticket-pub.published { background: #D1FAE5; color: #047857; }
+.ticket-pub.draft     { background: var(--bg); color: var(--text-light); }
+
+/* ============================================================
+   Ticket canvas — shared by the admin editor and /t/{slug}
+   x/y are percentages and font-size is cqw (% of canvas width),
+   so the same numbers render identically at any screen size.
+   ============================================================ */
+.tk-canvas {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: #14161F center/cover no-repeat;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+/* 드래그 배치는 에디터에서만 한다. 공개 페이지에도 touch-action 을 걸면
+   티켓 위에서 손가락을 대는 순간 페이지 스크롤이 죽는다. */
+.tk-canvas.editing { touch-action: none; }
+.tk-canvas.no-bg {
+  background-image:
+    linear-gradient(135deg, #2A2E45 0%, #14161F 60%, #1B2233 100%);
+}
+.tk-el {
+  position: absolute;
+  max-width: 92%;
+  white-space: pre-wrap;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+.tk-el.editable { cursor: grab; }
+.tk-el.editable:active { cursor: grabbing; }
+.tk-el.selected {
+  outline: 2px dashed rgba(255,255,255,.85);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   ADMIN: Ticket editor
+   ============================================================ */
+.tk-topbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+.tk-back { flex: none; width: auto; padding: 0 14px; }
+.tk-title-input { flex: 1; min-width: 0; }
+.tk-topbar .btn-primary { flex: none; }
+
+.tk-toolbar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.tk-toolbar .btn-secondary { flex: none; width: auto; padding: 0 14px; height: 38px; }
+.tk-toolbar-label { font-size: 12px; font-weight: 700; color: var(--text-sub); }
+.tk-aspect { width: auto; min-width: 92px; height: 38px; padding: 0 34px 0 12px; }
+
+.tk-editor { display: grid; gap: 16px; grid-template-columns: 1fr; margin-top: 6px; }
+.tk-stage { min-width: 0; }
+.tk-hint { margin-top: 10px; font-size: 12px; color: var(--text-sub); text-align: center; }
+.tk-side { display: flex; flex-direction: column; gap: 14px; }
+.tk-panel-empty {
+  padding: 20px 4px; text-align: center;
+  font-size: 13px; color: var(--text-light); line-height: 1.7;
+}
+.tk-panel-row { display: flex; gap: 12px; }
+.tk-panel-row .form-group { flex: 1; }
+.tk-color input[type="color"] {
+  width: 100%; height: 46px; padding: 4px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); cursor: pointer;
+}
+.tk-panel-row input[type="range"] { width: 100%; accent-color: var(--primary); }
+.tk-del { width: 100%; margin-top: 12px; }
+.tk-share { display: flex; gap: 8px; margin-top: 12px; }
+.tk-share .btn-secondary { flex: none; width: auto; padding: 0 14px; }
+.tk-share.disabled { opacity: .45; pointer-events: none; }
+
+@media (min-width: 900px) {
+  .tk-editor { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+  .tk-stage { max-width: 460px; }
+}
+
+/* ============================================================
+   ADMIN: Mobile "더보기" menu
+   ============================================================ */
+.more-menu { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.more-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 14px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; color: var(--text);
+  cursor: pointer;
+}
+.more-item span:first-child { font-size: 20px; }
+
+/* ============================================================
+   USER: booking modal extras
+   ============================================================ */
+.time-max-hint {
+  margin: -8px 0 18px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-sub); text-align: center;
+}
+.link-inline {
+  display: inline-block;
+  margin-top: 8px; padding: 0;
+  background: none; border: none;
+  font-size: 13px; font-weight: 600;
+  color: var(--primary); cursor: pointer;
+}
+.link-inline:active { opacity: .6; }
+
+.fee-badge.monthly { background: #FEF3C7; color: #B45309; }
+
+.tk-slug-row { display: flex; align-items: center; gap: 6px; }
+.tk-slug-prefix {
+  font-size: 14px; font-weight: 700; color: var(--text-sub);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+.tk-slug-row .form-input { flex: 1; min-width: 0; }
+.tk-slug-hint { margin-top: 6px; font-size: 12px; color: var(--text-light); line-height: 1.5; }
+
+/* ============================================================
+   ADMIN: 팀 상세 · 도어즈 배지
+   ============================================================ */
+.doors-badge {
+  font-size: 11px; font-weight: 800;
+  padding: 3px 8px; border-radius: 6px;
+  background: #111827; color: #fff;
+  letter-spacing: .02em;
+}
+.fee-badge.dues { background: #DBEAFE; color: #1D4ED8; }
+
+.team-detail-head {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  font-size: 12px; color: var(--text-sub);
+  padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.team-detail-memo {
+  margin-top: 12px; padding: 12px 14px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--text-sub); line-height: 1.6;
+}
+
+.team-month-nav {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  margin: 16px 0 12px;
+}
+.team-month-label { font-size: 16px; font-weight: 700; color: var(--text); }
+
+.team-dues-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px; margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: #FEF2F2; color: #B91C1C;
+  font-size: 14px; font-weight: 700;
+}
+.team-dues-summary.done { background: #ECFDF5; color: #047857; }
+.team-dues-amount { font-weight: 800; }
+
+.dues-row.status-covered { border-left-color: var(--room2); opacity: .8; }
+.dues-team {
+  margin-left: 6px;
+  font-size: 11px; font-weight: 600;
+  color: var(--text-light);
+}
+
+.prepaid-note {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: var(--room2-light);
+  border-radius: var(--radius);
+  color: var(--room2);
+}
+.prepaid-note b { font-size: 15px; font-weight: 800; }
+.prepaid-note span { font-size: 13px; line-height: 1.6; opacity: .85; }

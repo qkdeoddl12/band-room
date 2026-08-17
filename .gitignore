@@ -14,6 +14,10 @@ venv/
 backend/logs/*.log
 backend/logs/*.log.*
 
+# Uploaded ticket backgrounds
+uploads/*
+!uploads/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db
