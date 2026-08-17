@@ -1112,12 +1112,9 @@
             <input type="number" min="0" step="10000" class="form-input" id="teamFee" placeholder="예: 200000">
           </div>
 
-          <div class="form-group" id="teamDuesFeeRow" style="display:none;">
-            <label class="form-label" for="teamDuesFee">
-              1인 월회비 (원)
-              <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(멤버별로 다르면 멤버 쪽이 우선)</span>
-            </label>
-            <input type="number" min="0" step="10000" class="form-input" id="teamDuesFee" placeholder="예: 30000">
+          <div class="admin-note" id="teamDuesFeeRow" style="display:none;margin-bottom:20px;">
+            회비 금액은 <b>환경 설정의 기본 월회비</b>를 따릅니다.
+            개인별로 다르면 멤버 수정에서 금액을 지정하세요.
           </div>
 
           <div class="form-group">
@@ -1171,31 +1168,30 @@
       </div>
       <div class="modal-body">
         <form id="memberForm" autocomplete="off">
-          <div class="form-group">
-            <label class="form-label" for="memberName">이름 <span style="color:var(--danger)">*</span></label>
-            <input type="text" class="form-input" id="memberName" maxlength="50" required>
+          <div class="tk-panel-row">
+            <div class="form-group">
+              <label class="form-label" for="memberName">이름 <span style="color:var(--danger)">*</span></label>
+              <input type="text" class="form-input" id="memberName" maxlength="50" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="memberPhone">연락처</label>
+              <input type="tel" class="form-input" id="memberPhone" maxlength="30" placeholder="010-0000-0000">
+            </div>
           </div>
-          <div class="form-group">
-            <label class="form-label" for="memberTeam">소속 팀</label>
-            <select class="form-select" id="memberTeam">
-              <option value="">무소속</option>
-            </select>
+
+          <div class="tk-panel-row">
+            <div class="form-group">
+              <label class="form-label" for="memberTeam">소속 팀</label>
+              <select class="form-select" id="memberTeam">
+                <option value="">무소속</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="memberJoined">가입일</label>
+              <input type="date" class="form-input" id="memberJoined">
+            </div>
           </div>
-          <div class="form-group">
-            <label class="toggle-row">
-              <span>
-                <span class="toggle-title">도어즈 멤버</span>
-                <span class="toggle-desc">팀 소속과 별개입니다. 팀으로 옮겨가도 도어즈 명부에는 남습니다.</span>
-              </span>
-              <input type="checkbox" class="toggle-switch" id="memberDoors" checked>
-            </label>
-          </div>
-          <div class="form-group">
-            <label class="form-label">가능한 포지션</label>
-            <div class="part-checks" id="memberParts"></div>
-            <input type="text" class="form-input part-other" id="memberPartsOther"
-                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
-          </div>
+
           <div class="tk-panel-row">
             <div class="form-group">
               <label class="form-label" for="memberGender">성별</label>
@@ -1211,51 +1207,52 @@
                      min="1900" max="2100" step="1" placeholder="예: 1995">
             </div>
           </div>
+
           <div class="form-group">
-            <label class="form-label" for="memberPhone">연락처</label>
-            <input type="tel" class="form-input" id="memberPhone" maxlength="30" placeholder="010-0000-0000">
+            <label class="form-label">가능한 포지션</label>
+            <div class="part-checks" id="memberParts"></div>
+            <input type="text" class="form-input part-other" id="memberPartsOther"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
           </div>
+
           <div class="form-group">
-            <label class="form-label" for="memberJoined">가입일</label>
-            <input type="date" class="form-input" id="memberJoined">
+            <label class="form-label">상태</label>
+            <div class="part-checks" id="memberFlags">
+              <label class="part-check active">
+                <input type="checkbox" id="memberActive" checked onchange="syncMemberFlags()">
+                <span>활동 중</span>
+              </label>
+              <label class="part-check active">
+                <input type="checkbox" id="memberDoors" checked onchange="syncMemberFlags()">
+                <span>도어즈 멤버</span>
+              </label>
+              <label class="part-check">
+                <input type="checkbox" id="memberNeedsCheck" onchange="syncMemberFlags()">
+                <span>활동 확인 필요</span>
+              </label>
+              <label class="part-check">
+                <input type="checkbox" id="memberExempt" onchange="syncMemberFlags()">
+                <span>회비 면제</span>
+              </label>
+            </div>
+            <div class="field-hint">
+              활동 중을 끄면 정산에서 빠집니다. 확인 필요는 표시만 하고 정산에는 남습니다.
+            </div>
           </div>
-          <div class="form-group">
-            <label class="toggle-row">
-              <span>
-                <span class="toggle-title">월회비 면제</span>
-                <span class="toggle-desc">면제 회원은 정산에서 자동으로 제외됩니다.</span>
-              </span>
-              <input type="checkbox" class="toggle-switch" id="memberExempt">
-            </label>
+
+          <div class="tk-panel-row">
+            <div class="form-group" id="memberFeeRow">
+              <label class="form-label" for="memberFee">
+                월회비 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(비우면 기본값)</span>
+              </label>
+              <input type="number" min="0" step="1000" class="form-input" id="memberFee" placeholder="예: 50000">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="memberMemo">메모</label>
+              <input type="text" class="form-input" id="memberMemo" maxlength="200" placeholder="특이사항">
+            </div>
           </div>
-          <div class="form-group" id="memberFeeRow">
-            <label class="form-label" for="memberFee">
-              월회비 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(비우면 기본 금액)</span>
-            </label>
-            <input type="number" min="0" step="1000" class="form-input" id="memberFee" placeholder="예: 50000">
-          </div>
-          <div class="form-group">
-            <label class="form-label" for="memberMemo">메모</label>
-            <textarea class="form-textarea" id="memberMemo" rows="2"></textarea>
-          </div>
-          <div class="form-group">
-            <label class="toggle-row">
-              <span>
-                <span class="toggle-title">활동 중</span>
-                <span class="toggle-desc">끄면 정산 목록에서 제외됩니다.</span>
-              </span>
-              <input type="checkbox" class="toggle-switch" id="memberActive" checked>
-            </label>
-          </div>
-          <div class="form-group">
-            <label class="toggle-row">
-              <span>
-                <span class="toggle-title">활동 확인 필요</span>
-                <span class="toggle-desc">연락이 안 되거나 활동이 불확실할 때. 확인 전까지 정산 대상에는 그대로 남습니다.</span>
-              </span>
-              <input type="checkbox" class="toggle-switch" id="memberNeedsCheck">
-            </label>
-          </div>
+
           <div class="modal-actions">
             <button type="button" id="memberDeleteBtn" onclick="deleteCurrentMember()" class="btn-danger" style="flex:1;">삭제</button>
             <button type="submit" class="btn-submit" id="memberSaveBtn" style="flex:2;margin-top:0;">멤버 등록</button>

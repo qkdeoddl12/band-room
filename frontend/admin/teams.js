@@ -45,7 +45,7 @@ function teamBillingBadge(t) {
     if (fee) amount = ` ${fee.toLocaleString()}원`;
   }
   if (t.billing_type === 'dues') {
-    const fee = t.dues_fee ?? settingNum('default_monthly_fee');
+    const fee = settingNum('default_monthly_fee');
     if (fee) amount = ` 1인 ${fee.toLocaleString()}원`;
   }
   return `<span class="fee-badge ${meta.cls}">${meta.label}${amount}</span>`;
@@ -110,8 +110,6 @@ function openTeamModal(teamId = null) {
   // 새 팀이면 환경 설정의 기본 금액을 미리 채워둔다.
   document.getElementById('teamFee').value =
     t ? (t.monthly_fee ?? '') : (settingNum('default_team_fee') || '');
-  document.getElementById('teamDuesFee').value =
-    t ? (t.dues_fee ?? '') : (settingNum('default_monthly_fee') || '');
   syncTeamBilling();
 
   document.getElementById('teamDeleteBtn').style.display = t ? '' : 'none';
@@ -149,7 +147,6 @@ document.getElementById('teamForm').addEventListener('submit', async e => {
   e.preventDefault();
   const billing = selectedBilling();
   const feeRaw  = document.getElementById('teamFee').value.trim();
-  const duesRaw = document.getElementById('teamDuesFee').value.trim();
 
   const body = {
     name:         document.getElementById('teamName').value.trim(),
@@ -159,16 +156,13 @@ document.getElementById('teamForm').addEventListener('submit', async e => {
     memo:         document.getElementById('teamMemo').value.trim(),
     billing_type: billing,
     monthly_fee:  billing === 'monthly' ? Number(feeRaw || 0)  : null,
-    dues_fee:     billing === 'dues'    ? (duesRaw === '' ? null : Number(duesRaw)) : null,
+    dues_fee:     null,   // 팀별 회비는 쓰지 않는다 — 환경 설정 기본값 + 멤버별 금액으로 충분
     is_active:    document.getElementById('teamActive').checked,
   };
   if (!body.name) { showToast('팀 이름을 입력해주세요.', 'error'); return; }
-  for (const [key, label] of [['monthly_fee', '월 이용료'], ['dues_fee', '월회비']]) {
-    const v = body[key];
-    if (v !== null && (isNaN(v) || v < 0)) {
-      showToast(`${label}는 0 이상의 숫자여야 합니다.`, 'error');
-      return;
-    }
+  if (body.monthly_fee !== null && (isNaN(body.monthly_fee) || body.monthly_fee < 0)) {
+    showToast('월 이용료는 0 이상의 숫자여야 합니다.', 'error');
+    return;
   }
 
   const btn = document.getElementById('teamSaveBtn');

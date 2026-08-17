@@ -149,7 +149,7 @@ function openMemberModal(memberId = null, presetTeamId = null) {
   document.getElementById('memberFee').value = (m && m.monthly_fee !== null && m.monthly_fee !== undefined)
     ? m.monthly_fee : '';
   renderPartPicker('memberParts', 'memberPartsOther', m?.parts);
-  syncMemberFeeState();
+  syncMemberFlags();
 
   document.getElementById('memberDeleteBtn').style.display = m ? '' : 'none';
   document.getElementById('memberSaveBtn').textContent = m ? '변경 저장' : '멤버 등록';
@@ -165,6 +165,14 @@ function closeMemberModal() {
 
 bindOverlayClose('memberOverlay', closeMemberModal);
 
+/* 상태 체크박스는 포지션 칩과 같은 모양이라 active 클래스를 직접 맞춰준다. */
+function syncMemberFlags() {
+  document.querySelectorAll('#memberFlags input').forEach(input => {
+    input.closest('.part-check').classList.toggle('active', input.checked);
+  });
+  syncMemberFeeState();
+}
+
 /* 면제 회원은 금액 입력이 의미 없으므로 비활성화 */
 function syncMemberFeeState() {
   const exempt = document.getElementById('memberExempt').checked;
@@ -172,8 +180,6 @@ function syncMemberFeeState() {
   fee.disabled = exempt;
   document.getElementById('memberFeeRow').classList.toggle('disabled', exempt);
 }
-
-document.getElementById('memberExempt').addEventListener('change', syncMemberFeeState);
 
 document.getElementById('memberForm').addEventListener('submit', async e => {
   e.preventDefault();
