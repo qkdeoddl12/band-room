@@ -680,21 +680,24 @@
 
             <div class="dashboard-card">
               <div class="dashboard-card-header">
-                <h3 class="dashboard-card-title">월회비</h3>
-                <div class="dashboard-card-sub">멤버별로 다르게 지정하지 않은 경우 이 금액을 씁니다.</div>
+                <h3 class="dashboard-card-title">요금 기본값</h3>
+                <div class="dashboard-card-sub">팀·멤버에 금액을 따로 지정하지 않으면 이 값을 씁니다.</div>
               </div>
+
+              <div class="settings-group-label">⏱ 시간당 — 예약 페이지 요금 계산</div>
+              <div id="settingsRooms"><div class="spinner"></div></div>
+
+              <div class="settings-group-label">📅 팀 월 이용료</div>
               <div class="form-group">
-                <label class="form-label" for="setFee">기본 월회비 (원)</label>
+                <label class="form-label" for="setTeamFee">기본 팀 월 이용료 (원)</label>
+                <input type="number" min="0" step="10000" class="form-input" id="setTeamFee">
+              </div>
+
+              <div class="settings-group-label">👥 월회비</div>
+              <div class="form-group">
+                <label class="form-label" for="setFee">기본 1인 월회비 (원)</label>
                 <input type="number" min="0" step="1000" class="form-input" id="setFee">
               </div>
-            </div>
-
-            <div class="dashboard-card">
-              <div class="dashboard-card-header">
-                <h3 class="dashboard-card-title">이용 요금</h3>
-                <div class="dashboard-card-sub">예약 페이지 요금 계산에 쓰입니다.</div>
-              </div>
-              <div id="settingsRooms"><div class="spinner"></div></div>
             </div>
 
             <button type="submit" class="btn-submit" id="settingsSaveBtn">설정 저장</button>

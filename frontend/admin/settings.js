@@ -14,6 +14,7 @@ async function loadSettings() {
     document.getElementById('setAccount').value = data.values.deposit_account || '';
     document.getElementById('setHolder').value  = data.values.deposit_holder || '';
     document.getElementById('setFee').value     = data.values.default_monthly_fee || '';
+    document.getElementById('setTeamFee').value = data.values.default_team_fee || '';
 
     body.innerHTML = data.rooms.map(r => `
       <div class="form-group">
@@ -41,6 +42,7 @@ document.getElementById('settingsForm').addEventListener('submit', async e => {
           deposit_account:     document.getElementById('setAccount').value.trim(),
           deposit_holder:      document.getElementById('setHolder').value.trim(),
           default_monthly_fee: document.getElementById('setFee').value.trim() || '0',
+          default_team_fee:    document.getElementById('setTeamFee').value.trim() || '0',
         },
       }),
     });
@@ -52,7 +54,7 @@ document.getElementById('settingsForm').addEventListener('submit', async e => {
       });
     }
 
-    await loadRooms();   // 요금이 바뀌었으니 캐시 갱신
+    await Promise.all([loadRooms(), loadAppSettings()]);   // 요금 캐시 갱신
     showToast('설정이 저장되었습니다.', 'success');
   } catch (e) {
     showToast(e.message, 'error');

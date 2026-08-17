@@ -14,7 +14,8 @@ let allBlocked      = [];
 let allInquiries    = [];
 
 let roomsById = {};         // {1: {id, name, hourly_price}, ...}
-let teamsById = {};         // {1: {id, name, monthly_fee}, ...}
+let teamsById = {};         // {1: {id, name, billing_type, ...}, ...}
+let appSettings = {};       // 요금 기본값 등 (환경 설정에서 관리)
 
 const DAY_KO = ['일','월','화','수','목','금','토'];
 
@@ -189,6 +190,19 @@ async function loadRooms() {
   } catch { roomsById = {}; }
 }
 
+/* 팀·멤버 등록창의 기본 금액 채우기에 쓴다. system 이 아니면 못 읽으므로 조용히 넘긴다. */
+async function loadAppSettings() {
+  try {
+    const data = await apiJson('/api/admin/settings');
+    appSettings = data.values || {};
+  } catch { appSettings = {}; }
+}
+
+function settingNum(key, fallback = 0) {
+  const n = Number(appSettings[key]);
+  return Number.isFinite(n) ? n : fallback;
+}
+
 /* 매출 계산에 필요 — 월정액 팀 예약은 시간당 요금이 0이다. */
 async function loadTeamsCache() {
   try {
@@ -274,7 +288,7 @@ async function showDashboard() {
     el.style.display = currentUser.role === 'system' ? '' : 'none';
   });
 
-  await Promise.all([loadRooms(), loadTeamsCache()]);
+  await Promise.all([loadRooms(), loadTeamsCache(), loadAppSettings()]);
   switchPage('dashboard');
   refreshInquiryBadge();
 }

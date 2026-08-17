@@ -36,11 +36,18 @@ function filterTeams() {
   renderTeams();
 }
 
+/* 금액을 따로 안 정했으면 환경 설정의 기본값을 보여준다. */
 function teamBillingBadge(t) {
   const meta = BILLING[t.billing_type] || BILLING.hourly;
   let amount = '';
-  if (t.billing_type === 'monthly' && t.monthly_fee != null) amount = ` ${t.monthly_fee.toLocaleString()}원`;
-  if (t.billing_type === 'dues' && t.dues_fee != null)       amount = ` 1인 ${t.dues_fee.toLocaleString()}원`;
+  if (t.billing_type === 'monthly') {
+    const fee = t.monthly_fee ?? settingNum('default_team_fee');
+    if (fee) amount = ` ${fee.toLocaleString()}원`;
+  }
+  if (t.billing_type === 'dues') {
+    const fee = t.dues_fee ?? settingNum('default_monthly_fee');
+    if (fee) amount = ` 1인 ${fee.toLocaleString()}원`;
+  }
   return `<span class="fee-badge ${meta.cls}">${meta.label}${amount}</span>`;
 }
 
@@ -100,8 +107,11 @@ function openTeamModal(teamId = null) {
   document.querySelectorAll('input[name="teamBilling"]').forEach(r => {
     r.checked = r.value === billing;
   });
-  document.getElementById('teamFee').value     = t?.monthly_fee ?? '';
-  document.getElementById('teamDuesFee').value = t?.dues_fee ?? '';
+  // 새 팀이면 환경 설정의 기본 금액을 미리 채워둔다.
+  document.getElementById('teamFee').value =
+    t ? (t.monthly_fee ?? '') : (settingNum('default_team_fee') || '');
+  document.getElementById('teamDuesFee').value =
+    t ? (t.dues_fee ?? '') : (settingNum('default_monthly_fee') || '');
   syncTeamBilling();
 
   document.getElementById('teamDeleteBtn').style.display = t ? '' : 'none';

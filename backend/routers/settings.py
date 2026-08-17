@@ -47,12 +47,13 @@ def update_settings(
     unknown = set(data.values) - EDITABLE_KEYS
     if unknown:
         raise HTTPException(400, f"알 수 없는 설정 항목: {', '.join(sorted(unknown))}")
-    if "default_monthly_fee" in data.values:
-        try:
-            if int(data.values["default_monthly_fee"]) < 0:
-                raise ValueError
-        except ValueError:
-            raise HTTPException(400, "기본 월회비는 0 이상의 숫자여야 합니다.")
+    for key, label in (("default_monthly_fee", "기본 월회비"), ("default_team_fee", "기본 팀 이용료")):
+        if key in data.values:
+            try:
+                if int(data.values[key]) < 0:
+                    raise ValueError
+            except ValueError:
+                raise HTTPException(400, f"{label}는 0 이상의 숫자여야 합니다.")
 
     for key, value in data.values.items():
         row = db.query(models.AppSetting).filter(models.AppSetting.key == key).first()

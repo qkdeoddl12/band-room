@@ -125,7 +125,8 @@ DEFAULT_SETTINGS = {
     "deposit_bank": "농협",
     "deposit_account": "352-1068-1777-83",
     "deposit_holder": "황은희",
-    "default_monthly_fee": "30000",
+    "default_monthly_fee": "30000",   # 멤버 1인 월회비
+    "default_team_fee": "0",          # 팀 월 이용료
 }
 
 

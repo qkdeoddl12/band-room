@@ -2229,3 +2229,16 @@ a { text-decoration: none; }
   background: #FEF3C7; color: #B45309;
 }
 .entity-item.needs-check { border-left: 4px solid var(--warning); }
+
+.entity-memo {
+  margin-top: 6px; padding: 7px 10px;
+  background: var(--bg); border-radius: 8px;
+  font-size: 12px; color: var(--text-sub); line-height: 1.5;
+}
+.settings-group-label {
+  margin: 18px 0 10px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px; font-weight: 800; color: var(--text-light);
+  letter-spacing: .05em;
+}
+.dashboard-card .settings-group-label:first-of-type { margin-top: 4px; padding-top: 0; border-top: none; }

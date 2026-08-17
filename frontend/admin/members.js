@@ -121,6 +121,7 @@ function renderMembers() {
           ${m.phone ? `<span>📞 ${escHtml(formatPhone(m.phone))}</span>` : ''}
           ${m.joined_on ? `<span>📅 ${escHtml(m.joined_on)} 가입</span>` : ''}
         </div>
+        ${m.memo ? `<div class="entity-memo">📝 ${escHtml(m.memo)}</div>` : ''}
       </div>
       <button class="btn-edit-user" onclick="openMemberModal(${m.id})">수정</button>
     </div>
