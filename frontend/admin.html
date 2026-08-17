@@ -430,6 +430,11 @@
           </div>
 
           <div class="filter-panel">
+            <div class="chip-row" role="tablist" aria-label="상태">
+              <button class="chip active" data-mstat="all" onclick="setMemberStatus('all')">전체</button>
+              <button class="chip" data-mstat="check" onclick="setMemberStatus('check')">⚠️ 확인 필요</button>
+              <button class="chip" data-mstat="inactive" onclick="setMemberStatus('inactive')">비활동</button>
+            </div>
             <select class="form-select" id="memberTeamFilter" onchange="filterMembers()"
                     style="margin-bottom:10px;">
               <option value="">전체 팀</option>
@@ -1237,6 +1242,15 @@
                 <span class="toggle-desc">끄면 정산 목록에서 제외됩니다.</span>
               </span>
               <input type="checkbox" class="toggle-switch" id="memberActive" checked>
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-title">활동 확인 필요</span>
+                <span class="toggle-desc">연락이 안 되거나 활동이 불확실할 때. 확인 전까지 정산 대상에는 그대로 남습니다.</span>
+              </span>
+              <input type="checkbox" class="toggle-switch" id="memberNeedsCheck">
             </label>
           </div>
           <div class="modal-actions">

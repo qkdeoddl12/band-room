@@ -196,6 +196,7 @@ class MemberCreate(BaseModel):
     birth_year: Optional[int] = Field(None, ge=1900, le=2100)
     joined_on: Optional[date] = None
     is_active: bool = True
+    needs_check: bool = False
     dues_exempt: bool = False
     monthly_fee: Optional[int] = Field(None, ge=0)
     memo: Optional[str] = None
@@ -211,6 +212,7 @@ class MemberUpdate(BaseModel):
     birth_year: Optional[int] = Field(None, ge=1900, le=2100)
     joined_on: Optional[date] = None
     is_active: Optional[bool] = None
+    needs_check: Optional[bool] = None
     dues_exempt: Optional[bool] = None
     monthly_fee: Optional[int] = Field(None, ge=0)
     memo: Optional[str] = None
@@ -228,6 +230,7 @@ class MemberResponse(BaseModel):
     birth_year: Optional[int] = None
     joined_on: Optional[date] = None
     is_active: bool
+    needs_check: bool = False
     dues_exempt: bool
     monthly_fee: Optional[int] = None
     memo: Optional[str] = None

@@ -2222,3 +2222,10 @@ a { text-decoration: none; }
   width: 52px; flex: none; aspect-ratio: 3 / 4;
   border-radius: 8px; font-size: 20px;
 }
+
+.check-badge {
+  font-size: 11px; font-weight: 800;
+  padding: 3px 8px; border-radius: 6px;
+  background: #FEF3C7; color: #B45309;
+}
+.entity-item.needs-check { border-left: 4px solid var(--warning); }

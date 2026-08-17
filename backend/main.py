@@ -50,6 +50,7 @@ def migrate_schema():
         "ALTER TABLE teams ADD COLUMN IF NOT EXISTS parts VARCHAR(200)",
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS team_id INTEGER REFERENCES teams(id)",
         "ALTER TABLE members ADD COLUMN IF NOT EXISTS is_doors BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE members ADD COLUMN IF NOT EXISTS needs_check BOOLEAN NOT NULL DEFAULT FALSE",
     ]
     with engine.begin() as conn:
         for stmt in statements:

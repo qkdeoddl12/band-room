@@ -22,6 +22,7 @@ def list_members(
     active: Optional[bool] = None,
     team_id: Optional[int] = None,
     doors: Optional[bool] = None,
+    needs_check: Optional[bool] = None,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -32,6 +33,8 @@ def list_members(
         query = query.filter(models.Member.team_id == team_id)
     if doors is not None:
         query = query.filter(models.Member.is_doors == doors)
+    if needs_check is not None:
+        query = query.filter(models.Member.needs_check == needs_check)
     members = query.order_by(models.Member.is_active.desc(), models.Member.name).all()
     return [_member_response(m) for m in members]
 
@@ -57,6 +60,7 @@ def create_member(
         birth_year=data.birth_year,
         joined_on=data.joined_on,
         is_active=data.is_active,
+        needs_check=data.needs_check,
         dues_exempt=data.dues_exempt,
         monthly_fee=data.monthly_fee,
         memo=(data.memo or '').strip() or None,
@@ -96,7 +100,7 @@ def update_member(
             raise HTTPException(400, "존재하지 않는 팀입니다.")
         member.team_id = fields['team_id']
     for field in ('gender', 'birth_year', 'joined_on', 'is_active',
-                  'dues_exempt', 'monthly_fee', 'is_doors'):
+                  'dues_exempt', 'monthly_fee', 'is_doors', 'needs_check'):
         if field in fields:
             setattr(member, field, fields[field])
 

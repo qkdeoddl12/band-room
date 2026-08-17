@@ -132,6 +132,9 @@ class Member(Base):
     is_doors = Column(Boolean, default=True, nullable=False)
     joined_on = Column(Date)
     is_active = Column(Boolean, default=True, nullable=False)
+    # 연락이 안 되거나 최근 활동이 불확실한 멤버 표시. is_active 와 별개라
+    # 확인 전까지는 정산 대상에 그대로 남는다.
+    needs_check = Column(Boolean, default=False, nullable=False)
     dues_exempt = Column(Boolean, default=False, nullable=False)
     monthly_fee = Column(Integer)  # null = use app_settings.default_monthly_fee
     memo = Column(Text)

@@ -6,6 +6,7 @@
 let allMembers    = [];
 let memberSearch  = '';
 let memberTeamFil = '';
+let memberStatus  = 'all';
 let editMemberId  = null;
 let returnToTeamId = null;   // 팀 상세에서 넘어온 경우 저장 후 그리로 돌아간다
 
@@ -22,6 +23,14 @@ async function loadMembers() {
     list.innerHTML = `<div class="admin-empty"><span class="admin-empty-icon">⚠️</span><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
     return;
   }
+  renderMembers();
+}
+
+function setMemberStatus(s) {
+  memberStatus = s;
+  document.querySelectorAll('#membersPage .chip[data-mstat]').forEach(c => {
+    c.classList.toggle('active', c.dataset.mstat === s);
+  });
   renderMembers();
 }
 
@@ -74,6 +83,8 @@ function feeBadge(m) {
 function renderMembers() {
   const list = document.getElementById('memberList');
   const items = allMembers.filter(m => {
+    if (memberStatus === 'check'    && !m.needs_check) return false;
+    if (memberStatus === 'inactive' && m.is_active)    return false;
     if (memberTeamFil === 'none' && m.team_id) return false;
     if (memberTeamFil && memberTeamFil !== 'none' && String(m.team_id) !== memberTeamFil) return false;
     if (!memberSearch) return true;
@@ -82,8 +93,10 @@ function renderMembers() {
 
   const active = allMembers.filter(m => m.is_active).length;
   const doors  = allMembers.filter(m => m.is_active && m.is_doors).length;
+  const check  = allMembers.filter(m => m.needs_check).length;
   document.getElementById('memberCount').textContent =
-    `활동 ${active}명 (도어즈 ${doors}명) · 전체 ${allMembers.length}명`;
+    `활동 ${active}명 (도어즈 ${doors}명) · 전체 ${allMembers.length}명` +
+    (check ? ` · ⚠️ 확인 필요 ${check}명` : '');
 
   if (items.length === 0) {
     list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">🥁</span><div class="admin-empty-text">등록된 멤버가 없습니다.</div></div>';
@@ -91,12 +104,13 @@ function renderMembers() {
   }
 
   list.innerHTML = '<div class="entity-list">' + items.map(m => `
-    <div class="entity-item${m.is_active ? '' : ' inactive'}">
+    <div class="entity-item${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}">
       <div class="entity-avatar member">${escHtml(m.name.charAt(0))}</div>
       <div class="entity-meta">
         <div class="entity-meta-top">
           <span class="entity-name">${escHtml(m.name)}</span>
           ${m.is_active ? '' : '<span class="user-inactive-tag">비활동</span>'}
+          ${m.needs_check ? '<span class="check-badge">확인 필요</span>' : ''}
           ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
           ${feeBadge(m)}
         </div>
@@ -129,6 +143,7 @@ function openMemberModal(memberId = null, presetTeamId = null) {
   document.getElementById('memberJoined').value  = m?.joined_on || '';
   document.getElementById('memberMemo').value    = m?.memo || '';
   document.getElementById('memberActive').checked = m ? m.is_active : true;
+  document.getElementById('memberNeedsCheck').checked = m ? !!m.needs_check : false;
   document.getElementById('memberExempt').checked = m ? m.dues_exempt : false;
   document.getElementById('memberFee').value = (m && m.monthly_fee !== null && m.monthly_fee !== undefined)
     ? m.monthly_fee : '';
@@ -175,6 +190,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
     joined_on:   document.getElementById('memberJoined').value || null,
     memo:        document.getElementById('memberMemo').value.trim(),
     is_active:   document.getElementById('memberActive').checked,
+    needs_check: document.getElementById('memberNeedsCheck').checked,
     dues_exempt: document.getElementById('memberExempt').checked,
     monthly_fee: feeRaw === '' ? null : Number(feeRaw),
   };
