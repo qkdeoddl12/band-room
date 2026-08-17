@@ -390,7 +390,7 @@ function cancelChangePassword() {
 /* ============================================================
    Page Switching
    ============================================================ */
-const SYSTEM_ONLY_PAGES = ['users', 'settings', 'blocked'];
+const SYSTEM_ONLY_PAGES = ['users', 'settings', 'blocked', 'audit'];
 
 function switchPage(page) {
   if (SYSTEM_ONLY_PAGES.includes(page) && currentUser?.role !== 'system') return;

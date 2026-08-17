@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, clean_parts
+from deps import get_current_admin, normalize_phone, clean_parts, audit
 import models
 import schemas
 
@@ -42,6 +42,7 @@ def list_members(
 @router.post("", response_model=schemas.MemberResponse)
 def create_member(
     data: schemas.MemberCreate,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -70,6 +71,8 @@ def create_member(
     db.refresh(member)
     log_event("member_created", id=member.id, name=member.name,
               team_id=member.team_id, by=admin.username)
+    audit(db, admin, "member.create", member.name,
+          f"소속 {member.team.name if member.team else '무소속'}", request)
     return _member_response(member)
 
 
@@ -77,6 +80,7 @@ def create_member(
 def update_member(
     member_id: int,
     data: schemas.MemberUpdate,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -108,12 +112,15 @@ def update_member(
     db.refresh(member)
     log_event("member_updated", id=member.id, name=member.name,
               team_id=member.team_id, by=admin.username)
+    audit(db, admin, "member.update", member.name,
+          "바꾼 항목: " + (", ".join(fields) or "없음"), request)
     return _member_response(member)
 
 
 @router.delete("/{member_id}")
 def delete_member(
     member_id: int,
+    request: Request,
     force: bool = False,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
@@ -132,4 +139,6 @@ def delete_member(
     db.delete(member)
     db.commit()
     log_event("member_deleted", id=member_id, name=name, by=admin.username)
+    audit(db, admin, "member.delete", name,
+          "회비 기록까지 삭제" if force else None, request)
     return {"message": "삭제되었습니다."}

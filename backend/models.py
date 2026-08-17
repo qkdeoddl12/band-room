@@ -190,6 +190,20 @@ class Ticket(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
 
+class AuditLog(Base):
+    """관리자가 무엇을 바꿨는지 남긴다. 파일 로그와 달리 화면에서 조회된다.
+    조회(GET)는 남기지 않는다 — 바뀐 것만 추적한다."""
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    at = Column(DateTime, server_default=func.now(), index=True)
+    username = Column(String(50), index=True)
+    action = Column(String(50), nullable=False, index=True)  # 'team.create' 같은 형태
+    target = Column(String(200))    # 무엇을 대상으로 했는지 (이름 위주)
+    detail = Column(Text)           # 사람이 읽는 한 줄 설명
+    ip = Column(String(50))
+
+
 class AppSetting(Base):
     __tablename__ = "app_settings"
 

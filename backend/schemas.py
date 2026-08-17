@@ -363,6 +363,18 @@ class MemberCheckResponse(BaseModel):
     message: str = ''
 
 
+# ========== Audit log ==========
+class AuditLogResponse(BaseModel):
+    id: int
+    at: datetime
+    username: Optional[str] = None
+    action: str
+    target: Optional[str] = None
+    detail: Optional[str] = None
+    ip: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
 # ========== Settings ==========
 class PublicSettings(BaseModel):
     deposit_bank: str = ''

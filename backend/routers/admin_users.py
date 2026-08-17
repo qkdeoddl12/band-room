@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List
 
 from database import get_db
 from app_logging import log_event
-from deps import require_system_admin, hash_password, generate_temp_password
+from deps import require_system_admin, hash_password, generate_temp_password, audit
 import models
 import schemas
 
@@ -22,6 +22,7 @@ def list_admin_users(
 @router.post("", response_model=schemas.CreateUserResponse)
 def create_admin_user(
     data: schemas.CreateUserRequest,
+    request: Request,
     admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
@@ -45,6 +46,8 @@ def create_admin_user(
         target=new_user.username,
         role=new_user.role,
     )
+    audit(db, admin, "account.create", new_user.username,
+          f"권한 {new_user.role}", request)
     return {"user": new_user, "temp_password": temp_password}
 
 
@@ -52,6 +55,7 @@ def create_admin_user(
 def update_admin_user(
     user_id: int,
     data: schemas.UpdateUserRequest,
+    request: Request,
     admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
@@ -98,12 +102,15 @@ def update_admin_user(
         target=user.username,
         changes=",".join(changes) if changes else "none",
     )
+    audit(db, admin, "account.update", user.username,
+          ", ".join(changes) if changes else "변경 없음", request)
     return user
 
 
 @router.delete("/{user_id}")
 def delete_admin_user(
     user_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
@@ -126,4 +133,5 @@ def delete_admin_user(
     db.delete(user)
     db.commit()
     log_event("user_deleted", by=admin.username, target=target_username)
+    audit(db, admin, "account.delete", target_username, request=request)
     return {"message": "삭제되었습니다."}

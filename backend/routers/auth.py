@@ -9,7 +9,7 @@ from database import get_db
 from app_logging import log_event
 from deps import (
     SESSION_TTL, get_current_admin, get_current_admin_raw,
-    hash_password, verify_password,
+    hash_password, verify_password, audit,
 )
 import models
 import schemas
@@ -60,6 +60,7 @@ def admin_login(
         raise HTTPException(401, "아이디 또는 비밀번호가 틀렸습니다.")
 
     _login_fails.pop(data.username, None)
+    audit(db, user, "auth.login", user.username, request=request)
     token = secrets.token_hex(32)
     db.add(models.AdminSession(
         token=token,
@@ -95,6 +96,7 @@ def admin_change_password(
     db.commit()
     db.refresh(admin)
     log_event("password_changed", username=admin.username)
+    audit(db, admin, "auth.password_change", admin.username)
     return admin
 
 

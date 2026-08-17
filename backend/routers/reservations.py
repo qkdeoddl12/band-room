@@ -9,7 +9,7 @@ import logging
 from database import get_db
 from broadcaster import broadcaster
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, member_dues_ok
+from deps import get_current_admin, normalize_phone, member_dues_ok, audit
 import models
 import schemas
 
@@ -236,6 +236,7 @@ def create_reservation(
 @router.post("/api/reservations/{reservation_id}/confirm", response_model=schemas.ReservationResponse)
 def confirm_reservation(
     reservation_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -266,12 +267,15 @@ def confirm_reservation(
         team=res.team_name,
         by=admin.username,
     )
+    audit(db, admin, "reservation.confirm", res.team_name,
+          f"{res.date} {res.start_time}~{res.end_time}", request)
     return res
 
 
 @router.delete("/api/reservations/{reservation_id}")
 def delete_reservation(
     reservation_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -284,6 +288,8 @@ def delete_reservation(
         "date": str(res.date),
     }
     team = res.team_name
+    audit(db, admin, "reservation.delete", team,
+          f"{res.date} {res.start_time}~{res.end_time}", request)
     db.delete(res)
     db.commit()
     broadcaster.publish("reservation_deleted", payload)

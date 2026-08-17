@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from datetime import date
 from typing import List, Optional
@@ -6,7 +6,7 @@ import re
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, default_monthly_fee, resolve_member_fee
+from deps import get_current_admin, default_monthly_fee, resolve_member_fee, audit
 import models
 import schemas
 
@@ -133,6 +133,7 @@ def upsert_dues(
     member_id: int,
     year_month: str,
     data: schemas.DuesUpsert,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -170,6 +171,8 @@ def upsert_dues(
         amount=rec.amount,
         by=admin.username,
     )
+    audit(db, admin, "dues.update", f"{member.name} {year_month}",
+          f"{rec.status} {rec.amount:,}원", request)
     return schemas.DuesRow(
         member_id=member.id, team_id=member.team_id,
         team_name=member.team.name if member.team else None,

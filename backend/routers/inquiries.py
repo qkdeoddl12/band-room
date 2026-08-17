@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone
+from deps import get_current_admin, normalize_phone, audit
 import models
 import schemas
 
@@ -52,6 +52,7 @@ def list_inquiries(
 @router.post("/api/admin/inquiries/{inquiry_id}/resolve", response_model=schemas.InquiryResponse)
 def resolve_inquiry(
     inquiry_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -66,12 +67,14 @@ def resolve_inquiry(
     db.commit()
     db.refresh(inq)
     log_event("inquiry_resolved", id=inq.id, category=inq.category, by=admin.username)
+    audit(db, admin, "inquiry.resolve", f"#{inq.id} {inq.category}", request=request)
     return inq
 
 
 @router.delete("/api/admin/inquiries/{inquiry_id}")
 def delete_inquiry(
     inquiry_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -81,4 +84,5 @@ def delete_inquiry(
     db.delete(inq)
     db.commit()
     log_event("inquiry_deleted", id=inquiry_id, by=admin.username)
+    audit(db, admin, "inquiry.delete", f"#{inquiry_id}", request=request)
     return {"message": "삭제되었습니다."}

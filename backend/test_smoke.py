@@ -19,7 +19,9 @@ PASS = os.getenv("INITIAL_ADMIN_PASSWORD", "")   # 기본값을 두지 않는다
 
 MARK = "[smoke]"
 client = httpx.Client(base_url=BASE, timeout=20.0)
-created = {"team": None, "member": None, "ticket": None, "reservation": None}
+created = {"team": None, "member": None, "member2": None, "ticket": None,
+           "reservation": None, "reservation2": None, "reservation3": None,
+           "reservation4": None}
 
 
 def login(username, password):
@@ -65,9 +67,12 @@ def test_teams(h):
 
 def test_reservation(h, team):
     day = str(date.today() + timedelta(days=90))   # far out, so it won't collide
-    body = {"room_id": 1, "date": day, "start_time": "09:00:00", "duration": 2}
+    rooms = client.get("/api/rooms").json()
+    team_room = next(r for r in rooms if r["booking_mode"] == "team")
+    body = {"room_id": team_room["id"], "date": day, "start_time": "09:00:00", "duration": 2}
 
-    assert client.post("/api/reservations", json=body).status_code == 422, "team_id is required"
+    no_team = client.post("/api/reservations", json=body)
+    assert no_team.status_code == 400, f"team room needs a team, got {no_team.status_code}"
 
     bad = client.post("/api/reservations", json={**body, "team_id": 999999})
     assert bad.status_code == 400, f"unknown team must be rejected, got {bad.status_code}"
@@ -81,6 +86,49 @@ def test_reservation(h, team):
 
     clash = client.post("/api/reservations", json={**body, "team_id": team["id"]})
     assert clash.status_code == 400, "overlapping reservation must be rejected"
+
+
+def test_personal_room(h):
+    """개인연습실 — 회비 낸 멤버는 무료 즉시 확정, 게스트는 연락처 필수."""
+    rooms = client.get("/api/rooms").json()
+    personal = next((r for r in rooms if r["booking_mode"] == "personal"), None)
+    if not personal:
+        print("  (개인 단위 방이 없어 건너뜀)")
+        return
+
+    day = date.today() + timedelta(days=91)
+    ym = day.strftime("%Y-%m")
+    name = f"{MARK}개인이용자"
+    m = client.post("/api/admin/members", headers=h, json={"name": name}).json()
+    created["member2"] = m["id"]
+
+    base = {"room_id": personal["id"], "date": str(day),
+            "start_time": "09:00:00", "duration": 1}
+
+    # 회비 전 — 시간당 요금, 입금 대기
+    before = client.post("/api/reservations", json={**base, "booker_name": name}).json()
+    created["reservation2"] = before["id"]
+    assert before["status"] == "pending" and not before["is_free"], before
+
+    # 회비 납부 후 — 무료, 즉시 확정
+    client.put(f"/api/admin/dues/{m['id']}/{ym}", headers=h, json={"status": "paid"})
+    after = client.post("/api/reservations", json={
+        **base, "start_time": "11:00:00", "booker_name": name}).json()
+    created["reservation3"] = after["id"]
+    assert after["status"] == "confirmed" and after["is_free"], after
+    assert after["member_id"] == m["id"]
+
+    # 게스트 — 연락처가 없으면 거부
+    guest = client.post("/api/reservations", json={
+        **base, "start_time": "13:00:00", "booker_name": f"{MARK}게스트"})
+    assert guest.status_code == 400, "게스트는 연락처가 필요하다"
+
+    ok = client.post("/api/reservations", json={
+        **base, "start_time": "13:00:00",
+        "booker_name": f"{MARK}게스트", "booker_phone": "010-1234-5678"}).json()
+    created["reservation4"] = ok["id"]
+    assert ok["member_id"] is None and not ok["is_free"], ok
+    assert ok["booker_phone"] == "01012345678", "전화번호는 숫자만 저장"
 
 
 def test_members_and_dues(h):
@@ -182,12 +230,14 @@ def test_settings(h):
 
 
 def cleanup(h):
-    if created["reservation"]:
-        client.delete(f"/api/reservations/{created['reservation']}", headers=h)
+    for key in ("reservation", "reservation2", "reservation3", "reservation4"):
+        if created[key]:
+            client.delete(f"/api/reservations/{created[key]}", headers=h)
     if created["ticket"]:
         client.delete(f"/api/admin/tickets/{created['ticket']}", headers=h)
-    if created["member"]:
-        client.delete(f"/api/admin/members/{created['member']}?force=true", headers=h)
+    for key in ("member", "member2"):
+        if created[key]:
+            client.delete(f"/api/admin/members/{created[key]}?force=true", headers=h)
     if created["team"]:
         client.delete(f"/api/admin/teams/{created['team']}", headers=h)
 
@@ -206,6 +256,7 @@ def main():
         h = auth(token)
         team = test_teams(h);                  steps.append("teams")
         test_reservation(h, team);             steps.append("reservations")
+        test_personal_room(h);                 steps.append("personal room")
         test_members_and_dues(h);              steps.append("members + dues")
         test_tickets(h);                       steps.append("tickets")
         test_upload_guards(h);                 steps.append("upload guards")

@@ -16,7 +16,7 @@ import models
 
 from routers import (
     auth, reservations, admin_users, inquiries, blocked,
-    teams, members, dues, tickets, settings,
+    teams, members, dues, tickets, settings, audit,
 )
 
 models.Base.metadata.create_all(bind=engine)
@@ -171,7 +171,7 @@ async def access_log_middleware(request: Request, call_next):
 # ========== Routers ==========
 for module in (
     auth, reservations, admin_users, inquiries, blocked,
-    teams, members, dues, tickets, settings,
+    teams, members, dues, tickets, settings, audit,
 ):
     app.include_router(module.router)
 

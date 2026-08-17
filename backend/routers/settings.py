@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from database import get_db
 from app_logging import log_event
-from deps import require_system_admin, get_settings, DEFAULT_SETTINGS
+from deps import require_system_admin, get_settings, DEFAULT_SETTINGS, audit
 import models
 import schemas
 
@@ -45,6 +45,7 @@ def admin_settings(
 @router.put("/api/admin/settings")
 def update_settings(
     data: schemas.SettingsUpdate,
+    request: Request,
     admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
@@ -67,6 +68,8 @@ def update_settings(
             db.add(models.AppSetting(key=key, value=value))
     db.commit()
     log_event("settings_updated", keys=",".join(sorted(data.values)), by=admin.username)
+    audit(db, admin, "settings.update", ", ".join(sorted(data.values)),
+          request=request)
     return {"values": get_settings(db)}
 
 
@@ -74,6 +77,7 @@ def update_settings(
 def update_room_price(
     room_id: int,
     payload: dict,
+    request: Request,
     admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
@@ -99,6 +103,8 @@ def update_room_price(
         "room_updated", room_id=room_id, price=price,
         mode=room.booking_mode, by=admin.username,
     )
+    audit(db, admin, "room.update", room.name,
+          f"시간당 {price:,}원 · 예약 단위 {room.booking_mode}", request)
     return {
         "id": room.id, "name": room.name,
         "hourly_price": room.hourly_price, "booking_mode": room.booking_mode,

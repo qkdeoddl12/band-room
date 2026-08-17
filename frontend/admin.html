@@ -152,6 +152,9 @@
           <li class="sidebar-item system-only" data-page="users" onclick="switchPage('users')">
             <span class="sidebar-icon">👥</span> 계정 관리
           </li>
+          <li class="sidebar-item system-only" data-page="audit" onclick="switchPage('audit')">
+            <span class="sidebar-icon">🧾</span> 감사 로그
+          </li>
           <li class="sidebar-item system-only" data-page="settings" onclick="switchPage('settings')">
             <span class="sidebar-icon">⚙️</span> 환경 설정
           </li>
@@ -647,6 +650,29 @@
               </div>
             </div>
           </div>
+        </div>
+
+        <!-- ===== AUDIT LOG PAGE (system admin only) ===== -->
+        <div class="admin-page" id="auditPage" style="display:none;">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">감사 로그</h2>
+              <p class="page-subtitle" id="auditCount">누가 무엇을 바꿨는지 남습니다. 조회는 기록하지 않습니다.</p>
+            </div>
+            <button class="btn-secondary tk-back" onclick="loadAudit()">새로고침</button>
+          </div>
+
+          <div class="filter-panel">
+            <div class="chip-row" role="tablist" aria-label="기간">
+              <button class="chip" data-adays="1" onclick="setAuditDays(1)">오늘</button>
+              <button class="chip" data-adays="7" onclick="setAuditDays(7)">7일</button>
+              <button class="chip active" data-adays="30" onclick="setAuditDays(30)">30일</button>
+              <button class="chip" data-adays="365" onclick="setAuditDays(365)">1년</button>
+            </div>
+            <div class="chip-row" id="auditActions" role="tablist" aria-label="동작"></div>
+          </div>
+
+          <div id="auditList"><div class="spinner"></div></div>
         </div>
 
         <!-- ===== SETTINGS PAGE (system admin only) ===== -->
@@ -1310,6 +1336,7 @@
           </button>
           <button class="more-item system-only" onclick="switchPage('blocked')"><span>🚫</span>차단 설정</button>
           <button class="more-item system-only" onclick="switchPage('users')"><span>👥</span>계정 관리</button>
+          <button class="more-item system-only" onclick="switchPage('audit')"><span>🧾</span>감사 로그</button>
           <button class="more-item system-only" onclick="switchPage('settings')"><span>⚙️</span>환경 설정</button>
         </div>
       </div>
@@ -1328,6 +1355,7 @@
   <script src="/static/admin/dues.js"></script>
   <script src="/static/admin/tickets.js"></script>
   <script src="/static/admin/users.js"></script>
+  <script src="/static/admin/audit.js"></script>
   <script src="/static/admin/settings.js"></script>
   <script>init();</script>
 </body>

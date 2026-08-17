@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Request
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 from typing import List
@@ -8,7 +8,7 @@ import secrets
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin
+from deps import get_current_admin, audit
 import models
 import schemas
 
@@ -94,6 +94,7 @@ def list_tickets(
 @router.post("/api/admin/tickets", response_model=schemas.TicketResponse)
 def create_ticket(
     data: schemas.TicketCreate,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -106,6 +107,7 @@ def create_ticket(
     db.commit()
     db.refresh(ticket)
     log_event("ticket_created", id=ticket.id, slug=ticket.slug, by=admin.username)
+    audit(db, admin, "ticket.create", ticket.title, f"/t/{ticket.slug}", request)
     return ticket
 
 
@@ -125,6 +127,7 @@ def get_ticket(
 def update_ticket(
     ticket_id: int,
     data: schemas.TicketUpdate,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -168,12 +171,16 @@ def update_ticket(
         elements=len(ticket.elements or []),
         by=admin.username,
     )
+    audit(db, admin, "ticket.update", ticket.title,
+          ("공개" if ticket.is_published else "비공개") +
+          " · 바꾼 항목: " + (", ".join(fields) or "없음"), request)
     return ticket
 
 
 @router.delete("/api/admin/tickets/{ticket_id}")
 def delete_ticket(
     ticket_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -184,6 +191,7 @@ def delete_ticket(
     db.delete(ticket)
     db.commit()
     log_event("ticket_deleted", id=ticket_id, slug=slug, by=admin.username)
+    audit(db, admin, "ticket.delete", slug, request=request)
     return {"message": "삭제되었습니다."}
 
 

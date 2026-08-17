@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 from typing import List
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, clean_parts
+from deps import get_current_admin, normalize_phone, clean_parts, audit
 import models
 import schemas
 
@@ -64,6 +64,7 @@ def list_teams(
 @router.post("/api/admin/teams", response_model=schemas.TeamResponse)
 def create_team(
     data: schemas.TeamCreate,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -84,6 +85,8 @@ def create_team(
     db.refresh(team)
     log_event("team_created", id=team.id, name=team.name,
               billing=team.billing_type, by=admin.username)
+    audit(db, admin, "team.create", team.name,
+          f"과금 {team.billing_type}", request)
     return _team_response(team)
 
 
@@ -91,6 +94,7 @@ def create_team(
 def update_team(
     team_id: int,
     data: schemas.TeamUpdate,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -134,6 +138,8 @@ def update_team(
     db.refresh(team)
     log_event("team_updated", id=team.id, name=team.name,
               billing=team.billing_type, by=admin.username)
+    audit(db, admin, "team.update", team.name,
+          "바꾼 항목: " + (", ".join(fields) or "없음"), request)
     res_count = db.query(models.Reservation).filter(models.Reservation.team_id == team.id).count()
     member_count = db.query(models.Member).filter(
         models.Member.team_id == team.id, models.Member.is_active == True
@@ -144,6 +150,7 @@ def update_team(
 @router.delete("/api/admin/teams/{team_id}")
 def delete_team(
     team_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -166,4 +173,5 @@ def delete_team(
     db.delete(team)
     db.commit()
     log_event("team_deleted", id=team_id, name=name, by=admin.username)
+    audit(db, admin, "team.delete", name, request=request)
     return {"message": "삭제되었습니다."}

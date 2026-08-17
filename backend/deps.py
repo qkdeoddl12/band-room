@@ -120,6 +120,23 @@ def normalize_phone(value):
     return ('+' + digits) if text.startswith('+') else digits
 
 
+# ========== Audit log ==========
+def audit(db: Session, admin, action: str, target=None, detail=None, request=None):
+    """감사 로그 한 줄. 실패해도 본 작업을 막지 않는다 —
+    기록이 안 됐다고 예약 취소가 되돌아가면 더 곤란하다."""
+    try:
+        db.add(models.AuditLog(
+            username=getattr(admin, 'username', None),
+            action=action,
+            target=(str(target)[:200] if target is not None else None),
+            detail=(str(detail)[:2000] if detail is not None else None),
+            ip=(request.client.host if request is not None and request.client else None),
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
+
+
 # ========== App settings ==========
 DEFAULT_SETTINGS = {
     "deposit_bank": "농협",

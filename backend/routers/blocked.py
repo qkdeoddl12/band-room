@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin
+from deps import get_current_admin, audit
 import models
 import schemas
 
@@ -33,6 +33,7 @@ def list_blocked(
 @router.post("/api/admin/blocked", response_model=schemas.BlockedPeriodResponse)
 def create_blocked(
     data: schemas.BlockedPeriodCreate,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -64,12 +65,15 @@ def create_blocked(
         room_id=blk.room_id,
         by=admin.username,
     )
+    audit(db, admin, "blocked.create", str(blk.date),
+          blk.reason or "사유 없음", request)
     return blk
 
 
 @router.delete("/api/admin/blocked/{blocked_id}")
 def delete_blocked(
     blocked_id: int,
+    request: Request,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
@@ -85,4 +89,5 @@ def delete_blocked(
         date=payload_date,
         by=admin.username,
     )
+    audit(db, admin, "blocked.delete", payload_date, request=request)
     return {"message": "삭제되었습니다."}
