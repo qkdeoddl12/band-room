@@ -9,6 +9,7 @@ let allMembers    = [];
 let memberSearch  = '';
 let memberTeamFil = '';
 let editMemberId  = null;
+let returnToTeamId = null;   // 팀 상세에서 넘어온 경우 저장 후 그리로 돌아간다
 
 PAGE_LOADERS.members = loadMembers;
 
@@ -134,13 +135,15 @@ function selectedParts() {
   return [...document.querySelectorAll('#memberParts input:checked')].map(i => i.value).join(',');
 }
 
-function openMemberModal(memberId = null) {
+function openMemberModal(memberId = null, presetTeamId = null) {
   editMemberId = memberId;
+  returnToTeamId = presetTeamId;
   const m = memberId ? allMembers.find(x => x.id === memberId) : null;
 
   document.getElementById('memberModalTitle').textContent = m ? '멤버 수정' : '멤버 등록';
   document.getElementById('memberName').value    = m?.name || '';
-  document.getElementById('memberTeam').innerHTML = teamOptionsHtml(m?.team_id ?? '', '무소속');
+  document.getElementById('memberTeam').innerHTML =
+    teamOptionsHtml(m?.team_id ?? presetTeamId ?? '', '무소속');
   document.getElementById('memberDoors').checked  = m ? m.is_doors : true;
   document.getElementById('memberPhone').value   = formatPhone(m?.phone);
   document.getElementById('memberGender').value  = m?.gender || '';
@@ -163,6 +166,7 @@ function openMemberModal(memberId = null) {
 function closeMemberModal() {
   closeOverlay('memberOverlay');
   editMemberId = null;
+  returnToTeamId = null;
 }
 
 bindOverlayClose('memberOverlay', closeMemberModal);
@@ -215,8 +219,14 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
     } else {
       await apiJson('/api/admin/members', { method: 'POST', body: JSON.stringify(body) });
     }
+    const backTo = returnToTeamId;
     closeMemberModal();
-    await loadMembers();
+    if (backTo) {
+      await Promise.all([loadTeams(), loadTeamsCache()]);
+      openTeamDetail(backTo);
+    } else {
+      await loadMembers();
+    }
     showToast('저장되었습니다.', 'success');
   } catch (e) {
     showToast(e.message, 'error');

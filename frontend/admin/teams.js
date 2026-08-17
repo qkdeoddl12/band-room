@@ -14,6 +14,7 @@ let teamSearch = '';
 let editTeamId = null;          // null = 신규 등록
 let detailTeamId = null;        // 상세 보고 있는 팀
 let detailCursor = new Date();  // 상세에서 보고 있는 달
+let detailMembers = [];         // 팀에 붙일 수 있는 후보 (활동 중인 전체 멤버)
 
 PAGE_LOADERS.teams = loadTeams;
 
@@ -248,7 +249,10 @@ async function renderTeamDetail() {
   const ym = ymStr(detailCursor);
   let data;
   try {
-    data = await apiJson(`/api/admin/dues?year_month=${ym}&team_id=${team.id}`);
+    [data, detailMembers] = await Promise.all([
+      apiJson(`/api/admin/dues?year_month=${ym}&team_id=${team.id}`),
+      apiJson('/api/admin/members?active=true'),
+    ]);
   } catch (e) {
     body.innerHTML = head + `<div class="admin-empty"><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
     return;
@@ -288,7 +292,63 @@ async function renderTeamDetail() {
       <button class="btn-nav" onclick="teamDetailNextMonth()" aria-label="다음 달">&#8250;</button>
     </div>
     ${summary}
+    ${renderAddMemberBox()}
   `;
+}
+
+/* 월회비 팀에만 붙는 멤버 추가 영역.
+   이미 이 팀 소속인 사람은 후보에서 뺀다. */
+function renderAddMemberBox() {
+  const candidates = detailMembers.filter(m => m.team_id !== detailTeamId);
+  const options = candidates.map(m =>
+    `<option value="${m.id}">${escHtml(m.name)}${m.team_name ? ` (현재: ${escHtml(m.team_name)})` : ' (무소속)'}</option>`
+  ).join('');
+
+  return `
+    <div class="team-add-member">
+      <div class="team-add-title">멤버 추가</div>
+      ${candidates.length ? `
+        <div class="team-add-row">
+          <select class="form-select" id="teamAddMemberSelect">
+            <option value="">기존 멤버 선택…</option>
+            ${options}
+          </select>
+          <button type="button" class="btn-primary" onclick="addMemberToTeam()">추가</button>
+        </div>
+      ` : '<div class="team-add-empty">추가할 수 있는 다른 멤버가 없습니다.</div>'}
+      <button type="button" class="link-inline" onclick="newMemberForTeam()">+ 새 멤버로 등록 →</button>
+    </div>
+  `;
+}
+
+async function addMemberToTeam() {
+  const select = document.getElementById('teamAddMemberSelect');
+  const memberId = Number(select.value);
+  if (!memberId) { showToast('추가할 멤버를 선택해주세요.', 'error'); return; }
+
+  const member = detailMembers.find(m => m.id === memberId);
+  if (member?.team_name && !confirm(
+    `${member.name} 님은 현재 [${member.team_name}] 소속입니다.\n이 팀으로 옮기시겠습니까?`
+  )) return;
+
+  try {
+    await apiJson(`/api/admin/members/${memberId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ team_id: detailTeamId }),
+    });
+    await Promise.all([loadTeams(), loadTeamsCache()]);  // 멤버 수 배지 갱신
+    await renderTeamDetail();
+    showToast(`${member?.name || '멤버'} 추가됨`, 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+/* 새 멤버를 만들면서 이 팀으로 바로 넣는다. 저장 후 팀 상세로 돌아온다. */
+function newMemberForTeam() {
+  const teamId = detailTeamId;
+  closeTeamDetail();
+  openMemberModal(null, teamId);
 }
 
 async function setTeamDuesStatus(memberId, status) {

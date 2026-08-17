@@ -2098,3 +2098,17 @@ a { text-decoration: none; }
 }
 .prepaid-note b { font-size: 15px; font-weight: 800; }
 .prepaid-note span { font-size: 13px; line-height: 1.6; opacity: .85; }
+
+.team-add-member {
+  margin-top: 16px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.team-add-title {
+  font-size: 12px; font-weight: 800; color: var(--text-light);
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.team-add-row { display: flex; gap: 8px; align-items: center; }
+.team-add-row .form-select { flex: 1; min-width: 0; }
+.team-add-row .btn-primary { flex: none; width: auto; padding: 0 18px; }
+.team-add-empty { font-size: 13px; color: var(--text-light); }
