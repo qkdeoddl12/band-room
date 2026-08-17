@@ -243,8 +243,14 @@ async function deleteCurrentMember() {
   if (!confirm(`[${m.name}] 멤버를 삭제하시겠습니까?`)) return;
   try {
     await apiJson(`/api/admin/members/${editMemberId}`, { method: 'DELETE' });
+    const backTo = returnToTeamId;
     closeMemberModal();
-    await loadMembers();
+    if (backTo) {
+      await Promise.all([loadTeams(), loadTeamsCache()]);
+      openTeamDetail(backTo);
+    } else {
+      await loadMembers();
+    }
     showToast('삭제되었습니다.', 'success');
   } catch (e) {
     showToast(e.message, 'error');

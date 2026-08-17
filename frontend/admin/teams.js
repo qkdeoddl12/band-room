@@ -238,74 +238,88 @@ async function renderTeamDetail() {
     </div>
     ${team.memo ? `<div class="team-detail-memo">${escHtml(team.memo)}</div>` : ''}
   `;
-
-  if (team.billing_type !== 'dues') {
-    body.innerHTML = head + `
-      <div class="admin-note" style="margin-top:14px;">
-        ${team.billing_type === 'monthly'
-          ? '팀이 월 이용료를 한 번에 내는 방식이라 멤버별 납부 현황은 없습니다.'
-          : '쓸 때마다 시간당 요금을 내는 팀입니다.'}
-        멤버별로 걷으려면 과금 방식을 <b>월회비</b>로 바꿔주세요.
-      </div>
-      <button type="button" class="btn-submit" onclick="closeTeamDetail(); openTeamModal(${team.id});">팀 수정</button>
-    `;
-    return;
-  }
-
   body.innerHTML = head + '<div class="spinner"></div>';
 
+  const isDues = team.billing_type === 'dues';
   const ym = ymStr(detailCursor);
-  let data;
+
+  let roster, dues = null;
   try {
-    [data, detailMembers] = await Promise.all([
-      apiJson(`/api/admin/dues?year_month=${ym}&team_id=${team.id}`),
+    [roster, detailMembers, dues] = await Promise.all([
+      apiJson(`/api/admin/members?team_id=${team.id}&active=true`),
       apiJson('/api/admin/members?active=true'),
+      isDues ? apiJson(`/api/admin/dues?year_month=${ym}&team_id=${team.id}`) : Promise.resolve(null),
     ]);
   } catch (e) {
     body.innerHTML = head + `<div class="admin-empty"><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
     return;
   }
 
-  const done = data.rows.length > 0 && data.unpaid_count === 0 && data.pending_count === 0;
-  const summary = data.rows.length === 0
-    ? '<div class="admin-empty"><span class="admin-empty-icon">🥁</span><div class="admin-empty-text">이 팀에 등록된 멤버가 없습니다.<br>멤버 관리에서 소속 팀을 지정해주세요.</div></div>'
-    : `
-      <div class="team-dues-summary${done ? ' done' : ''}">
-        ${done
-          ? `✅ ${data.rows.length}명 전원 납부 완료`
-          : `미납 ${data.unpaid_count}명${data.pending_count ? ` · 확인중 ${data.pending_count}명` : ''} / 전체 ${data.rows.length}명`}
-        <span class="team-dues-amount">${data.total_paid.toLocaleString()} / ${data.total_expected.toLocaleString()}원</span>
-      </div>
-      <div class="dues-list">
-        ${data.rows.map(r => `
-          <div class="dues-row status-${r.status}">
-            <div class="dues-member">
-              <div class="dues-name">${escHtml(r.name)}</div>
-              <div class="dues-sub">${r.status === 'exempt' ? '면제' : r.fee.toLocaleString() + '원'}</div>
-            </div>
-            <div class="dues-chips">
-              ${Object.entries(DUES_STATUS).map(([key, meta]) => `
-                <button class="dues-chip ${meta.cls}${r.status === key ? ' active' : ''}"
-                        onclick="setTeamDuesStatus(${r.member_id}, '${key}')">${meta.label}</button>
-              `).join('')}
-            </div>
-          </div>
-        `).join('')}
-      </div>`;
-
-  body.innerHTML = head + `
+  // 월회비 팀만 달을 넘겨가며 납부를 본다.
+  const monthNav = isDues ? `
     <div class="team-month-nav">
       <button class="btn-nav" onclick="teamDetailPrevMonth()" aria-label="이전 달">&#8249;</button>
       <span class="team-month-label">${detailCursor.getFullYear()}년 ${detailCursor.getMonth() + 1}월</span>
       <button class="btn-nav" onclick="teamDetailNextMonth()" aria-label="다음 달">&#8250;</button>
-    </div>
-    ${summary}
-    ${renderAddMemberBox()}
-  `;
+    </div>` : '';
+
+  let summary = '';
+  if (isDues && roster.length) {
+    const done = dues.unpaid_count === 0 && dues.pending_count === 0;
+    summary = `
+      <div class="team-dues-summary${done ? ' done' : ''}">
+        ${done
+          ? `✅ ${dues.rows.length}명 전원 납부 완료`
+          : `미납 ${dues.unpaid_count}명${dues.pending_count ? ` · 확인중 ${dues.pending_count}명` : ''} / 전체 ${dues.rows.length}명`}
+        <span class="team-dues-amount">${dues.total_paid.toLocaleString()} / ${dues.total_expected.toLocaleString()}원</span>
+      </div>`;
+  }
+
+  const duesByMember = {};
+  (dues?.rows || []).forEach(r => { duesByMember[r.member_id] = r; });
+
+  const rows = roster.length ? roster.map(m => {
+    const d = duesByMember[m.id];
+    const chips = isDues && d && !d.covered_by_team ? `
+      <div class="dues-chips">
+        ${Object.entries(DUES_STATUS).map(([key, meta]) => `
+          <button class="dues-chip ${meta.cls}${d.status === key ? ' active' : ''}"
+                  onclick="setTeamDuesStatus(${m.id}, '${key}')">${meta.label}</button>
+        `).join('')}
+      </div>` : '';
+    return `
+      <div class="dues-row${isDues && d ? ` status-${d.covered_by_team ? 'covered' : d.status}` : ''}">
+        <div class="dues-member">
+          <div class="dues-name">
+            ${escHtml(m.name)}
+            ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
+          </div>
+          <div class="dues-sub">
+            ${m.parts ? escHtml(m.parts.split(',').join(' · ')) : '포지션 미지정'}
+            ${m.phone ? ` · <a href="tel:${escHtml(String(m.phone).replace(/[^\d+]/g, ''))}">${escHtml(formatPhone(m.phone))}</a>` : ' · 연락처 없음'}
+          </div>
+        </div>
+        ${chips || `<button class="btn-edit-user" onclick="editTeamMember(${m.id})">수정</button>`}
+      </div>`;
+  }).join('') : `<div class="admin-empty"><span class="admin-empty-icon">🥁</span><div class="admin-empty-text">등록된 멤버가 없습니다.<br>아래에서 추가할 수 있습니다.</div></div>`;
+
+  body.innerHTML = head + monthNav + summary +
+    `<div class="team-roster-label">멤버 ${roster.length}명</div>` +
+    `<div class="dues-list">${rows}</div>` +
+    renderAddMemberBox();
 }
 
-/* 월회비 팀에만 붙는 멤버 추가 영역.
-   이미 이 팀 소속인 사람은 후보에서 뺀다. */
+/* 팀 상세에서 바로 멤버 정보를 고친다. 저장하면 팀 상세로 돌아온다. */
+async function editTeamMember(memberId) {
+  const teamId = detailTeamId;
+  try {
+    allMembers = await apiJson('/api/admin/members');
+  } catch (e) { showToast(e.message, 'error'); return; }
+  closeTeamDetail();
+  openMemberModal(memberId, teamId);
+}
+
+/* 이미 이 팀 소속인 사람은 후보에서 뺀다. */
 function renderAddMemberBox() {
   const candidates = detailMembers.filter(m => m.team_id !== detailTeamId);
   const options = candidates.map(m =>

@@ -2329,3 +2329,10 @@ a { text-decoration: none; }
 .contact-call:active { background: var(--primary); color: #fff; }
 .contact-none { flex: none; font-size: 12px; color: var(--text-light); }
 .contact-empty { padding: 14px 16px; font-size: 13px; color: var(--text-light); }
+
+.team-roster-label {
+  margin: 14px 0 8px;
+  font-size: 12px; font-weight: 800; color: var(--text-light);
+  letter-spacing: .05em;
+}
+.dues-sub a { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
