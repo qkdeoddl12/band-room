@@ -382,5 +382,13 @@ class PublicSettings(BaseModel):
     deposit_holder: str = ''
 
 
+BOOKING_MODE_PATTERN = '^(team|personal)$'
+
+
+class RoomUpdate(BaseModel):
+    hourly_price: int = Field(..., ge=0)
+    booking_mode: Optional[str] = Field(None, pattern=BOOKING_MODE_PATTERN)
+
+
 class SettingsUpdate(BaseModel):
     values: Dict[str, str]

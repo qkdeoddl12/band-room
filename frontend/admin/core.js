@@ -17,6 +17,13 @@ let roomsById = {};         // {1: {id, name, hourly_price}, ...}
 let teamsById = {};         // {1: {id, name, billing_type, ...}, ...}
 let appSettings = {};       // 요금 기본값 등 (환경 설정에서 관리)
 
+/* 과금 방식 표기는 여기 한 곳. 파일마다 따로 두면 문구가 갈린다. */
+const BILLING = {
+  hourly:  { label: '시간당',    cls: 'default' },
+  monthly: { label: '월 이용료',  cls: 'monthly' },
+  dues:    { label: '월회비',    cls: 'dues'    },
+};
+
 const DAY_KO = ['일','월','화','수','목','금','토'];
 
 /* Each page module registers itself here so core.js does not need to know
@@ -203,38 +210,45 @@ function settingNum(key, fallback = 0) {
   return Number.isFinite(n) ? n : fallback;
 }
 
-/* 매출 계산에 필요 — 월정액 팀 예약은 시간당 요금이 0이다. */
+/* 팀 목록을 한 번 받아 캐시까지 채운다.
+   예전엔 loadTeams() 와 이 함수가 같은 요청을 각각 보내고 있었다. */
 async function loadTeamsCache() {
   try {
-    const teams = await apiJson('/api/admin/teams');
-    teamsById = Object.fromEntries(teams.map(t => [t.id, t]));
+    teamsById = Object.fromEntries(
+      (await apiJson('/api/admin/teams')).map(t => [t.id, t]),
+    );
   } catch { teamsById = {}; }
 }
 
-/* 시간당이 아닌 팀(월 이용료 · 월회비)은 예약 건별로 청구하지 않는다. */
-function isPrepaidTeam(teamId) {
-  const billing = teamsById[teamId]?.billing_type;
-  return !!billing && billing !== 'hourly';
+function cacheTeams(teams) {
+  teamsById = Object.fromEntries(teams.map(t => [t.id, t]));
 }
 
 function roomName(id) {
   if (id === null || id === undefined) return '전체 공간';
   return roomsById[id]?.name || `공간 ${id}`;
 }
-function roomTagCls(id) { return id === 1 ? 'r1' : (id === 2 ? 'r2' : 'all'); }
+/* 방 id 를 박아두면 DB 를 새로 만들거나 방을 추가했을 때 색이 어긋난다.
+   예약 페이지와 같이 목록 순서로 정한다. null 은 '전체 공간'. */
+function roomTagCls(id) {
+  if (id === null || id === undefined) return 'all';
+  const idx = Object.values(roomsById).sort((a, b) => a.id - b.id)
+    .findIndex(r => r.id === id);
+  return `r${Math.min(2, Math.max(1, idx + 1))}`;
+}
 function roomPrice(id)  { return roomsById[id]?.hourly_price || 0; }
+/* 예약 시점에 정해진 is_free 만 본다.
+   지금의 팀 과금 방식을 다시 조회하면, 팀을 월정액으로 바꾸는 순간
+   그 팀의 과거 시간당 예약까지 매출에서 사라진다. */
 function resFee(r) {
-  // is_free 는 예약 시점 판정이라 나중에 팀 과금이 바뀌어도 흔들리지 않는다.
-  if (r.is_free || isPrepaidTeam(r.team_id)) return 0;
+  if (r.is_free) return 0;
   return roomPrice(r.room_id) * (r.duration || 0);
 }
 function resFeeLabel(r) {
-  if (resFee(r) > 0) return `${resFee(r).toLocaleString()}원`;
+  const fee = resFee(r);
+  if (fee > 0) return `${fee.toLocaleString()}원`;
   if (r.member_id) return '회비 납부 멤버';
-  const billing = teamsById[r.team_id]?.billing_type;
-  if (billing === 'dues') return '월회비 팀';
-  if (billing === 'monthly') return '월 이용료 팀';
-  return '무료';
+  return BILLING[teamsById[r.team_id]?.billing_type]?.label || '무료';
 }
 
 /* ============================================================

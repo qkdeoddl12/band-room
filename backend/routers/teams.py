@@ -5,7 +5,7 @@ from typing import List
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, clean_parts, audit
+from deps import get_current_admin, normalize_phone, clean_parts, audit, get_or_404
 import models
 import schemas
 
@@ -13,20 +13,26 @@ router = APIRouter(tags=["teams"])
 
 
 def _team_response(t: models.Team, res_count: int = 0, member_count: int = 0) -> schemas.TeamResponse:
-    return schemas.TeamResponse(
-        id=t.id, name=t.name, leader_name=t.leader_name, phone=t.phone,
-        parts=t.parts, memo=t.memo, billing_type=t.billing_type, monthly_fee=t.monthly_fee,
-        dues_fee=t.dues_fee, is_active=t.is_active, created_at=t.created_at,
-        reservation_count=res_count, member_count=member_count,
-    )
+    # 컬럼이 늘어도 여기를 고치지 않도록 model_validate 로 받고 파생값만 얹는다.
+    out = schemas.TeamResponse.model_validate(t)
+    out.reservation_count = res_count
+    out.member_count = member_count
+    return out
 
 
-def _apply_billing(team: models.Team, billing_type: str, monthly_fee, dues_fee):
+def _apply_billing(team: models.Team, billing_type: str, monthly_fee, dues_fee, has_dues_fee=False):
     """과금 방식이 바뀌면 안 쓰는 금액은 비운다 — 나중에 되돌렸을 때
-    예전 금액이 되살아나 잘못 청구되는 일을 막는다."""
+    예전 금액이 되살아나 잘못 청구되는 일을 막는다.
+
+    dues_fee 는 관리 화면에 입력칸이 없어 폼이 값을 보내지 않는다.
+    보내지 않았는데 지워버리면 이름만 고쳐도 팀 회비가 날아간다 —
+    명시적으로 보냈을 때만 손댄다."""
     team.billing_type = billing_type
     team.monthly_fee = monthly_fee if billing_type == 'monthly' else None
-    team.dues_fee = dues_fee if billing_type == 'dues' else None
+    if billing_type != 'dues':
+        team.dues_fee = None
+    elif has_dues_fee:
+        team.dues_fee = dues_fee
 
 
 @router.get("/api/teams", response_model=List[schemas.TeamPublic])
@@ -79,7 +85,8 @@ def create_team(
         memo=(data.memo or '').strip() or None,
         is_active=data.is_active,
     )
-    _apply_billing(team, data.billing_type, data.monthly_fee, data.dues_fee)
+    _apply_billing(team, data.billing_type, data.monthly_fee, data.dues_fee,
+                   has_dues_fee='dues_fee' in data.model_fields_set)
     db.add(team)
     db.commit()
     db.refresh(team)
@@ -98,9 +105,7 @@ def update_team(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    team = db.query(models.Team).filter(models.Team.id == team_id).first()
-    if not team:
-        raise HTTPException(404, "팀을 찾을 수 없습니다.")
+    team = get_or_404(db, models.Team, team_id, "팀을 찾을 수 없습니다.")
 
     fields = data.model_dump(exclude_unset=True)
 
@@ -127,6 +132,7 @@ def update_team(
             team, fields['billing_type'],
             fields.get('monthly_fee', team.monthly_fee),
             fields.get('dues_fee', team.dues_fee),
+            has_dues_fee='dues_fee' in fields,
         )
     else:
         if 'monthly_fee' in fields and team.billing_type == 'monthly':
@@ -154,9 +160,7 @@ def delete_team(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    team = db.query(models.Team).filter(models.Team.id == team_id).first()
-    if not team:
-        raise HTTPException(404, "팀을 찾을 수 없습니다.")
+    team = get_or_404(db, models.Team, team_id, "팀을 찾을 수 없습니다.")
     used = db.query(models.Reservation).filter(models.Reservation.team_id == team_id).count()
     if used:
         raise HTTPException(

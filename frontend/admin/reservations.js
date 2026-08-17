@@ -89,68 +89,74 @@ function renderDashboard() {
   document.getElementById('pendingHighlight').classList.toggle('empty', pending.length === 0);
 
   renderWeekChart(confirmed);
-  renderRoomBreakdown(confMonth);
+  renderRoomBreakdown('roomBreakdown', confMonth, { emptyMsg: '이번 달 확정된 예약이 없습니다.' });
+}
+
+/* 막대차트 3개가 같은 DOM 을 각자 만들고 있었다. 하나로 모은다.
+   bars: [{ value, label, sub, title, cls }] */
+function renderBarChart(elId, bars, emptyMsg) {
+  const el = document.getElementById(elId);
+  if (!bars.some(b => b.value > 0)) {
+    el.innerHTML = `<div class="chart-empty">${escHtml(emptyMsg)}</div>`;
+    return;
+  }
+  const max = Math.max(...bars.map(b => b.value));
+  el.innerHTML = bars.map(b => `
+    <div class="bar-col${b.cls ? ' ' + b.cls : ''}">
+      <div class="bar-value">${b.value === max ? escHtml(b.peakLabel ?? String(b.value)) : ''}</div>
+      <div class="bar-track" title="${escHtml(b.title)}" aria-label="${escHtml(b.title)}">
+        <div class="bar-fill" style="height:${(b.value / max) * 100}%"></div>
+      </div>
+      <div class="bar-label">${b.label}${b.sub ? `<br><span>${escHtml(b.sub)}</span>` : ''}</div>
+    </div>`).join('');
 }
 
 function renderWeekChart(confirmedRes) {
-  const chart = document.getElementById('weekChart');
-  const days = [];
-  const today = new Date();
-  for (let i = 6; i >= 0; i--) {
-    const d = new Date(today); d.setDate(today.getDate() - i);
-    days.push({
-      date: toDateStr(d),
-      label: `${d.getMonth()+1}/${d.getDate()}`,
-      weekday: DAY_KO[d.getDay()],
-      isToday: toDateStr(d) === toDateStr(today),
-    });
-  }
-
   const revByDate = {};
   confirmedRes.forEach(r => { revByDate[r.date] = (revByDate[r.date] || 0) + resFee(r); });
 
-  const total = days.reduce((n, d) => n + (revByDate[d.date] || 0), 0);
-  if (!total) {
-    chart.innerHTML = '<div class="chart-empty">최근 7일 확정된 예약이 없습니다.</div>';
-    return;
+  const today = new Date();
+  const bars = [];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i);
+    const date = toDateStr(d);
+    const value = revByDate[date] || 0;
+    bars.push({
+      value,
+      label: `${d.getMonth() + 1}/${d.getDate()}`,
+      sub: DAY_KO[d.getDay()],
+      title: `${d.getMonth() + 1}/${d.getDate()} ${DAY_KO[d.getDay()]} · ${value.toLocaleString()}원`,
+      peakLabel: value.toLocaleString(),
+      cls: date === toDateStr(today) ? 'today' : '',
+    });
   }
-  const max = Math.max(1, ...days.map(d => revByDate[d.date] || 0));
-
-  // 모든 막대에 숫자를 붙이면 읽히지 않는다. 최고값만 직접 표시하고
-  // 나머지는 hover(title)와 스크린리더로 전달한다.
-  chart.innerHTML = days.map(d => {
-    const val = revByDate[d.date] || 0;
-    const pct = (val / max) * 100;
-    const peak = val === max && val > 0;
-    return `
-      <div class="bar-col${d.isToday ? ' today' : ''}">
-        <div class="bar-value">${peak ? val.toLocaleString() : ''}</div>
-        <div class="bar-track" title="${d.label} ${d.weekday} · ${val.toLocaleString()}원"
-             aria-label="${d.label} ${d.weekday} ${val.toLocaleString()}원">
-          <div class="bar-fill" style="height:${pct}%"></div>
-        </div>
-        <div class="bar-label">${d.label}<br><span>${d.weekday}</span></div>
-      </div>
-    `;
-  }).join('');
+  renderBarChart('weekChart', bars, '최근 7일 확정된 예약이 없습니다.');
 }
 
 function roomList() {
   return Object.values(roomsById).sort((a, b) => a.id - b.id);
 }
 
-function renderRoomBreakdown(confMonth) {
-  const total = confMonth.reduce((n, r) => n + resFee(r), 0) || 1;
+/* 대시보드와 통계에서 같은 표를 각각 그리고 있었다. 시간 표시 여부만 다르다. */
+function renderRoomBreakdown(elId, items, { showHours = false, emptyMsg } = {}) {
+  const total = items.reduce((n, r) => n + resFee(r), 0) || 1;
+  const el = document.getElementById(elId);
 
-  const html = roomList().map(room => {
-    const items = confMonth.filter(r => r.room_id === room.id);
-    const rev = items.reduce((n, r) => n + resFee(r), 0);
+  if (items.length === 0) {
+    el.innerHTML = `<div class="admin-empty" style="padding:24px;"><div class="admin-empty-text">${escHtml(emptyMsg)}</div></div>`;
+    return;
+  }
+
+  el.innerHTML = roomList().map(room => {
+    const rows = items.filter(r => r.room_id === room.id);
+    const rev = rows.reduce((n, r) => n + resFee(r), 0);
+    const hours = rows.reduce((n, r) => n + (r.duration || 0), 0);
     const pct = Math.round((rev / total) * 100);
     return `
       <div class="room-row">
         <div class="room-row-head">
           <span class="res-room-tag ${roomTagCls(room.id)}">${escHtml(room.name)}</span>
-          <span class="room-row-count">${items.length}건</span>
+          <span class="room-row-count">${rows.length}건${showHours ? ` · ${hours}시간` : ''}</span>
         </div>
         <div class="room-row-meter">
           <div class="room-row-meter-fill ${roomTagCls(room.id)}" style="width:${pct}%"></div>
@@ -159,14 +165,8 @@ function renderRoomBreakdown(confMonth) {
           <span>${rev.toLocaleString()}원</span>
           <span class="room-row-pct">${pct}%</span>
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
-
-  document.getElementById('roomBreakdown').innerHTML =
-    confMonth.length === 0
-      ? '<div class="admin-empty" style="padding:24px;"><div class="admin-empty-text">이번 달 확정된 예약이 없습니다.</div></div>'
-      : html;
 }
 
 function goToPendingList() {
@@ -191,13 +191,9 @@ function setStatus(status) { currentStatus = status; syncChips('status', status)
 function applyFilters() {
   if (currentPage !== 'reservations') return;
 
-  const today = toDateStr(new Date());
-  const wkStart = new Date(); wkStart.setDate(wkStart.getDate() - wkStart.getDay());
-  const wkStartStr = toDateStr(wkStart);
-  const wkEnd = new Date(wkStart); wkEnd.setDate(wkEnd.getDate() + 6);
-  const wkEndStr = toDateStr(wkEnd);
-  const monStart = toDateStr(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
-  const monEnd   = toDateStr(new Date(new Date().getFullYear(), new Date().getMonth()+1, 0));
+  // 같은 계산이 dateRanges() 에 이미 있다.
+  const { today, weekStart: wkStartStr, weekEnd: wkEndStr,
+          monthStart: monStart, monthEnd: monEnd } = dateRanges();
 
   const search = document.getElementById('searchInput').value.trim().toLowerCase();
 
@@ -540,7 +536,7 @@ function renderStats() {
   renderMonthChart(confirmed, startDate);
   renderWeekdayChart(confirmed);
   renderHourChart(confirmed);
-  renderStatsRoomBreakdown(confirmed, revenue);
+  renderRoomBreakdown('statsRoomBreakdown', confirmed, { showHours: true, emptyMsg: '기간 내 확정된 예약이 없습니다.' });
 }
 
 /* 두 계열 이상이면 범례가 항상 있어야 한다 — 색만으로 구분하면 안 된다. */
@@ -606,92 +602,33 @@ function renderMonthChart(confirmedRes, startDate) {
 }
 
 function renderWeekdayChart(confirmedRes) {
-  const chart = document.getElementById('weekdayChart');
   const byDow = [0,0,0,0,0,0,0];
   confirmedRes.forEach(r => {
-    const d = new Date(r.date + 'T00:00:00');
-    byDow[d.getDay()] += (r.duration || 0);
+    byDow[new Date(r.date + 'T00:00:00').getDay()] += (r.duration || 0);
   });
-  if (!byDow.some(Boolean)) {
-    chart.innerHTML = '<div class="chart-empty">데이터가 없습니다.</div>';
-    return;
-  }
-  const max = Math.max(1, ...byDow);
-
-  chart.innerHTML = byDow.map((hrs, i) => {
-    const pct = (hrs / max) * 100;
-    const cls = i === 0 ? 'sunday' : (i === 6 ? 'saturday' : '');
-    return `
-      <div class="bar-col ${cls}">
-        <div class="bar-value">${hrs === max && hrs > 0 ? hrs + 'h' : ''}</div>
-        <div class="bar-track" title="${DAY_KO[i]}요일 ${hrs}시간">
-          <div class="bar-fill" style="height:${pct}%"></div>
-        </div>
-        <div class="bar-label">${DAY_KO[i]}</div>
-      </div>
-    `;
-  }).join('');
+  renderBarChart('weekdayChart', byDow.map((hrs, i) => ({
+    value: hrs,
+    label: DAY_KO[i],
+    title: `${DAY_KO[i]}요일 ${hrs}시간`,
+    peakLabel: `${hrs}h`,
+    cls: i === 0 ? 'sunday' : (i === 6 ? 'saturday' : ''),
+  })), '데이터가 없습니다.');
 }
 
 function renderHourChart(confirmedRes) {
-  const chart = document.getElementById('hourChart');
   const HOUR_START = 9, HOUR_END = 23;
-  const hours = HOUR_END - HOUR_START;
-  const counts = new Array(hours).fill(0);
+  const counts = new Array(HOUR_END - HOUR_START).fill(0);
   confirmedRes.forEach(r => {
-    const startH = Number(String(r.start_time).substring(0,2));
-    const dur    = r.duration || 0;
-    for (let h = startH; h < startH + dur; h++) {
+    const startH = Number(String(r.start_time).substring(0, 2));
+    for (let h = startH; h < startH + (r.duration || 0); h++) {
       const idx = h - HOUR_START;
-      if (idx >= 0 && idx < hours) counts[idx]++;
+      if (idx >= 0 && idx < counts.length) counts[idx]++;
     }
   });
-  if (!counts.some(Boolean)) {
-    chart.innerHTML = '<div class="chart-empty">데이터가 없습니다.</div>';
-    return;
-  }
-  const max = Math.max(1, ...counts);
-  chart.innerHTML = counts.map((c, i) => {
-    const pct = (c / max) * 100;
-    return `
-      <div class="bar-col">
-        <div class="bar-value">${c === max && c > 0 ? c : ''}</div>
-        <div class="bar-track" title="${HOUR_START + i}시 ${c}건">
-          <div class="bar-fill" style="height:${pct}%"></div>
-        </div>
-        <div class="bar-label">${HOUR_START + i}</div>
-      </div>
-    `;
-  }).join('');
+  renderBarChart('hourChart', counts.map((c, i) => ({
+    value: c,
+    label: String(HOUR_START + i),
+    title: `${HOUR_START + i}시 ${c}건`,
+  })), '데이터가 없습니다.');
 }
 
-function renderStatsRoomBreakdown(confirmedRes, total) {
-  const sum = total || 1;
-
-  const html = roomList().map(room => {
-    const items = confirmedRes.filter(r => r.room_id === room.id);
-    const rev = items.reduce((n, r) => n + resFee(r), 0);
-    const hours = items.reduce((n, r) => n + (r.duration||0), 0);
-    const pct = Math.round((rev / sum) * 100);
-    return `
-      <div class="room-row">
-        <div class="room-row-head">
-          <span class="res-room-tag ${roomTagCls(room.id)}">${escHtml(room.name)}</span>
-          <span class="room-row-count">${items.length}건 · ${hours}시간</span>
-        </div>
-        <div class="room-row-meter">
-          <div class="room-row-meter-fill ${roomTagCls(room.id)}" style="width:${pct}%"></div>
-        </div>
-        <div class="room-row-amount">
-          <span>${rev.toLocaleString()}원</span>
-          <span class="room-row-pct">${pct}%</span>
-        </div>
-      </div>
-    `;
-  }).join('');
-
-  document.getElementById('statsRoomBreakdown').innerHTML =
-    confirmedRes.length === 0
-      ? '<div class="admin-empty" style="padding:24px;"><div class="admin-empty-text">기간 내 확정된 예약이 없습니다.</div></div>'
-      : html;
-}

@@ -9,11 +9,26 @@ import logging
 from database import get_db
 from broadcaster import broadcaster
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, member_dues_ok, audit
+from deps import (
+    get_current_admin, normalize_phone, member_dues_ok, audit, get_or_404,
+)
 import models
 import schemas
 
 router = APIRouter(tags=["reservations"])
+
+
+def _sse_payload(r: models.Reservation) -> dict:
+    """SSE 로 내보내는 예약 요약. 세 곳에서 같은 모양을 만들던 것을 모았다."""
+    return {
+        "id": r.id,
+        "room_id": r.room_id,
+        "date": str(r.date),
+        "start_time": str(r.start_time),
+        "end_time": str(r.end_time),
+        "team_name": r.team_name,
+        "status": r.status,
+    }
 
 
 @router.get("/api/rooms", response_model=List[schemas.Room])
@@ -209,15 +224,7 @@ def create_reservation(
     db.commit()
     db.refresh(db_r)
 
-    broadcaster.publish("reservation_created", {
-        "id": db_r.id,
-        "room_id": db_r.room_id,
-        "date": str(db_r.date),
-        "start_time": str(db_r.start_time),
-        "end_time": str(db_r.end_time),
-        "team_name": db_r.team_name,
-        "status": db_r.status,
-    })
+    broadcaster.publish("reservation_created", _sse_payload(db_r))
     log_event(
         "reservation_created",
         id=db_r.id,
@@ -240,9 +247,7 @@ def confirm_reservation(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    res = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
-    if not res:
-        raise HTTPException(404, "예약을 찾을 수 없습니다.")
+    res = get_or_404(db, models.Reservation, reservation_id, "예약을 찾을 수 없습니다.")
     if res.status == 'confirmed':
         raise HTTPException(400, "이미 확정된 예약입니다.")
 
@@ -250,15 +255,7 @@ def confirm_reservation(
     db.commit()
     db.refresh(res)
 
-    broadcaster.publish("reservation_confirmed", {
-        "id": res.id,
-        "room_id": res.room_id,
-        "date": str(res.date),
-        "start_time": str(res.start_time),
-        "end_time": str(res.end_time),
-        "team_name": res.team_name,
-        "status": res.status,
-    })
+    broadcaster.publish("reservation_confirmed", _sse_payload(res))
     log_event(
         "reservation_confirmed",
         id=res.id,
@@ -279,9 +276,7 @@ def delete_reservation(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    res = db.query(models.Reservation).filter(models.Reservation.id == reservation_id).first()
-    if not res:
-        raise HTTPException(404, "예약을 찾을 수 없습니다.")
+    res = get_or_404(db, models.Reservation, reservation_id, "예약을 찾을 수 없습니다.")
     payload = {
         "id": res.id,
         "room_id": res.room_id,

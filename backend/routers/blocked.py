@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, audit
+from deps import get_current_admin, audit, get_or_404
 import models
 import schemas
 
@@ -77,9 +77,7 @@ def delete_blocked(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    blk = db.query(models.BlockedPeriod).filter(models.BlockedPeriod.id == blocked_id).first()
-    if not blk:
-        raise HTTPException(404, "차단 설정을 찾을 수 없습니다.")
+    blk = get_or_404(db, models.BlockedPeriod, blocked_id, "차단 설정을 찾을 수 없습니다.")
     payload_date = str(blk.date)
     db.delete(blk)
     db.commit()

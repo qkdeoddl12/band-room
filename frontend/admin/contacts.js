@@ -95,7 +95,7 @@ function renderContacts() {
       ? contactCell(g.team.leader_name || '팀 대표', g.team.phone, '리더', null)
       : '';
     const rows = g.members
-      .map(m => contactCell(m.name, m.phone, (m.parts || '').split(',').join('·'), m.is_doors ? 'D' : null))
+      .map(m => contactCell(m.name, m.phone, splitParts(m.parts).join('·'), m.is_doors ? 'D' : null))
       .join('');
     return `
       <tr class="ct-group"><td colspan="3">${escHtml(title)} <span>${g.members.length}</span></td></tr>
@@ -114,7 +114,7 @@ function contactsAsText() {
       lines.push(`- ${g.team.leader_name || '팀 대표'} (리더) ${formatPhone(g.team.phone) || '연락처 없음'}`);
     }
     g.members.forEach(m => {
-      const parts = m.parts ? ` · ${m.parts.split(',').join('/')}` : '';
+      const parts = m.parts ? ` · ${splitParts(m.parts).join('/')}` : '';
       lines.push(`- ${m.name}${parts} ${formatPhone(m.phone) || '연락처 없음'}`);
     });
     lines.push('');

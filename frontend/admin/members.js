@@ -115,7 +115,7 @@ function renderMembers() {
           <div class="mt-sub">${escHtml((m.parts || '').split(',').join('·') || '포지션 미지정')}</div>
         </td>
         <td class="mt-right">
-          <div class="mt-main"><span class="mt-fee ${fee.cls}">${escHtml(fee.text)}</span></div>
+          <div class="mt-main"><span class="fee-badge ${fee.cls}">${escHtml(fee.text)}</span></div>
           <div class="mt-sub">${escHtml(meta || '—')}</div>
         </td>
       </tr>
@@ -221,7 +221,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
     const backTo = returnToTeamId;
     closeMemberModal();
     if (backTo) {
-      await Promise.all([loadTeams(), loadTeamsCache()]);
+      await loadTeams();
       openTeamDetail(backTo);
     } else {
       await loadMembers();
@@ -244,7 +244,7 @@ async function deleteCurrentMember() {
     const backTo = returnToTeamId;
     closeMemberModal();
     if (backTo) {
-      await Promise.all([loadTeams(), loadTeamsCache()]);
+      await loadTeams();
       openTeamDetail(backTo);
     } else {
       await loadMembers();

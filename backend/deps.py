@@ -3,7 +3,7 @@
 Lives outside routers/ so routers can import it without circular imports.
 """
 from fastapi import Depends, HTTPException, Header
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timedelta
 from typing import Optional
 import re
@@ -41,9 +41,10 @@ def _resolve_session_user(
 ) -> models.AdminUser:
     if not x_auth_token:
         raise HTTPException(401, "인증이 필요합니다.")
-    session = db.query(models.AdminSession).filter(
-        models.AdminSession.token == x_auth_token
-    ).first()
+    # user 를 함께 가져온다 — 아래에서 바로 쓰는데 lazy 로 두면 요청마다 쿼리가 2번 나간다.
+    session = db.query(models.AdminSession).options(
+        joinedload(models.AdminSession.user)
+    ).filter(models.AdminSession.token == x_auth_token).first()
     if not session:
         raise HTTPException(401, "유효하지 않은 토큰입니다.")
 
@@ -89,6 +90,14 @@ def require_system_admin(
     if admin.role != 'system':
         raise HTTPException(403, "시스템 관리자만 접근 가능합니다.")
     return admin
+
+
+def get_or_404(db: Session, model, ident, message: str):
+    """라우터마다 반복되던 조회+404 세 줄을 한 곳으로."""
+    obj = db.query(model).filter(model.id == ident).first()
+    if not obj:
+        raise HTTPException(404, message)
+    return obj
 
 
 # ========== Parts (포지션) ==========

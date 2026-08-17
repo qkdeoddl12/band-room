@@ -8,7 +8,7 @@ import secrets
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, audit
+from deps import get_current_admin, audit, get_or_404
 import models
 import schemas
 
@@ -117,10 +117,7 @@ def get_ticket(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(404, "티켓을 찾을 수 없습니다.")
-    return ticket
+    return get_or_404(db, models.Ticket, ticket_id, "티켓을 찾을 수 없습니다.")
 
 
 @router.put("/api/admin/tickets/{ticket_id}", response_model=schemas.TicketResponse)
@@ -131,9 +128,7 @@ def update_ticket(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(404, "티켓을 찾을 수 없습니다.")
+    ticket = get_or_404(db, models.Ticket, ticket_id, "티켓을 찾을 수 없습니다.")
 
     fields = data.model_dump(exclude_unset=True)
     if 'title' in fields and fields['title']:
@@ -184,9 +179,7 @@ def delete_ticket(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    ticket = db.query(models.Ticket).filter(models.Ticket.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(404, "티켓을 찾을 수 없습니다.")
+    ticket = get_or_404(db, models.Ticket, ticket_id, "티켓을 찾을 수 없습니다.")
     slug = ticket.slug
     db.delete(ticket)
     db.commit()

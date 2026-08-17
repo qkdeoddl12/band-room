@@ -56,13 +56,15 @@ document.getElementById('settingsForm').addEventListener('submit', async e => {
       }),
     });
 
-    for (const input of document.querySelectorAll('#settingsRooms input[data-room-id]')) {
-      const mode = document.getElementById(`roomMode${input.dataset.roomId}`)?.value;
-      await apiJson(`/api/admin/rooms/${input.dataset.roomId}/price`, {
+    // 방끼리 서로 기다릴 이유가 없다.
+    await Promise.all([...document.querySelectorAll('#settingsRooms input[data-room-id]')].map(input =>
+      apiJson(`/api/admin/rooms/${input.dataset.roomId}/price`, {
         method: 'PUT',
-        body: JSON.stringify({ hourly_price: Number(input.value || 0), booking_mode: mode }),
-      });
-    }
+        body: JSON.stringify({
+          hourly_price: Number(input.value || 0),
+          booking_mode: document.getElementById(`roomMode${input.dataset.roomId}`)?.value,
+        }),
+      })));
 
     await Promise.all([loadRooms(), loadAppSettings()]);   // 요금 캐시 갱신
     showToast('설정이 저장되었습니다.', 'success');

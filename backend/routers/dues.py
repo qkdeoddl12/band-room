@@ -1,12 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from datetime import date
 from typing import List, Optional
 import re
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, default_monthly_fee, resolve_member_fee, audit
+from deps import (
+    get_current_admin, default_monthly_fee, resolve_member_fee, audit, get_or_404,
+)
 import models
 import schemas
 
@@ -34,7 +36,10 @@ def get_dues_month(
     _check_year_month(year_month)
     fallback = default_monthly_fee(db)
 
-    query = db.query(models.Member).filter(models.Member.is_active == True)
+    # m.team 을 행마다 건드리므로 미리 조인해 온다 (N+1 방지).
+    query = db.query(models.Member).options(
+        joinedload(models.Member.team)
+    ).filter(models.Member.is_active == True)
     if team_id is not None:
         query = query.filter(models.Member.team_id == team_id)
     members = query.order_by(models.Member.name).all()
@@ -138,9 +143,7 @@ def upsert_dues(
     db: Session = Depends(get_db),
 ):
     _check_year_month(year_month)
-    member = db.query(models.Member).filter(models.Member.id == member_id).first()
-    if not member:
-        raise HTTPException(404, "멤버를 찾을 수 없습니다.")
+    member = get_or_404(db, models.Member, member_id, "멤버를 찾을 수 없습니다.")
 
     fee = resolve_member_fee(member, member.team, default_monthly_fee(db))
     rec = db.query(models.MemberDues).filter(

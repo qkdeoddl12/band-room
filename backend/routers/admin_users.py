@@ -4,7 +4,9 @@ from typing import List
 
 from database import get_db
 from app_logging import log_event
-from deps import require_system_admin, hash_password, generate_temp_password, audit
+from deps import (
+    require_system_admin, hash_password, generate_temp_password, audit, get_or_404,
+)
 import models
 import schemas
 
@@ -59,9 +61,7 @@ def update_admin_user(
     admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
-    user = db.query(models.AdminUser).filter(models.AdminUser.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "사용자를 찾을 수 없습니다.")
+    user = get_or_404(db, models.AdminUser, user_id, "사용자를 찾을 수 없습니다.")
 
     changes = []
     if data.password is not None:
@@ -117,9 +117,7 @@ def delete_admin_user(
     if user_id == admin.id:
         raise HTTPException(400, "자기 자신은 삭제할 수 없습니다.")
 
-    user = db.query(models.AdminUser).filter(models.AdminUser.id == user_id).first()
-    if not user:
-        raise HTTPException(404, "사용자를 찾을 수 없습니다.")
+    user = get_or_404(db, models.AdminUser, user_id, "사용자를 찾을 수 없습니다.")
 
     if user.role == 'system':
         other_systems = db.query(models.AdminUser).filter(

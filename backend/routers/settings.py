@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 
 from database import get_db
 from app_logging import log_event
-from deps import require_system_admin, get_settings, DEFAULT_SETTINGS, audit
+from deps import (
+    require_system_admin, get_settings, DEFAULT_SETTINGS, audit, get_or_404,
+)
 import models
 import schemas
 
@@ -76,27 +78,16 @@ def update_settings(
 @router.put("/api/admin/rooms/{room_id}/price")
 def update_room_price(
     room_id: int,
-    payload: dict,
+    payload: schemas.RoomUpdate,
     request: Request,
     admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
-    room = db.query(models.Room).filter(models.Room.id == room_id).first()
-    if not room:
-        raise HTTPException(404, "공간을 찾을 수 없습니다.")
-    try:
-        price = int(payload.get("hourly_price"))
-    except (TypeError, ValueError):
-        raise HTTPException(400, "요금은 숫자여야 합니다.")
-    if price < 0:
-        raise HTTPException(400, "요금은 0 이상이어야 합니다.")
+    room = get_or_404(db, models.Room, room_id, "공간을 찾을 수 없습니다.")
+    price = payload.hourly_price
     room.hourly_price = price
-
-    mode = payload.get("booking_mode")
-    if mode is not None:
-        if mode not in ("team", "personal"):
-            raise HTTPException(400, "예약 단위는 team 또는 personal 이어야 합니다.")
-        room.booking_mode = mode
+    if payload.booking_mode is not None:
+        room.booking_mode = payload.booking_mode
 
     db.commit()
     log_event(

@@ -3,12 +3,6 @@
 /* ============================================================
    팀 관리 — 예약할 수 있는 팀 명부 + 월회비 납부 현황
    ============================================================ */
-const BILLING = {
-  hourly:  { label: '시간당',   cls: 'default' },
-  monthly: { label: '월 이용료', cls: 'monthly' },
-  dues:    { label: '월회비',   cls: 'dues'    },
-};
-
 let allTeams = [];
 let teamSearch = '';
 let editTeamId = null;          // null = 신규 등록
@@ -23,6 +17,7 @@ async function loadTeams() {
   list.innerHTML = '<div class="spinner"></div>';
   try {
     allTeams = await apiJson('/api/admin/teams');
+    cacheTeams(allTeams);          // 같은 응답을 캐시로도 쓴다
   } catch (e) {
     allTeams = [];
     list.innerHTML = `<div class="admin-empty"><span class="admin-empty-icon">⚠️</span><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
@@ -175,7 +170,7 @@ document.getElementById('teamForm').addEventListener('submit', async e => {
       await apiJson('/api/admin/teams', { method: 'POST', body: JSON.stringify(body) });
     }
     closeTeamModal();
-    await Promise.all([loadTeams(), loadTeamsCache()]);   // 매출 계산용 캐시도 갱신
+    await loadTeams();
     showToast('저장되었습니다.', 'success');
   } catch (e) {
     showToast(e.message, 'error');
@@ -192,7 +187,7 @@ async function deleteCurrentTeam() {
   try {
     await apiJson(`/api/admin/teams/${editTeamId}`, { method: 'DELETE' });
     closeTeamModal();
-    await Promise.all([loadTeams(), loadTeamsCache()]);
+    await loadTeams();
     showToast('삭제되었습니다.', 'success');
   } catch (e) {
     showToast(e.message, 'error');
@@ -245,11 +240,12 @@ async function renderTeamDetail() {
 
   let roster, dues = null;
   try {
-    [roster, detailMembers, dues] = await Promise.all([
-      apiJson(`/api/admin/members?team_id=${team.id}&active=true`),
+    // 전체 명단 하나만 받아 이 팀 소속을 걸러 쓴다 (같은 데이터를 두 번 받지 않게)
+    [detailMembers, dues] = await Promise.all([
       apiJson('/api/admin/members?active=true'),
       isDues ? apiJson(`/api/admin/dues?year_month=${ym}&team_id=${team.id}`) : Promise.resolve(null),
     ]);
+    roster = detailMembers.filter(m => m.team_id === team.id);
   } catch (e) {
     body.innerHTML = head + `<div class="admin-empty"><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
     return;
@@ -295,7 +291,7 @@ async function renderTeamDetail() {
             ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
           </div>
           <div class="dues-sub">
-            ${m.parts ? escHtml(m.parts.split(',').join(' · ')) : '포지션 미지정'}
+            ${m.parts ? escHtml(splitParts(m.parts).join(' · ')) : '포지션 미지정'}
             ${m.phone ? ` · <a href="tel:${escHtml(String(m.phone).replace(/[^\d+]/g, ''))}">${escHtml(formatPhone(m.phone))}</a>` : ' · 연락처 없음'}
           </div>
         </div>
@@ -358,7 +354,7 @@ async function addMemberToTeam() {
       method: 'PATCH',
       body: JSON.stringify({ team_id: detailTeamId }),
     });
-    await Promise.all([loadTeams(), loadTeamsCache()]);  // 멤버 수 배지 갱신
+    await loadTeams();
     await renderTeamDetail();
     showToast(`${member?.name || '멤버'} 추가됨`, 'success');
   } catch (e) {

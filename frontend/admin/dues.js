@@ -12,6 +12,7 @@ const DUES_STATUS = {
 
 let duesCursor = new Date();   // 어느 달을 보고 있는지
 let duesData   = null;
+let duesSummaryYear = null;    // 연간 차트는 해가 바뀔 때만 다시 받는다
 
 PAGE_LOADERS.dues = loadDues;
 
@@ -30,7 +31,12 @@ async function loadDues() {
     return;
   }
   renderDues();
-  loadDuesSummary(duesCursor.getFullYear());
+  // 월을 넘겨도 연간 합계는 그대로다 — 해가 바뀔 때만 다시 받는다.
+  const year = duesCursor.getFullYear();
+  if (year !== duesSummaryYear) {
+    duesSummaryYear = year;
+    loadDuesSummary(year);
+  }
 }
 
 function duesPrevMonth() { duesCursor.setMonth(duesCursor.getMonth() - 1); loadDues(); }
@@ -63,7 +69,7 @@ function renderDues() {
           <span class="dues-team">${r.team_name ? escHtml(r.team_name) : '무소속'}</span>
         </div>
         <div class="dues-sub">
-          ${r.parts ? escHtml(r.parts.split(',').join(' · ')) : '파트 미지정'}
+          ${r.parts ? escHtml(splitParts(r.parts).join(' · ')) : '포지션 미지정'}
           · ${r.covered_by_team ? '팀 월 이용료에 포함'
               : (r.status === 'exempt' ? '면제' : r.fee.toLocaleString() + '원')}
         </div>

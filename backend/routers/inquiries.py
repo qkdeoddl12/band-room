@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, audit
+from deps import get_current_admin, normalize_phone, audit, get_or_404
 import models
 import schemas
 
@@ -56,9 +56,7 @@ def resolve_inquiry(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    inq = db.query(models.Inquiry).filter(models.Inquiry.id == inquiry_id).first()
-    if not inq:
-        raise HTTPException(404, "문의를 찾을 수 없습니다.")
+    inq = get_or_404(db, models.Inquiry, inquiry_id, "문의를 찾을 수 없습니다.")
     if inq.status == 'resolved':
         raise HTTPException(400, "이미 처리된 문의입니다.")
     inq.status = 'resolved'
@@ -78,9 +76,7 @@ def delete_inquiry(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    inq = db.query(models.Inquiry).filter(models.Inquiry.id == inquiry_id).first()
-    if not inq:
-        raise HTTPException(404, "문의를 찾을 수 없습니다.")
+    inq = get_or_404(db, models.Inquiry, inquiry_id, "문의를 찾을 수 없습니다.")
     db.delete(inq)
     db.commit()
     log_event("inquiry_deleted", id=inquiry_id, by=admin.username)

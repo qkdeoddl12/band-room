@@ -8,11 +8,9 @@
   --primary: #6455E8;
   --primary-dark: #5646D6;
   --primary-light: #EEECFD;
-  --primary-tint: #F6F5FE;
 
   /* 공간 구분색 */
   --room1: #6455E8;
-  --room1-light: #EEECFD;
   --room2: #0E9A96;
   --room2-light: #E6F6F5;
 
@@ -29,6 +27,12 @@
   --success: #0E9F6E;
   --danger: #E5484D;
   --warning: #D9820B;
+  /* 배지·칩에서 12번 반복되던 색 쌍 */
+  --warning-light: #FEF3C7;
+  --warning-ink: #B45309;
+  --info-light: #DBEAFE;
+  --info-ink: #1D4ED8;
+  --neutral-light: #F3F4F6;
 
   /* 모서리 — 세 단계만. 알약은 상호작용 요소에만 */
   --radius: 14px;
@@ -50,7 +54,7 @@
 }
 
 /* 숫자는 자리 폭을 고정해 표·금액이 흔들리지 않게 */
-.kpi-value, .res-fee, .bar-value, .stack-value, .mt-fee, .dues-amount,
+.kpi-value, .res-fee, .bar-value, .stack-value,
 .team-dues-amount, .contact-table, .member-table, .audit-time,
 .tk-stat-value, .fee-value, .res-time-main {
   font-variant-numeric: tabular-nums;
@@ -126,19 +130,6 @@ a { text-decoration: none; }
 }
 .header-link:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
 
-.admin-link {
-  font-size: 13px; font-weight: 600;
-  color: var(--text-sub);
-  padding: 6px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: 20px;
-  transition: all .2s;
-}
-.admin-link:hover {
-  color: var(--primary);
-  border-color: var(--primary);
-  background: var(--primary-light);
-}
 
 /* Inquiry category selector (user modal) */
 .inquiry-cats {
@@ -481,24 +472,6 @@ a { text-decoration: none; }
   padding-right: 40px; cursor: pointer;
 }
 
-/* Duration buttons */
-.duration-grid {
-  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
-}
-.duration-btn {
-  padding: 13px 0;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  font-size: 14px; font-weight: 600;
-  color: var(--text-sub);
-  transition: all .2s;
-}
-.duration-btn:hover { border-color: var(--primary); color: var(--primary); }
-.duration-btn.active {
-  border-color: var(--primary);
-  background: var(--primary-light);
-  color: var(--primary);
-}
 
 /* Time summary */
 .time-summary {
@@ -770,12 +743,6 @@ a { text-decoration: none; }
   overflow-y: auto;
 }
 
-.sidebar-title {
-  font-size: 11px; font-weight: 700;
-  color: var(--text-light);
-  text-transform: uppercase; letter-spacing: .8px;
-  padding: 0 12px; margin-bottom: 8px;
-}
 
 .sidebar-nav { list-style: none; margin-bottom: 24px; }
 
@@ -794,7 +761,6 @@ a { text-decoration: none; }
 .sidebar-icon { font-size: 15px; filter: saturate(.25) opacity(.8); }
 .sidebar-item.active .sidebar-icon { filter: none; }
 
-.room-filter-dot { width: 8px; height: 8px; border-radius: 50%; }
 
 /* Admin main */
 .admin-main {
@@ -806,7 +772,7 @@ a { text-decoration: none; }
 /* Dashboard: pending highlight */
 .pending-highlight {
   display: flex; align-items: center; gap: 16px;
-  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  background: linear-gradient(135deg, var(--warning-light) 0%, #FDE68A 100%);
   border: 1.5px solid #F59E0B;
   border-radius: var(--radius);
   padding: 18px 20px;
@@ -1168,7 +1134,7 @@ a { text-decoration: none; }
   margin-left: 6px; letter-spacing: 0.3px;
   vertical-align: middle;
 }
-.res-status-admin.pending { background: #FEF3C7; color: #92400E; }
+.res-status-admin.pending { background: var(--warning-light); color: #92400E; }
 .res-status-admin.confirmed { background: #D1FAE5; color: #065F46; }
 
 .reservation-item.pending {
@@ -1281,7 +1247,7 @@ a { text-decoration: none; }
   white-space: nowrap;
 }
 .user-role-badge.system { background: var(--primary); color: #fff; }
-.user-role-badge.reservation { background: #DBEAFE; color: #1D4ED8; }
+.user-role-badge.reservation { background: var(--info-light); color: var(--info-ink); }
 
 
 /* ============================================================
@@ -1458,7 +1424,7 @@ a { text-decoration: none; }
   letter-spacing: .3px;
   background: var(--primary-light); color: var(--primary-dark);
 }
-.inquiry-cat-tag.cat-complaint { background: #FEF3C7; color: #B45309; }
+.inquiry-cat-tag.cat-complaint { background: var(--warning-light); color: var(--warning-ink); }
 .inquiry-cat-tag.cat-incident  { background: #FEE2E2; color: #B91C1C; }
 
 .inquiry-status-badge {
@@ -1605,7 +1571,7 @@ a { text-decoration: none; }
 }
 .cal-bar.r1 { background: var(--primary-light); color: var(--room1); }
 .cal-bar.r2 { background: var(--room2-light); color: var(--room2); }
-.cal-bar.blocked { background: #F3F4F6; color: var(--text-sub); }
+.cal-bar.blocked { background: var(--neutral-light); color: var(--text-sub); }
 .cal-bar.has-pending {
   background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(245, 158, 11, 0.35) 4px, rgba(245, 158, 11, 0.35) 7px);
 }
@@ -1682,7 +1648,7 @@ a { text-decoration: none; }
 }
 
 .res-room-tag.all {
-  background: #F3F4F6;
+  background: var(--neutral-light);
   color: var(--text-sub);
 }
 
@@ -1735,7 +1701,7 @@ a { text-decoration: none; }
 }
 .user-inactive-tag {
   font-size: 10px; font-weight: 700;
-  background: #F3F4F6; color: var(--text-sub);
+  background: var(--neutral-light); color: var(--text-sub);
   padding: 2px 7px; border-radius: 8px;
   letter-spacing: .3px;
 }
@@ -1901,7 +1867,7 @@ a { text-decoration: none; }
   padding: 3px 8px; border-radius: 6px;
   background: var(--primary-light); color: var(--primary-dark);
 }
-.fee-badge.exempt  { background: #F3F4F6; color: var(--text-sub); }
+.fee-badge.exempt  { background: var(--neutral-light); color: var(--text-sub); }
 .fee-badge.default { background: var(--bg); color: var(--text-sub); }
 
 .part-checks { display: flex; gap: 8px; flex-wrap: wrap; }
@@ -2115,7 +2081,7 @@ a { text-decoration: none; }
 }
 .link-inline:active { opacity: .6; }
 
-.fee-badge.monthly { background: #FEF3C7; color: #B45309; }
+.fee-badge.monthly { background: var(--warning-light); color: var(--warning-ink); }
 
 .tk-slug-row { display: flex; align-items: center; gap: 6px; }
 .tk-slug-prefix {
@@ -2134,7 +2100,7 @@ a { text-decoration: none; }
   background: #111827; color: #fff;
   letter-spacing: .02em;
 }
-.fee-badge.dues { background: #DBEAFE; color: #1D4ED8; }
+.fee-badge.dues { background: var(--info-light); color: var(--info-ink); }
 
 .team-detail-head {
   display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
@@ -2197,7 +2163,7 @@ a { text-decoration: none; }
 .team-add-empty { font-size: 13px; color: var(--text-light); }
 
 .part-other { margin-top: 8px; }
-.part-tag.custom { background: #FEF3C7; color: #92400E; }
+.part-tag.custom { background: var(--warning-light); color: #92400E; }
 
 
 /* ============================================================
@@ -2255,9 +2221,6 @@ a { text-decoration: none; }
   box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .32);
   }
   .tkp-map:hover { background: rgb(var(--tkp-accent) / 1); }
-
-  .tkp-icon { font-size: 17px; line-height: 1; }
-
   .tkp-note {
   margin-top: 16px; text-align: center;
   font-size: 12px; color: rgba(255,255,255,.38); line-height: 1.7;
@@ -2306,18 +2269,8 @@ a { text-decoration: none; }
   border-radius: 8px; font-size: 20px;
 }
 
-.check-badge {
-  font-size: 11px; font-weight: 800;
-  padding: 3px 8px; border-radius: 6px;
-  background: #FEF3C7; color: #B45309;
-}
 .entity-item.needs-check { border-left: 4px solid var(--warning); }
 
-.entity-memo {
-  margin-top: 6px; padding: 7px 10px;
-  background: var(--bg); border-radius: 8px;
-  font-size: 12px; color: var(--text-sub); line-height: 1.5;
-}
 .settings-group-label {
   margin: 18px 0 10px; padding-top: 14px;
   border-top: 1px solid var(--border);
@@ -2340,7 +2293,7 @@ a { text-decoration: none; }
   padding: 2px 6px; border-radius: 5px; vertical-align: middle;
 }
 .booker-tag.member { background: var(--room2-light); color: var(--room2); }
-.booker-tag.guest  { background: #FEF3C7; color: #B45309; }
+.booker-tag.guest  { background: var(--warning-light); color: var(--warning-ink); }
 
 /* ============================================================
    ADMIN: 감사 로그
@@ -2454,18 +2407,9 @@ a { text-decoration: none; }
   font-size: 9px; font-weight: 800; vertical-align: middle;
 }
 .mt-badge.doors { background: #111827; color: #fff; }
-.mt-badge.check { background: #FEF3C7; color: #B45309; }
+.mt-badge.check { background: var(--warning-light); color: var(--warning-ink); }
 .mt-badge.off   { background: var(--bg); color: var(--text-light); }
 
-.mt-fee {
-  padding: 2px 7px; border-radius: 5px;
-  font-size: 11px; font-weight: 800;
-  background: var(--primary-light); color: var(--primary-dark);
-}
-.mt-fee.exempt  { background: #F3F4F6; color: var(--text-sub); }
-.mt-fee.monthly { background: #FEF3C7; color: #B45309; }
-.mt-fee.dues    { background: #DBEAFE; color: #1D4ED8; }
-.mt-fee.default { background: var(--bg); color: var(--text-sub); }
 
 .mt-memo-row td {
   padding: 0 10px 7px;

@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, clean_parts, audit
+from deps import get_current_admin, normalize_phone, clean_parts, audit, get_or_404
 import models
 import schemas
 
@@ -26,7 +26,8 @@ def list_members(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    query = db.query(models.Member)
+    # _member_response 가 m.team.name 을 읽으므로 미리 조인 (N+1 방지).
+    query = db.query(models.Member).options(joinedload(models.Member.team))
     if active is not None:
         query = query.filter(models.Member.is_active == active)
     if team_id is not None:
@@ -84,9 +85,7 @@ def update_member(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    member = db.query(models.Member).filter(models.Member.id == member_id).first()
-    if not member:
-        raise HTTPException(404, "멤버를 찾을 수 없습니다.")
+    member = get_or_404(db, models.Member, member_id, "멤버를 찾을 수 없습니다.")
 
     fields = data.model_dump(exclude_unset=True)
     if 'name' in fields and fields['name']:
@@ -125,9 +124,7 @@ def delete_member(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    member = db.query(models.Member).filter(models.Member.id == member_id).first()
-    if not member:
-        raise HTTPException(404, "멤버를 찾을 수 없습니다.")
+    member = get_or_404(db, models.Member, member_id, "멤버를 찾을 수 없습니다.")
     dues = db.query(models.MemberDues).filter(models.MemberDues.member_id == member_id).count()
     if dues and not force:
         # force=true is for mis-registered members — it drops their dues history too.
