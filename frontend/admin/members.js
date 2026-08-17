@@ -56,28 +56,15 @@ function renderTeamOptions() {
 
 const GENDER_KO = { male: '남', female: '여' };
 
-/* "1995년생 · 남" 형태. 둘 다 없으면 빈 문자열. */
-function memberProfile(m) {
-  const bits = [];
-  if (m.birth_year) bits.push(`${m.birth_year}년생`);
-  if (m.gender && GENDER_KO[m.gender]) bits.push(GENDER_KO[m.gender]);
-  return bits.join(' · ');
-}
-
-function feeBadge(m) {
+/* 회비 표시는 짧게 — 표 안에서 한 칸만 차지해야 한다. */
+function feeShort(m) {
   const team = teamsById[m.team_id];
-  if (team && team.billing_type === 'monthly') {
-    return '<span class="fee-badge monthly">팀 납부</span>';
-  }
-  if (m.dues_exempt) return '<span class="fee-badge exempt">회비 면제</span>';
-  if (m.monthly_fee !== null && m.monthly_fee !== undefined) {
-    return `<span class="fee-badge">${m.monthly_fee.toLocaleString()}원</span>`;
-  }
-  // 개인 금액이 없으면 팀 기본 회비, 그것도 없으면 전체 기본값을 따른다.
-  if (team && team.dues_fee != null) {
-    return `<span class="fee-badge dues">팀 기본 ${team.dues_fee.toLocaleString()}원</span>`;
-  }
-  return '<span class="fee-badge default">기본 회비</span>';
+  if (team && team.billing_type === 'monthly') return { text: '팀 납부', cls: 'monthly' };
+  if (m.dues_exempt) return { text: '면제', cls: 'exempt' };
+  if (m.monthly_fee != null) return { text: `${Math.round(m.monthly_fee / 10000)}만`, cls: '' };
+  if (team && team.dues_fee != null) return { text: `${Math.round(team.dues_fee / 10000)}만`, cls: 'dues' };
+  const base = settingNum('default_monthly_fee');
+  return { text: base ? `${Math.round(base / 10000)}만` : '기본', cls: 'default' };
 }
 
 function renderMembers() {
@@ -88,44 +75,55 @@ function renderMembers() {
     if (memberTeamFil === 'none' && m.team_id) return false;
     if (memberTeamFil && memberTeamFil !== 'none' && String(m.team_id) !== memberTeamFil) return false;
     if (!memberSearch) return true;
-    return `${m.name} ${m.parts || ''} ${m.phone || ''}`.toLowerCase().includes(memberSearch);
+    return `${m.name} ${m.parts || ''} ${m.phone || ''} ${m.memo || ''}`.toLowerCase().includes(memberSearch);
   });
 
   const active = allMembers.filter(m => m.is_active).length;
   const doors  = allMembers.filter(m => m.is_active && m.is_doors).length;
   const check  = allMembers.filter(m => m.needs_check).length;
   document.getElementById('memberCount').textContent =
-    `활동 ${active}명 (도어즈 ${doors}명) · 전체 ${allMembers.length}명` +
-    (check ? ` · ⚠️ 확인 필요 ${check}명` : '');
+    `활동 ${active} · 도어즈 ${doors} · 전체 ${allMembers.length}` +
+    (check ? ` · ⚠️ 확인 필요 ${check}` : '');
 
   if (items.length === 0) {
-    list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">🥁</span><div class="admin-empty-text">등록된 멤버가 없습니다.</div></div>';
+    list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">🥁</span><div class="admin-empty-text">해당되는 멤버가 없습니다.</div></div>';
     return;
   }
 
-  list.innerHTML = '<div class="entity-list">' + items.map(m => `
-    <div class="entity-item${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}">
-      <div class="entity-avatar member">${escHtml(m.name.charAt(0))}</div>
-      <div class="entity-meta">
-        <div class="entity-meta-top">
-          <span class="entity-name">${escHtml(m.name)}</span>
-          ${m.is_active ? '' : '<span class="user-inactive-tag">비활동</span>'}
-          ${m.needs_check ? '<span class="check-badge">확인 필요</span>' : ''}
-          ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
-          ${feeBadge(m)}
-        </div>
-        <div class="part-tags">${partTagsHtml(m.parts)}</div>
-        <div class="entity-meta-bottom">
-          <span>🎸 ${m.team_name ? escHtml(m.team_name) : '무소속'}</span>
-          ${memberProfile(m) ? `<span>🎂 ${escHtml(memberProfile(m))}</span>` : ''}
-          ${m.phone ? `<span>📞 ${escHtml(formatPhone(m.phone))}</span>` : ''}
-          ${m.joined_on ? `<span>📅 ${escHtml(m.joined_on)} 가입</span>` : ''}
-        </div>
-        ${m.memo ? `<div class="entity-memo">📝 ${escHtml(m.memo)}</div>` : ''}
-      </div>
-      <button class="btn-edit-user" onclick="openMemberModal(${m.id})">수정</button>
-    </div>
-  `).join('') + '</div>';
+  list.innerHTML = '<table class="member-table"><tbody>' + items.map(m => {
+    const fee = feeShort(m);
+    const meta = [
+      m.birth_year ? `${String(m.birth_year).slice(2)}년생` : '',
+      m.gender ? GENDER_KO[m.gender] : '',
+      m.joined_on ? `${m.joined_on.slice(2)} 가입` : '',
+    ].filter(Boolean).join(' · ');
+
+    return `
+      <tr class="mt-row${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
+          onclick="openMemberModal(${m.id})">
+        <td>
+          <div class="mt-main">
+            ${escHtml(m.name)}
+            ${m.is_doors ? '<span class="mt-badge doors">D</span>' : ''}
+            ${m.needs_check ? '<span class="mt-badge check">확인</span>' : ''}
+            ${m.is_active ? '' : '<span class="mt-badge off">비활동</span>'}
+          </div>
+          <div class="mt-sub">${m.phone ? escHtml(formatPhone(m.phone)) : '연락처 없음'}</div>
+        </td>
+        <td>
+          <div class="mt-main">${escHtml(m.team_name || '무소속')}</div>
+          <div class="mt-sub">${escHtml((m.parts || '').split(',').join('·') || '포지션 미지정')}</div>
+        </td>
+        <td class="mt-right">
+          <div class="mt-main"><span class="mt-fee ${fee.cls}">${escHtml(fee.text)}</span></div>
+          <div class="mt-sub">${escHtml(meta || '—')}</div>
+        </td>
+      </tr>
+      ${m.memo ? `<tr class="mt-memo-row${m.is_active ? '' : ' inactive'}"
+                      onclick="openMemberModal(${m.id})">
+                    <td colspan="3">📝 ${escHtml(m.memo)}</td>
+                  </tr>` : ''}`;
+  }).join('') + '</tbody></table>';
 }
 
 function openMemberModal(memberId = null, presetTeamId = null) {

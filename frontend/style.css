@@ -2329,3 +2329,64 @@ a { text-decoration: none; }
   letter-spacing: .05em;
 }
 .dues-sub a { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
+
+/* ============================================================
+   ADMIN: 멤버 표 — 정보는 다 담되 세로를 줄인다
+   ============================================================ */
+.member-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: 13px;
+}
+.member-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.member-table tr:last-child td { border-bottom: none; }
+
+.mt-row { cursor: pointer; }
+.mt-row:hover { background: var(--bg); }
+.mt-row.inactive, .mt-memo-row.inactive { opacity: .5; }
+.mt-row.needs-check td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+
+.mt-main {
+  font-weight: 700; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.mt-sub {
+  margin-top: 2px;
+  font-size: 11px; color: var(--text-sub);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.member-table td:nth-child(2) { max-width: 0; width: 38%; }
+.mt-right { text-align: right; white-space: nowrap; }
+
+.mt-badge {
+  margin-left: 4px; padding: 1px 4px; border-radius: 4px;
+  font-size: 9px; font-weight: 800; vertical-align: middle;
+}
+.mt-badge.doors { background: #111827; color: #fff; }
+.mt-badge.check { background: #FEF3C7; color: #B45309; }
+.mt-badge.off   { background: var(--bg); color: var(--text-light); }
+
+.mt-fee {
+  padding: 2px 7px; border-radius: 5px;
+  font-size: 11px; font-weight: 800;
+  background: var(--primary-light); color: var(--primary-dark);
+}
+.mt-fee.exempt  { background: #F3F4F6; color: var(--text-sub); }
+.mt-fee.monthly { background: #FEF3C7; color: #B45309; }
+.mt-fee.dues    { background: #DBEAFE; color: #1D4ED8; }
+.mt-fee.default { background: var(--bg); color: var(--text-sub); }
+
+.mt-memo-row td {
+  padding: 0 10px 7px;
+  font-size: 11px; color: var(--text-light);
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
