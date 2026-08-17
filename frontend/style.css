@@ -1,31 +1,72 @@
 /* ============================================================
-   CSS Variables
+   Design tokens
+   중립색은 한 계열(쿨 그레이)로 통일한다. 브랜드 보라는 유지하되
+   채도를 약간 낮춰 텍스트·표와 충돌하지 않게 한다.
    ============================================================ */
 :root {
-  --primary: #7C6FF7;
-  --primary-dark: #6A5CF0;
-  --primary-light: #EEEAFF;
-  --room1: #7C6FF7;
-  --room1-light: #EEEAFF;
-  --room2: #0EA5A0;
-  --room2-light: #EDFAFA;
-  --bg: #F7F7FB;
+  /* Brand */
+  --primary: #6455E8;
+  --primary-dark: #5646D6;
+  --primary-light: #EEECFD;
+  --primary-tint: #F6F5FE;
+
+  /* 공간 구분색 */
+  --room1: #6455E8;
+  --room1-light: #EEECFD;
+  --room2: #0E9A96;
+  --room2-light: #E6F6F5;
+
+  /* 중립 — 한 계열만 쓴다 */
+  --bg: #F6F7F9;
   --card: #FFFFFF;
-  --border: #EAECF0;
-  --text: #111827;
-  --text-sub: #6B7280;
-  --text-light: #9CA3AF;
-  --success: #10B981;
-  --danger: #EF4444;
-  --warning: #F59E0B;
-  --radius: 16px;
-  --radius-sm: 10px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 24px rgba(0,0,0,0.09);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.13);
-  --header-height: 60px;
-  --bottom-bar: 80px;
+  --border: #E6E8EC;
+  --border-strong: #D3D7DE;
+  --text: #14161A;
+  --text-sub: #5C636E;
+  --text-light: #939AA6;
+
+  /* 상태 */
+  --success: #0E9F6E;
+  --danger: #E5484D;
+  --warning: #D9820B;
+
+  /* 모서리 — 세 단계만. 알약은 상호작용 요소에만 */
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-pill: 999px;
+
+  /* 그림자는 배경 색조를 띠게 (순수 검정 금지) */
+  --shadow-sm: 0 1px 2px rgba(20, 22, 26, .04);
+  --shadow: 0 1px 2px rgba(20, 22, 26, .04), 0 6px 16px -6px rgba(20, 22, 26, .08);
+  --shadow-md: 0 8px 24px -8px rgba(20, 22, 26, .14);
+  --shadow-lg: 0 16px 48px -16px rgba(20, 22, 26, .22);
+
+  /* 포커스 링 — 지금까지 없었다 */
+  --focus: 0 0 0 3px rgba(100, 85, 232, .32);
+
+  --header-height: 56px;
+  --bottom-bar: 76px;
   --slot-h: 64px;
+}
+
+/* 숫자는 자리 폭을 고정해 표·금액이 흔들리지 않게 */
+.kpi-value, .res-fee, .bar-value, .stack-value, .mt-fee, .dues-amount,
+.team-dues-amount, .contact-table, .member-table, .audit-time,
+.tk-stat-value, .fee-value, .res-time-main {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 키보드 사용자를 위한 포커스 표시 (마우스 클릭에는 안 나옴) */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--radius-sm);
+}
+
+/* 눌리는 느낌 */
+button:not(:disabled):active,
+.chip:active, .dues-chip:active, .part-check:active {
+  transform: translateY(1px);
 }
 
 /* ============================================================
@@ -70,7 +111,7 @@ a { text-decoration: none; }
 .logo-icon { font-size: 22px; }
 .logo-text {
   font-size: 18px; font-weight: 800;
-  color: var(--primary); letter-spacing: -0.5px;
+  color: var(--text); letter-spacing: -0.5px;
 }
 
 .header-actions { display: flex; align-items: center; gap: 8px; }
@@ -135,7 +176,7 @@ a { text-decoration: none; }
 /* --- Date Nav --- */
 .date-nav {
   background: var(--card);
-  padding: 16px 20px 0;
+  padding: 10px 20px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -156,12 +197,12 @@ a { text-decoration: none; }
 }
 
 .date-text {
-  font-size: 22px; font-weight: 800;
-  color: var(--text); letter-spacing: -0.8px;
+  font-size: 19px; font-weight: 800;
+  color: var(--text); letter-spacing: -0.5px;
 }
 
 .btn-nav {
-  width: 38px; height: 38px;
+  width: 34px; height: 34px;
   border-radius: 50%;
   background: var(--bg);
   border: 1.5px solid var(--border);
@@ -187,9 +228,9 @@ a { text-decoration: none; }
 .week-day {
   flex: none;
   display: flex; flex-direction: column;
-  align-items: center; gap: 5px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  align-items: center; gap: 3px;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all .15s;
   min-width: 44px;
@@ -203,7 +244,7 @@ a { text-decoration: none; }
 }
 .week-day.active .week-day-name { color: rgba(255,255,255,.75); }
 
-.week-day-num { font-size: 16px; font-weight: 700; color: var(--text); }
+.week-day-num { font-size: 15px; font-weight: 700; color: var(--text); }
 .week-day.active .week-day-num { color: #fff; }
 .week-day.is-today:not(.active) .week-day-num { color: var(--primary); }
 
@@ -750,7 +791,8 @@ a { text-decoration: none; }
 }
 .sidebar-item:hover { background: var(--bg); color: var(--text); }
 .sidebar-item.active { background: var(--primary-light); color: var(--primary); }
-.sidebar-icon { font-size: 16px; }
+.sidebar-icon { font-size: 15px; filter: saturate(.25) opacity(.8); }
+.sidebar-item.active .sidebar-icon { filter: none; }
 
 .room-filter-dot { width: 8px; height: 8px; border-radius: 50%; }
 
@@ -819,13 +861,10 @@ a { text-decoration: none; }
   position: relative;
   overflow: hidden;
 }
-.kpi-card.revenue::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
-}
+/* 카드 위 보라 막대는 아무 정보도 담지 않아 뺐다.
+   금액 카드는 값 자체의 크기와 색으로 구분한다. */
+.kpi-card { border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.kpi-card.revenue .kpi-value { color: var(--primary-dark); }
 .kpi-period {
   font-size: 11px; font-weight: 700;
   color: var(--text-sub);
@@ -837,8 +876,8 @@ a { text-decoration: none; }
   margin-bottom: 6px;
 }
 .kpi-value {
-  font-size: 28px; font-weight: 800;
-  color: var(--text); letter-spacing: -1px; line-height: 1;
+  font-size: 25px; font-weight: 800;
+  color: var(--text); letter-spacing: -.6px; line-height: 1.05;
 }
 .kpi-unit { font-size: 14px; font-weight: 700; color: var(--text-sub); }
 .kpi-sub { font-size: 12px; color: var(--text-sub); font-weight: 500; }
@@ -879,23 +918,38 @@ a { text-decoration: none; }
   height: 14px;
   white-space: nowrap;
 }
+/* 트랙에 배경을 깔면 값이 0일 때도 꽉 찬 막대로 읽힌다.
+   바닥선만 그어 '값 없음'이 비어 보이게 한다. */
 .bar-track {
   flex: 1; width: 100%;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border);
+  justify-content: center;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   display: flex; align-items: flex-end;
   overflow: hidden;
 }
+/* 부모(.bar-chart)가 flex 라 폭을 명시하지 않으면 글자가 세로로 쪼개진다. */
+.chart-empty {
+  grid-column: 1 / -1;   /* .bar-chart / .stack-chart 는 grid 다 */
+  flex: 1 1 100%; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 120px; text-align: center;
+  font-size: 13px; color: var(--text-light);
+}
+/* 막대는 가늘게, 데이터 끝만 4px 둥글게, 바닥에는 붙인다.
+   아래쪽까지 둥글면 기준선에서 떠 보인다. */
 .bar-fill {
-  width: 100%;
-  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
-  border-radius: var(--radius-sm);
+  width: 62%; max-width: 34px;
+  margin: 0 auto;
+  background: var(--primary);
+  border-radius: 4px 4px 0 0;
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 2px;
 }
-.bar-col.today .bar-fill {
-  background: linear-gradient(180deg, #F59E0B 0%, #D97706 100%);
-}
+/* 한 계열은 한 색. '오늘'은 다른 색이 아니라 라벨과 바닥 표시로 강조한다.
+   (다른 색을 쓰면 두 번째 계열처럼 읽힌다) */
+.bar-col.today .bar-track { border-bottom-color: var(--warning); border-bottom-width: 2px; }
+.bar-col.today .bar-value { color: var(--text); }
 .bar-label {
   font-size: 11px; font-weight: 600;
   color: var(--text-sub);
@@ -930,26 +984,45 @@ a { text-decoration: none; }
   font-size: 10px; font-weight: 700; color: var(--text-sub);
   height: 14px; white-space: nowrap;
 }
+/* 스택 차트도 같은 이유로 트랙 배경을 없앤다 */
 .stack-track {
   flex: 1; width: 100%;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   display: flex; align-items: flex-end;
   overflow: hidden;
 }
+/* 두 계열 사이는 테두리가 아니라 2px 표면 간격으로 나눈다 */
 .stack-fill {
-  width: 100%;
-  background: linear-gradient(180deg, var(--room2) 0%, #0c9590 100%);
-  border-radius: var(--radius-sm);
+  width: 62%; max-width: 34px;
+  margin: 0 auto;
+  background: var(--room2);
+  border-radius: 4px 4px 0 0;
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 2px;
   display: flex; flex-direction: column; justify-content: flex-start;
   overflow: hidden;
 }
+/* 위 칸(합주실)과 아래 칸(개인연습실)은 2px 표면색 간격으로 가른다 */
 .stack-r1 {
   width: 100%;
-  background: linear-gradient(180deg, var(--room1) 0%, var(--primary-dark) 100%);
+  background: var(--room1);
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 2px 0 var(--card);
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 범례 — 두 계열 이상이면 색만으로 구분하지 않는다 */
+.chart-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.chart-legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-sub);
+}
+.chart-legend-swatch {
+  width: 10px; height: 10px; border-radius: 3px; flex: none;
 }
 .stack-label {
   font-size: 11px; font-weight: 600; color: var(--text-sub);
@@ -992,12 +1065,12 @@ a { text-decoration: none; }
 .room-row-pct { font-size: 11px; font-weight: 600; color: var(--text-sub); }
 
 /* Filter panel (chip-based) */
+/* 필터는 보조 요소다. 카드로 띄우지 않고 배경에 눕힌다. */
 .filter-panel {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow);
+  background: transparent;
+  padding: 0;
+  margin-bottom: 14px;
+  box-shadow: none;
   display: flex; flex-direction: column; gap: 8px;
 }
 
@@ -1163,7 +1236,10 @@ a { text-decoration: none; }
   color: var(--text-sub); transition: color .15s;
 }
 .mobile-nav-item.active { color: var(--primary); }
-.mobile-nav-icon { font-size: 20px; }
+/* 컬러 이모지가 작은 크기에서 산만해 채도를 낮춘다.
+   활성 항목만 원래 색으로 돌려 어디에 있는지 분명하게. */
+.mobile-nav-icon { font-size: 17px; filter: saturate(.25) opacity(.75); }
+.mobile-nav-item.active .mobile-nav-icon { filter: none; }
 
 /* Admin Toast (no bottom bar) */
 .admin-toast {
@@ -1211,13 +1287,17 @@ a { text-decoration: none; }
 /* ============================================================
    ADMIN: Page header
    ============================================================ */
+/* 제목과 동작 버튼은 좁은 화면에서도 한 줄로 — 버튼이 폭을 다 먹지 않게 */
 .page-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 20px;
-  flex-wrap: wrap; gap: 12px;
+  margin-bottom: 16px;
+  gap: 12px;
 }
+.page-header > div:first-child { min-width: 0; }
+.page-header .btn-primary,
+.page-header .btn-secondary { flex: none; width: auto; }
 .page-title {
-  font-size: 22px; font-weight: 800;
+  font-size: 19px; font-weight: 800;
   color: var(--text); letter-spacing: -.5px;
   margin-bottom: 2px;
 }
@@ -1228,7 +1308,7 @@ a { text-decoration: none; }
    ADMIN: Buttons
    ============================================================ */
 .btn-primary {
-  height: 42px; padding: 0 18px;
+  height: 38px; padding: 0 14px;
   background: var(--primary); color: #fff;
   font-size: 14px; font-weight: 700;
   border-radius: var(--radius-sm);
@@ -1237,7 +1317,7 @@ a { text-decoration: none; }
 }
 .btn-primary:hover {
   background: var(--primary-dark);
-  box-shadow: 0 4px 16px rgba(124,111,247,.4);
+  box-shadow: 0 6px 16px -6px rgba(100,85,232,.5);
 }
 
 .btn-secondary {
@@ -1859,35 +1939,38 @@ a { text-decoration: none; }
 }
 
 .dues-list { display: flex; flex-direction: column; gap: 8px; }
+/* 한 사람당 높이를 줄인다. 상태는 왼쪽 색선이 이미 말해주므로
+   칩은 작게, 채도는 낮게. 강한 색은 목표 상태(납부)에만. */
 .dues-row {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
   background: var(--card);
   border: 1px solid var(--border);
-  border-left: 4px solid var(--border);
+  border-left: 3px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 12px 14px;
+  padding: 9px 12px;
 }
 .dues-row.status-paid    { border-left-color: var(--success); }
 .dues-row.status-unpaid  { border-left-color: var(--danger); }
 .dues-row.status-pending { border-left-color: var(--warning); }
 .dues-row.status-exempt  { border-left-color: var(--text-light); opacity: .7; }
 .dues-member { flex: 1; min-width: 140px; }
-.dues-name { font-size: 15px; font-weight: 700; color: var(--text); }
-.dues-sub  { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+.dues-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.dues-sub  { font-size: 11px; color: var(--text-sub); margin-top: 1px; }
 .dues-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .dues-chip {
-  padding: 7px 12px;
-  border: 1.5px solid var(--border);
-  border-radius: 999px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
   background: var(--card);
-  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  font-size: 11px; font-weight: 700; color: var(--text-light);
   cursor: pointer; transition: all .15s;
 }
-.dues-chip:hover { border-color: var(--text-light); }
-.dues-chip.paid.active    { background: var(--success);     border-color: var(--success);     color: #fff; }
-.dues-chip.unpaid.active  { background: var(--danger);      border-color: var(--danger);      color: #fff; }
-.dues-chip.pending.active { background: var(--warning);     border-color: var(--warning);     color: #fff; }
-.dues-chip.exempt.active  { background: var(--text-light);  border-color: var(--text-light);  color: #fff; }
+.dues-chip:hover { border-color: var(--border-strong); color: var(--text-sub); }
+/* 납부만 채운다 — 목표 상태라서. 나머지는 연한 배경 + 색 글자. */
+.dues-chip.paid.active    { background: var(--success); border-color: var(--success); color: #fff; }
+.dues-chip.unpaid.active  { background: #FDECEC; border-color: #F6C6C7; color: #B4232A; }
+.dues-chip.pending.active { background: #FEF3E0; border-color: #F3D9A8; color: #96590A; }
+.dues-chip.exempt.active  { background: var(--bg); border-color: var(--border-strong); color: var(--text-sub); }
 
 /* ============================================================
    ADMIN: Tickets — list

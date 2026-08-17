@@ -101,13 +101,17 @@ async function loadDuesSummary(year) {
   document.getElementById('duesYearLabel').textContent = `${year}년 월별 수납`;
   try {
     const rows = await apiJson(`/api/admin/dues/summary?year=${year}`);
+    if (!rows.some(r => r.paid)) {
+      chart.innerHTML = '<div class="chart-empty">올해 수납 기록이 없습니다.</div>';
+      return;
+    }
     const max = Math.max(1, ...rows.map(r => r.paid));
     chart.innerHTML = rows.map((r, i) => {
       const pct = (r.paid / max) * 100;
       return `
         <div class="bar-col">
-          <div class="bar-value">${r.paid > 0 ? (r.paid / 10000).toFixed(0) + '만' : ''}</div>
-          <div class="bar-track">
+          <div class="bar-value">${r.paid === max && r.paid > 0 ? (r.paid / 10000).toFixed(0) + '만' : ''}</div>
+          <div class="bar-track" title="${i + 1}월 ${r.paid.toLocaleString()}원">
             <div class="bar-fill" style="height:${pct}%"></div>
           </div>
           <div class="bar-label">${i + 1}</div>

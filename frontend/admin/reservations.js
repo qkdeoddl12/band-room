@@ -109,15 +109,24 @@ function renderWeekChart(confirmedRes) {
   const revByDate = {};
   confirmedRes.forEach(r => { revByDate[r.date] = (revByDate[r.date] || 0) + resFee(r); });
 
+  const total = days.reduce((n, d) => n + (revByDate[d.date] || 0), 0);
+  if (!total) {
+    chart.innerHTML = '<div class="chart-empty">최근 7일 확정된 예약이 없습니다.</div>';
+    return;
+  }
   const max = Math.max(1, ...days.map(d => revByDate[d.date] || 0));
 
+  // 모든 막대에 숫자를 붙이면 읽히지 않는다. 최고값만 직접 표시하고
+  // 나머지는 hover(title)와 스크린리더로 전달한다.
   chart.innerHTML = days.map(d => {
     const val = revByDate[d.date] || 0;
     const pct = (val / max) * 100;
+    const peak = val === max && val > 0;
     return `
       <div class="bar-col${d.isToday ? ' today' : ''}">
-        <div class="bar-value">${val > 0 ? val.toLocaleString() : ''}</div>
-        <div class="bar-track">
+        <div class="bar-value">${peak ? val.toLocaleString() : ''}</div>
+        <div class="bar-track" title="${d.label} ${d.weekday} · ${val.toLocaleString()}원"
+             aria-label="${d.label} ${d.weekday} ${val.toLocaleString()}원">
           <div class="bar-fill" style="height:${pct}%"></div>
         </div>
         <div class="bar-label">${d.label}<br><span>${d.weekday}</span></div>
@@ -534,6 +543,15 @@ function renderStats() {
   renderStatsRoomBreakdown(confirmed, revenue);
 }
 
+/* 두 계열 이상이면 범례가 항상 있어야 한다 — 색만으로 구분하면 안 된다. */
+function chartLegendHtml() {
+  return '<div class="chart-legend">' + roomList().map(r => `
+    <span class="chart-legend-item">
+      <span class="chart-legend-swatch" style="background:var(--${roomTagCls(r.id) === 'r1' ? 'room1' : 'room2'})"></span>
+      ${escHtml(r.name)}
+    </span>`).join('') + '</div>';
+}
+
 function renderMonthChart(confirmedRes, startDate) {
   const chart = document.getElementById('monthChart');
   const months = [];
@@ -557,16 +575,23 @@ function renderMonthChart(confirmedRes, startDate) {
     else byMonth[key].r2 += fee;
   });
 
+  const grand = months.reduce((n, m) => n + byMonth[m.key].r1 + byMonth[m.key].r2, 0);
+  if (!grand) {
+    chart.innerHTML = '<div class="chart-empty">기간 내 확정된 예약이 없습니다.</div>';
+    return;
+  }
   const max = Math.max(1, ...months.map(m => byMonth[m.key].r1 + byMonth[m.key].r2));
 
+  const rooms = roomList();
   chart.innerHTML = months.map(m => {
     const v = byMonth[m.key];
     const total = v.r1 + v.r2;
     const pct   = (total / max) * 100;
     const r1Pct = total > 0 ? (v.r1 / total) * 100 : 0;
+    const peak  = total === max && total > 0;
     return `
-      <div class="stack-col">
-        <div class="stack-value">${total > 0 ? (total/10000).toFixed(0) + '만' : ''}</div>
+      <div class="stack-col" title="${m.label} · 합계 ${total.toLocaleString()}원">
+        <div class="stack-value">${peak ? (total/10000).toFixed(0) + '만' : ''}</div>
         <div class="stack-track">
           <div class="stack-fill" style="height:${pct}%;">
             <div class="stack-r1" style="height:${r1Pct}%"></div>
@@ -576,6 +601,8 @@ function renderMonthChart(confirmedRes, startDate) {
       </div>
     `;
   }).join('');
+  const holder = document.getElementById('monthChartLegend');
+  if (holder) holder.innerHTML = chartLegendHtml();
 }
 
 function renderWeekdayChart(confirmedRes) {
@@ -585,6 +612,10 @@ function renderWeekdayChart(confirmedRes) {
     const d = new Date(r.date + 'T00:00:00');
     byDow[d.getDay()] += (r.duration || 0);
   });
+  if (!byDow.some(Boolean)) {
+    chart.innerHTML = '<div class="chart-empty">데이터가 없습니다.</div>';
+    return;
+  }
   const max = Math.max(1, ...byDow);
 
   chart.innerHTML = byDow.map((hrs, i) => {
@@ -592,8 +623,8 @@ function renderWeekdayChart(confirmedRes) {
     const cls = i === 0 ? 'sunday' : (i === 6 ? 'saturday' : '');
     return `
       <div class="bar-col ${cls}">
-        <div class="bar-value">${hrs > 0 ? hrs + 'h' : ''}</div>
-        <div class="bar-track">
+        <div class="bar-value">${hrs === max && hrs > 0 ? hrs + 'h' : ''}</div>
+        <div class="bar-track" title="${DAY_KO[i]}요일 ${hrs}시간">
           <div class="bar-fill" style="height:${pct}%"></div>
         </div>
         <div class="bar-label">${DAY_KO[i]}</div>
@@ -615,13 +646,17 @@ function renderHourChart(confirmedRes) {
       if (idx >= 0 && idx < hours) counts[idx]++;
     }
   });
+  if (!counts.some(Boolean)) {
+    chart.innerHTML = '<div class="chart-empty">데이터가 없습니다.</div>';
+    return;
+  }
   const max = Math.max(1, ...counts);
   chart.innerHTML = counts.map((c, i) => {
     const pct = (c / max) * 100;
     return `
       <div class="bar-col">
-        <div class="bar-value">${c > 0 ? c : ''}</div>
-        <div class="bar-track">
+        <div class="bar-value">${c === max && c > 0 ? c : ''}</div>
+        <div class="bar-track" title="${HOUR_START + i}시 ${c}건">
           <div class="bar-fill" style="height:${pct}%"></div>
         </div>
         <div class="bar-label">${HOUR_START + i}</div>
