@@ -48,9 +48,10 @@ function renderDues() {
   const d = duesData;
 
   // 합계는 멤버 회비 + 팀 월 이용료 — 그 달에 들어와야 할 돈 전체다.
-  const paid     = d.total_paid + d.team_total_paid;
-  const expected = d.total_expected + d.team_total_expected;
-  const teamUnpaid = d.team_rows.filter(r => r.status === 'unpaid').length;
+  const teamRows = d.team_rows || [];
+  const paid     = d.total_paid + (d.team_total_paid || 0);
+  const expected = d.total_expected + (d.team_total_expected || 0);
+  const teamUnpaid = teamRows.filter(r => r.status === 'unpaid').length;
 
   document.getElementById('duesPaid').textContent     = paid.toLocaleString();
   document.getElementById('duesExpected').textContent = expected.toLocaleString();
@@ -63,7 +64,7 @@ function renderDues() {
   document.getElementById('duesProgressFill').style.width = `${Math.min(100, pct)}%`;
   document.getElementById('duesProgressText').textContent = `수납률 ${pct}%`;
 
-  if (d.rows.length === 0 && d.team_rows.length === 0) {
+  if (d.rows.length === 0 && teamRows.length === 0) {
     list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">💸</span><div class="admin-empty-text">활동 중인 멤버가 없습니다. 멤버 관리에서 먼저 등록해주세요.</div></div>';
     return;
   }
@@ -95,13 +96,14 @@ function renderDues() {
 
 /* 월 이용료 팀은 사람이 아니라 팀이 낸다 — 멤버 목록 위에 따로 묶어 보여준다. */
 function renderTeamDues(d) {
-  if (!d.team_rows.length) return '';
-  const head = `${d.team_rows.length}팀 · ${d.team_total_paid.toLocaleString()}원 / ${d.team_total_expected.toLocaleString()}원`;
+  const rows = d.team_rows || [];
+  if (!rows.length) return '';
+  const head = `${rows.length}팀 · ${d.team_total_paid.toLocaleString()}원 / ${d.team_total_expected.toLocaleString()}원`;
   return `
     <div class="dues-section">
       <div class="dues-section-head">월 이용료 (팀 납부)<span>${head}</span></div>
       <div class="dues-list">
-        ${d.team_rows.map(r => `
+        ${rows.map(r => `
           <div class="dues-row status-${r.status}">
             <div class="dues-member">
               <div class="dues-name">${escHtml(r.name)}
@@ -126,7 +128,7 @@ function renderTeamDues(d) {
 }
 
 async function setTeamDuesStatus(teamId, status) {
-  const row = duesData?.team_rows.find(r => r.team_id === teamId);
+  const row = duesData?.team_rows?.find(r => r.team_id === teamId);
   if (!row || row.status === status) return;
   try {
     await apiJson(`/api/admin/dues/team/${teamId}/${ymStr(duesCursor)}`, {
