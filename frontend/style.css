@@ -2281,54 +2281,47 @@ a { text-decoration: none; }
 .audit-user { margin-top: 2px; font-size: 11px; color: var(--text-light); }
 
 /* ============================================================
-   ADMIN: 연락망
+   ADMIN: 연락망 — 한 화면에 들어오게 촘촘한 표
    ============================================================ */
-.contact-group {
+.contact-table {
+  width: 100%;
+  border-collapse: collapse;
   background: var(--card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   overflow: hidden;
-  margin-bottom: 12px;
+  font-size: 13px;
 }
-.contact-group-head {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 16px;
+.contact-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.contact-table tr:last-child td { border-bottom: none; }
+
+.ct-group td {
+  padding: 6px 10px;
   background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  font-size: 11px; font-weight: 800; color: var(--text-sub);
+  letter-spacing: .04em;
+  position: sticky; top: 0;
 }
-.contact-group-name { font-size: 14px; font-weight: 800; color: var(--text); }
-.contact-group-count { font-size: 12px; color: var(--text-sub); }
+.ct-group span { color: var(--text-light); font-weight: 700; }
 
-.contact-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-}
-.contact-row:last-child { border-bottom: none; }
-.contact-who { flex: 1; min-width: 0; }
-.contact-name {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  font-size: 15px; font-weight: 700; color: var(--text);
-}
-.contact-tag {
-  font-size: 10px; font-weight: 800;
-  padding: 2px 6px; border-radius: 5px;
+.ct-name { font-weight: 700; color: var(--text); white-space: nowrap; }
+.ct-tag {
+  margin-left: 4px; padding: 1px 4px; border-radius: 4px;
+  font-size: 9px; font-weight: 800;
   background: var(--primary-light); color: var(--primary-dark);
+  vertical-align: middle;
 }
-.contact-sub { margin-top: 4px; font-size: 12px; color: var(--text-sub); }
-.contact-sub .part-tags { margin-top: 0; }
-
-.contact-call {
-  flex: none;
-  padding: 9px 14px; border-radius: 999px;
-  background: var(--primary-light); color: var(--primary-dark);
-  font-size: 14px; font-weight: 700; text-decoration: none;
+.ct-part {
+  color: var(--text-sub);
+  max-width: 0; width: 40%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ct-tel { text-align: right; white-space: nowrap; }
+.ct-tel a {
+  color: var(--primary-dark); font-weight: 700; text-decoration: none;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
 }
-.contact-call:active { background: var(--primary); color: #fff; }
-.contact-none { flex: none; font-size: 12px; color: var(--text-light); }
-.contact-empty { padding: 14px 16px; font-size: 13px; color: var(--text-light); }
+.ct-none { color: var(--text-light); }
 
 .team-roster-label {
   margin: 14px 0 8px;

@@ -63,21 +63,17 @@ function contactGroups() {
   return groups;
 }
 
-function contactRow(name, phone, sub, tag) {
+/* 표 한 줄. 좁은 화면에서도 한눈에 들어오도록 3열로만 짠다. */
+function contactCell(name, phone, parts, tag) {
   const tel = String(phone || '').replace(/[^\d+]/g, '');
   return `
-    <div class="contact-row">
-      <div class="contact-who">
-        <div class="contact-name">
-          ${escHtml(name)}
-          ${tag ? `<span class="contact-tag">${escHtml(tag)}</span>` : ''}
-        </div>
-        ${sub ? `<div class="contact-sub">${sub}</div>` : ''}
-      </div>
-      ${phone
-        ? `<a class="contact-call" href="tel:${escHtml(tel)}">${escHtml(formatPhone(phone))}</a>`
-        : '<span class="contact-none">연락처 없음</span>'}
-    </div>`;
+    <tr>
+      <td class="ct-name">${escHtml(name)}${tag ? `<span class="ct-tag">${escHtml(tag)}</span>` : ''}</td>
+      <td class="ct-part">${escHtml(parts || '')}</td>
+      <td class="ct-tel">${phone
+        ? `<a href="tel:${escHtml(tel)}">${escHtml(formatPhone(phone))}</a>`
+        : '<span class="ct-none">—</span>'}</td>
+    </tr>`;
 }
 
 function renderContacts() {
@@ -86,31 +82,27 @@ function renderContacts() {
 
   const withPhone = contactData.members.filter(m => m.phone).length;
   document.getElementById('contactCount').textContent =
-    `멤버 ${contactData.members.length}명 중 ${withPhone}명 연락처 등록 · 번호를 누르면 바로 전화가 걸립니다`;
+    `${contactData.members.length}명 · 연락처 ${withPhone}건`;
 
   if (groups.length === 0) {
     list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">📇</span><div class="admin-empty-text">표시할 연락처가 없습니다.</div></div>';
     return;
   }
 
-  list.innerHTML = groups.map(g => {
+  const body = groups.map(g => {
     const title = g.team ? g.team.name : '무소속';
     const leader = g.showLeader && g.team && (g.team.leader_name || g.team.phone)
-      ? contactRow(g.team.leader_name || '팀 대표', g.team.phone, '팀 연락처', '리더')
+      ? contactCell(g.team.leader_name || '팀 대표', g.team.phone, '리더', null)
       : '';
-    const rows = g.members.map(m =>
-      contactRow(m.name, m.phone, partTagsHtml(m.parts), m.is_doors ? '도어즈' : null)
-    ).join('');
-
+    const rows = g.members
+      .map(m => contactCell(m.name, m.phone, (m.parts || '').split(',').join('·'), m.is_doors ? 'D' : null))
+      .join('');
     return `
-      <div class="contact-group">
-        <div class="contact-group-head">
-          <span class="contact-group-name">${escHtml(title)}</span>
-          <span class="contact-group-count">${g.members.length}명</span>
-        </div>
-        ${leader}${rows || '<div class="contact-empty">등록된 멤버가 없습니다.</div>'}
-      </div>`;
+      <tr class="ct-group"><td colspan="3">${escHtml(title)} <span>${g.members.length}</span></td></tr>
+      ${leader}${rows}`;
   }).join('');
+
+  list.innerHTML = `<table class="contact-table"><tbody>${body}</tbody></table>`;
 }
 
 /* 카톡 등에 붙여넣기 좋은 평문. 복사 버튼과 검증이 같은 함수를 쓴다. */
