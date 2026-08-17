@@ -1124,6 +1124,9 @@ a { text-decoration: none; }
 .res-time-info { flex-shrink: 0; text-align: right; }
 .res-time-main { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; }
 .res-duration { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+/* 자정을 넘겨 두 건으로 나뉜 예약 */
+.overnight-tag { cursor: default; }
+.overnight-note { color: var(--warning-ink); font-size: 12px; }
 
 .res-fee { font-size: 13px; color: var(--text-sub); margin-top: 2px; font-weight: 600; }
 
@@ -2374,7 +2377,7 @@ a { text-decoration: none; }
 .member-cards {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
 }
 .mcard {
   background: var(--card);
@@ -2389,40 +2392,34 @@ a { text-decoration: none; }
 .mcard.needs-check { box-shadow: inset 3px 0 0 var(--warning); }
 
 .mcard-top {
-  display: flex; align-items: center; gap: 5px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
   margin-bottom: 5px;
 }
-.mcard-name {
-  font-size: 15px; font-weight: 700; color: var(--text);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+.mcard-name { font-size: 15px; font-weight: 700; color: var(--text); }
 .mcard-fee { margin-left: auto; flex: none; }
 
-.mcard-team {
-  font-size: 12px; font-weight: 700; color: var(--text);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
+.mcard-team { font-size: 12.5px; font-weight: 700; color: var(--text); }
 .mcard-parts { font-weight: 500; color: var(--text-sub); }
 .mcard-parts::before { content: ' · '; color: var(--text-light); }
 
 .mcard-meta {
-  display: flex; justify-content: space-between; gap: 8px;
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px 10px;
   margin-top: 3px;
-  font-size: 11px; color: var(--text-sub);
+  font-size: 12px; color: var(--text-sub);
   font-variant-numeric: tabular-nums;
 }
-.mcard-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mcard-meta span { white-space: nowrap; }
 
 .mcard-memo {
   margin-top: 7px; padding-top: 7px;
   border-top: 1px solid var(--border);
-  font-size: 11px; color: var(--text-light); line-height: 1.5;
+  font-size: 12px; color: var(--text-light); line-height: 1.5;
 }
 .mcard-memo::before { content: '📝 '; }
 
 .mt-badge {
-  padding: 1px 4px; border-radius: 4px;
-  font-size: 9px; font-weight: 800; flex: none;
+  padding: 1px 5px; border-radius: 4px;
+  font-size: 10px; font-weight: 800; flex: none;
 }
 .mt-badge.doors { background: #111827; color: #fff; }
 .mt-badge.check { background: var(--warning-light); color: var(--warning-ink); }

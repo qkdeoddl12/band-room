@@ -5,6 +5,9 @@
    ============================================================ */
 const HOURS_START = 0;
 const HOURS_END   = 24;   // 24시간 운영 — 타임라인은 00:00 ~ 24:00
+// 자정을 넘겨 다음날 몇 시까지 이어 예약할 수 있는지. 서버는 두 건으로 나눠 저장한다.
+// ponytail: 새벽 6시면 실사용엔 충분. 더 길게 필요하면 숫자만 올리면 된다.
+const OVERNIGHT_END = 6;
 const SLOT_H      = 64;   // px per hour slot
 const DAY_NAMES   = ['일', '월', '화', '수', '목', '금', '토'];
 
@@ -15,6 +18,9 @@ let currentDate    = new Date();
 let currentRoomId  = null;
 let reservations   = [];
 let blockedPeriods = [];
+// 자정을 넘기는 예약을 고를 때 다음날도 비어 있는지 봐야 한다.
+let nextReservations = [];
+let nextBlocked      = [];
 let rooms          = [];
 let teams          = [];
 let settings       = { deposit_bank: '', deposit_account: '', deposit_holder: '' };
@@ -138,8 +144,8 @@ function buildTimeline() {
 /* ============================================================
    Render: blocked periods overlay
    ============================================================ */
-function activeBlockedForRoom() {
-  return blockedPeriods.filter(b => b.room_id === null || b.room_id === undefined || b.room_id === currentRoomId);
+function activeBlockedForRoom(list = blockedPeriods) {
+  return list.filter(b => b.room_id === null || b.room_id === undefined || b.room_id === currentRoomId);
 }
 
 function renderBlockedLayer() {
@@ -234,17 +240,26 @@ function updateCurrentTimeLine() {
    ============================================================ */
 async function loadReservations() {
   const dateStr = toDateStr(currentDate);
+  const next = new Date(currentDate);
+  next.setDate(currentDate.getDate() + 1);
+  const nextStr = toDateStr(next);
   try {
-    const [resRes, blkRes] = await Promise.all([
+    const [resRes, blkRes, nResRes, nBlkRes] = await Promise.all([
       fetch(`/api/reservations?date=${dateStr}`),
       fetch(`/api/blocked?date=${dateStr}`),
+      fetch(`/api/reservations?date=${nextStr}`),
+      fetch(`/api/blocked?date=${nextStr}`),
     ]);
     if (!resRes.ok) throw new Error();
     reservations   = await resRes.json();
     blockedPeriods = blkRes.ok ? await blkRes.json() : [];
+    nextReservations = nResRes.ok ? await nResRes.json() : [];
+    nextBlocked      = nBlkRes.ok ? await nBlkRes.json() : [];
   } catch {
     reservations   = [];
     blockedPeriods = [];
+    nextReservations = [];
+    nextBlocked      = [];
     showToast('예약 정보를 불러오지 못했습니다.', 'error');
   }
   renderReservations();
@@ -308,9 +323,11 @@ function closeModal() {
   document.body.style.overflow = '';
 }
 
+/* hour 는 24 이상일 수 있다 — 그때는 다음날 (hour-24) 시를 뜻한다. */
 function hourBlocked(hour) {
-  // Returns true if [hour, hour+1] overlaps any blocked period for current room
-  const blocks = activeBlockedForRoom();
+  const overnight = hour >= HOURS_END;
+  if (overnight) hour -= HOURS_END;
+  const blocks = activeBlockedForRoom(overnight ? nextBlocked : blockedPeriods);
   for (const b of blocks) {
     if (!b.start_time || !b.end_time) return true;
     const bStart = timeToMinutes(b.start_time) / 60;
@@ -322,7 +339,9 @@ function hourBlocked(hour) {
 
 /* 이미 예약된 시간대. 서버도 막지만, 고르기 전에 알려주는 편이 낫다. */
 function hourTaken(hour) {
-  return reservations.some(r => {
+  const overnight = hour >= HOURS_END;
+  if (overnight) hour -= HOURS_END;
+  return (overnight ? nextReservations : reservations).some(r => {
     if (r.room_id !== currentRoomId) return false;
     const s = timeToMinutes(r.start_time) / 60;
     const e = endMinutes(r.end_time)   / 60;
@@ -331,6 +350,21 @@ function hourTaken(hour) {
 }
 
 function hourUnavailable(hour) { return hourBlocked(hour) || hourTaken(hour); }
+
+/* 시작 시각에서 끊기지 않고 이어 잡을 수 있는 마지막 시각. 24를 넘으면 다음날. */
+function maxEndHour(startH) {
+  const limit = HOURS_END + OVERNIGHT_END;
+  for (let h = startH; h < limit; h++) {
+    if (hourUnavailable(h)) return h;
+  }
+  return limit;
+}
+
+/* 25 -> '다음날 01:00'. 24:00 은 그날 자정이므로 그대로 둔다. */
+function endHourLabel(h) {
+  const label = `${String(h % HOURS_END).padStart(2, '0')}:00`;
+  return h > HOURS_END ? `다음날 ${label}` : `${String(h).padStart(2, '0')}:00`;
+}
 
 function populateStartTimes(defaultHour) {
   const select = document.getElementById('startTime');
@@ -366,16 +400,11 @@ function populateEndTimes(preferredHour = null) {
   const startH = Number(document.getElementById('startTime').value.split(':')[0]);
 
   select.innerHTML = '';
-  // Stop at the first unavailable hour after startH (can't bridge across a gap)
-  let maxEnd = HOURS_END;
-  for (let h = startH; h < HOURS_END; h++) {
-    if (hourUnavailable(h)) { maxEnd = h; break; }
-  }
+  const maxEnd = maxEndHour(startH);
   for (let h = startH + 1; h <= maxEnd; h++) {
-    const val    = `${String(h).padStart(2, '0')}:00`;
     const option = document.createElement('option');
-    option.value = val;
-    option.textContent = val;
+    option.value = `${String(h).padStart(2, '0')}:00`;
+    option.textContent = endHourLabel(h);
     select.appendChild(option);
   }
 
@@ -397,13 +426,10 @@ function updateTimeSummary() {
   const endH   = Number(end.split(':')[0]);
   const dur    = endH - startH;
   document.getElementById('timeSummaryText').textContent =
-    `${displayDate(currentDate)} · ${start} ~ ${end} (${dur}시간)`;
+    `${displayDate(currentDate)} · ${start} ~ ${endHourLabel(endH)} (${dur}시간)`;
 
   // 이 시작 시각에서 연속으로 몇 시간까지 잡을 수 있는지 미리 알려준다
-  let maxEnd = HOURS_END;
-  for (let h = startH; h < HOURS_END; h++) {
-    if (hourUnavailable(h)) { maxEnd = h; break; }
-  }
+  const maxEnd = maxEndHour(startH);
   const maxHint = document.getElementById('timeMaxHint');
   if (maxHint) {
     const maxHours = Math.max(0, maxEnd - startH);
@@ -576,8 +602,8 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
     showToast('종료 시간은 시작 시간 이후여야 합니다.', 'error');
     return;
   }
-  if (endHour > HOURS_END) {
-    showToast(`예약 종료 시간은 ${HOURS_END}:00을 넘을 수 없습니다.`, 'error');
+  if (endHour > HOURS_END + OVERNIGHT_END) {
+    showToast(`예약 종료 시간은 다음날 ${OVERNIGHT_END}:00을 넘을 수 없습니다.`, 'error');
     return;
   }
 

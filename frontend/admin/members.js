@@ -54,17 +54,17 @@ function renderTeamOptions() {
     `<option value="none"${memberTeamFil === 'none' ? ' selected' : ''}>무소속</option>`;
 }
 
-const GENDER_KO = { male: '남', female: '여' };
+const GENDER_KO = { male: '남성', female: '여성' };
 
-/* 회비 표시는 짧게 — 표 안에서 한 칸만 차지해야 한다. */
-function feeShort(m) {
+/* 회비는 금액 그대로 보여준다 — 줄여 쓰면 얼마인지 다시 열어봐야 한다. */
+function memberFee(m) {
   const team = teamsById[m.team_id];
-  if (team && team.billing_type === 'monthly') return { text: '팀 납부', cls: 'monthly' };
-  if (m.dues_exempt) return { text: '면제', cls: 'exempt' };
-  if (m.monthly_fee != null) return { text: `${Math.round(m.monthly_fee / 10000)}만`, cls: '' };
-  if (team && team.dues_fee != null) return { text: `${Math.round(team.dues_fee / 10000)}만`, cls: 'dues' };
+  if (team && team.billing_type === 'monthly') return { text: '팀 이용료 납부', cls: 'monthly' };
+  if (m.dues_exempt) return { text: '회비 면제', cls: 'exempt' };
+  if (m.monthly_fee != null) return { text: `${m.monthly_fee.toLocaleString()}원`, cls: '' };
+  if (team && team.dues_fee != null) return { text: `${team.dues_fee.toLocaleString()}원`, cls: 'dues' };
   const base = settingNum('default_monthly_fee');
-  return { text: base ? `${Math.round(base / 10000)}만` : '기본', cls: 'default' };
+  return { text: base ? `${base.toLocaleString()}원` : '회비 미설정', cls: 'default' };
 }
 
 function renderMembers() {
@@ -91,11 +91,11 @@ function renderMembers() {
   }
 
   list.innerHTML = '<div class="member-cards">' + items.map(m => {
-    const fee = feeShort(m);
+    const fee = memberFee(m);
     const info = [
-      m.birth_year ? `${String(m.birth_year).slice(2)}년생` : '',
+      m.birth_year ? `${m.birth_year}년생` : '',
       m.gender ? GENDER_KO[m.gender] : '',
-      m.joined_on ? `${m.joined_on.slice(2)} 가입` : '',
+      m.joined_on ? `${m.joined_on} 가입` : '',
     ].filter(Boolean).join(' · ');
 
     return `
@@ -103,8 +103,8 @@ function renderMembers() {
            onclick="openMemberModal(${m.id})">
         <div class="mcard-top">
           <span class="mcard-name">${escHtml(m.name)}</span>
-          ${m.is_doors ? '<span class="mt-badge doors">D</span>' : ''}
-          ${m.needs_check ? '<span class="mt-badge check">확인</span>' : ''}
+          ${m.is_doors ? '<span class="mt-badge doors">도어즈</span>' : ''}
+          ${m.needs_check ? '<span class="mt-badge check">활동 확인 필요</span>' : ''}
           ${m.is_active ? '' : '<span class="mt-badge off">비활동</span>'}
           <span class="fee-badge ${fee.cls} mcard-fee">${escHtml(fee.text)}</span>
         </div>

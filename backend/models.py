@@ -63,6 +63,9 @@ class Reservation(Base):
     members = Column(Text)
     note = Column(Text)
     status = Column(String(20), nullable=False, server_default='pending')
+    # 자정을 넘기는 예약은 날짜별 두 건으로 나눠 저장하고 같은 group_key 로 묶는다.
+    # 확정·취소는 짝을 함께 처리한다.
+    group_key = Column(String(32), index=True)
     # 예약 시점의 과금 판정을 그대로 남긴다. 나중에 팀 과금 방식이나 회비 상태가
     # 바뀌어도 지난 예약의 요금이 따라 바뀌지 않게.
     is_free = Column(Boolean, nullable=False, server_default='false')

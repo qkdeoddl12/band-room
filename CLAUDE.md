@@ -76,6 +76,7 @@ docker-compose.yml
 - 사용자가 `POST /api/reservations` → `status='pending'`으로 저장
 - 관리자가 입금 확인 후 `POST /api/reservations/{id}/confirm` → `status='confirmed'`
 - 슬롯 충돌 검사는 상태 무관 (pending도 슬롯을 점유)
+- **자정 넘김 예약**: 23시에 3시간을 고르면 서버가 `_split_by_day()`로 날짜별 두 건(23~24시 / 0~2시)으로 나눠 저장하고 `group_key`로 묶는다. 확정·취소는 `_group_rows()`로 짝을 함께 처리. 날짜별 타임라인·겹침 검사는 그대로 동작. 프론트는 종료 시각을 다음날 `OVERNIGHT_END`(6시)까지 고를 수 있고, 다음날 예약·차단도 같이 조회해 미리 막는다
 - **팀은 등록된 활성 팀에서만 선택** — `team_id` 필수. 서버가 `team_name`을 스냅샷으로 채운다
 - 요금은 `rooms.hourly_price`, 입금 계좌는 `app_settings`에서 온다 (프론트 하드코딩 없음)
 

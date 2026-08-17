@@ -21,7 +21,7 @@ MARK = "[smoke]"
 client = httpx.Client(base_url=BASE, timeout=20.0)
 created = {"team": None, "member": None, "member2": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
-           "reservation4": None}
+           "reservation4": None, "overnight": None}
 
 
 def login(username, password):
@@ -86,6 +86,44 @@ def test_reservation(h, team):
 
     clash = client.post("/api/reservations", json={**body, "team_id": team["id"]})
     assert clash.status_code == 400, "overlapping reservation must be rejected"
+
+
+def test_overnight(h, team):
+    """자정을 넘긴 예약은 날짜별 두 건으로 나뉘고, 짝으로 함께 움직인다."""
+    day = date.today() + timedelta(days=95)
+    nxt = day + timedelta(days=1)
+    rooms = client.get("/api/rooms").json()
+    room = next(r for r in rooms if r["booking_mode"] == "team")
+    body = {"room_id": room["id"], "team_id": team["id"], "date": str(day),
+            "start_time": "23:00:00", "duration": 3}
+
+    res = client.post("/api/reservations", json=body)
+    assert res.status_code == 200, res.text
+    first = res.json()
+    created["overnight"] = first["id"]
+    assert first["group_key"], "자정을 넘기면 group_key 로 묶여야 한다"
+    assert first["duration"] == 1 and first["end_time"].startswith("00:00"), first
+
+    rows = client.get(f"/api/reservations?date={nxt}").json()
+    second = next(r for r in rows if r["group_key"] == first["group_key"])
+    assert second["start_time"].startswith("00:00") and second["duration"] == 2, second
+
+    # 다음날 구간과 겹치면 전체가 거부된다
+    clash = client.post("/api/reservations", json={
+        **body, "date": str(nxt), "start_time": "01:00:00", "duration": 1})
+    assert clash.status_code == 400, "나뉜 뒷 구간과 겹치면 막아야 한다"
+
+    # 한쪽만 확정해도 짝이 함께 확정된다
+    client.post(f"/api/reservations/{first['id']}/confirm", headers=h)
+    rows = client.get(f"/api/reservations?date={nxt}").json()
+    assert next(r for r in rows if r["id"] == second["id"])["status"] == "confirmed", \
+        "짝이 함께 확정되어야 한다"
+
+    # 한쪽을 지우면 짝도 사라진다
+    client.delete(f"/api/reservations/{first['id']}", headers=h)
+    created["overnight"] = None
+    rows = client.get(f"/api/reservations?date={nxt}").json()
+    assert not any(r["id"] == second["id"] for r in rows), "짝이 함께 삭제되어야 한다"
 
 
 def test_personal_room(h):
@@ -230,7 +268,7 @@ def test_settings(h):
 
 
 def cleanup(h):
-    for key in ("reservation", "reservation2", "reservation3", "reservation4"):
+    for key in ("reservation", "reservation2", "reservation3", "reservation4", "overnight"):
         if created[key]:
             client.delete(f"/api/reservations/{created[key]}", headers=h)
     if created["ticket"]:
@@ -256,6 +294,7 @@ def main():
         h = auth(token)
         team = test_teams(h);                  steps.append("teams")
         test_reservation(h, team);             steps.append("reservations")
+        test_overnight(h, team);               steps.append("overnight")
         test_personal_room(h);                 steps.append("personal room")
         test_members_and_dues(h);              steps.append("members + dues")
         test_tickets(h);                       steps.append("tickets")

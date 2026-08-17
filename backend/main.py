@@ -56,6 +56,7 @@ def migrate_schema():
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booker_name VARCHAR(50)",
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booker_phone VARCHAR(30)",
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS is_free BOOLEAN NOT NULL DEFAULT FALSE",
+        "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS group_key VARCHAR(32)",
     ]
     with engine.begin() as conn:
         for stmt in statements:

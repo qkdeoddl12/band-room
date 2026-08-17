@@ -5,6 +5,7 @@ from datetime import date, datetime, time, timedelta
 from typing import List, Optional
 import asyncio
 import logging
+import secrets
 
 from database import get_db
 from broadcaster import broadcaster
@@ -36,6 +37,34 @@ def _end_mins(t) -> int:
 def _overlaps(a_start, a_end, b_start, b_end) -> bool:
     """[a_start, a_end) 와 [b_start, b_end) 가 겹치는지. 모두 분 단위."""
     return not (a_end <= b_start or a_start >= b_end)
+
+
+def _split_by_day(start_dt: datetime, end_dt: datetime):
+    """자정을 넘기는 구간을 날짜별로 쪼갠다.
+    23:00~다음날 02:00 -> [(그날, 23:00, 00:00, 1h), (다음날, 00:00, 02:00, 2h)]
+    종료가 자정 정각이면 쪼개지 않는다 (그날 24시로 본다)."""
+    segments = []
+    cursor = start_dt
+    while cursor < end_dt:
+        midnight = datetime.combine(cursor.date(), time(0, 0)) + timedelta(days=1)
+        seg_end = min(end_dt, midnight)
+        segments.append({
+            "date": cursor.date(),
+            "start": cursor.time(),
+            "end": seg_end.time(),          # 자정이면 00:00 = 그날 24시
+            "hours": int((seg_end - cursor).total_seconds() // 3600),
+        })
+        cursor = seg_end
+    return segments
+
+
+def _group_rows(db: Session, res: models.Reservation):
+    """자정을 넘겨 나뉜 예약이면 짝을 모두, 아니면 자기 자신만."""
+    if not res.group_key:
+        return [res]
+    return db.query(models.Reservation).filter(
+        models.Reservation.group_key == res.group_key
+    ).order_by(models.Reservation.date, models.Reservation.start_time).all()
 
 
 def _sse_payload(r: models.Reservation) -> dict:
@@ -174,90 +203,98 @@ def create_reservation(
 
     start_dt = datetime.combine(reservation.date, reservation.start_time)
     end_dt = start_dt + timedelta(hours=reservation.duration)
-    # 자정 정각까지는 허용하고, 그보다 넘어가면 거부한다.
-    if end_dt > datetime.combine(reservation.date, time(0, 0)) + timedelta(days=1):
-        raise HTTPException(400, "예약은 자정을 넘길 수 없습니다.")
-    end_time = end_dt.time()
+    # 자정을 넘기면 거부하지 않고 날짜별로 쪼갠다 (23시~새벽 2시 같은 예약).
+    segments = _split_by_day(start_dt, end_dt)
+    if len(segments) > 2:
+        raise HTTPException(400, "예약은 하루를 넘겨 이틀까지만 가능합니다.")
 
-    new_start = _mins(reservation.start_time)
-    new_end = _end_mins(end_time)
+    # 나뉜 구간을 각각 검사한다 — 한 구간이라도 막히면 전체를 거부한다.
+    for seg in segments:
+        seg_start, seg_end = _mins(seg["start"]), _end_mins(seg["end"])
 
-    existing = db.query(models.Reservation).filter(
-        models.Reservation.room_id == reservation.room_id,
-        models.Reservation.date == reservation.date,
-    ).all()
-    for r in existing:
-        if _overlaps(new_start, new_end, _mins(r.start_time), _end_mins(r.end_time)):
-            log_event(
-                "reservation_conflict",
-                level=logging.WARNING,
-                client=request.client.host if request.client else None,
-                room_id=reservation.room_id,
-                date=str(reservation.date),
-                start=str(reservation.start_time),
-                end=str(end_time),
-                team=team.name if team else booker_name,
-            )
-            raise HTTPException(400, "해당 시간에 이미 예약이 있습니다.")
+        for r in db.query(models.Reservation).filter(
+            models.Reservation.room_id == reservation.room_id,
+            models.Reservation.date == seg["date"],
+        ).all():
+            if _overlaps(seg_start, seg_end, _mins(r.start_time), _end_mins(r.end_time)):
+                log_event(
+                    "reservation_conflict",
+                    level=logging.WARNING,
+                    client=request.client.host if request.client else None,
+                    room_id=reservation.room_id,
+                    date=str(seg["date"]),
+                    start=str(seg["start"]),
+                    end=str(seg["end"]),
+                    team=team.name if team else booker_name,
+                )
+                raise HTTPException(400, "해당 시간에 이미 예약이 있습니다.")
 
-    blocked = db.query(models.BlockedPeriod).filter(
-        models.BlockedPeriod.date == reservation.date,
-    ).all()
-    for b in blocked:
-        if b.room_id is not None and b.room_id != reservation.room_id:
-            continue
-        if b.start_time is None or b.end_time is None:
-            overlaps = True
-        else:
-            overlaps = _overlaps(new_start, new_end, _mins(b.start_time), _end_mins(b.end_time))
-        if overlaps:
-            log_event(
-                "reservation_blocked",
-                level=logging.WARNING,
-                client=request.client.host if request.client else None,
-                room_id=reservation.room_id,
-                date=str(reservation.date),
-                start=str(reservation.start_time),
-                end=str(end_time),
-                blocked_id=b.id,
-                reason=b.reason,
-            )
-            msg = "해당 시간은 예약이 차단되어 있습니다."
-            if b.reason:
-                msg += f" ({b.reason})"
-            raise HTTPException(400, msg)
+        for b in db.query(models.BlockedPeriod).filter(
+            models.BlockedPeriod.date == seg["date"],
+        ).all():
+            if b.room_id is not None and b.room_id != reservation.room_id:
+                continue
+            if b.start_time is None or b.end_time is None:
+                overlaps = True
+            else:
+                overlaps = _overlaps(seg_start, seg_end, _mins(b.start_time), _end_mins(b.end_time))
+            if overlaps:
+                log_event(
+                    "reservation_blocked",
+                    level=logging.WARNING,
+                    client=request.client.host if request.client else None,
+                    room_id=reservation.room_id,
+                    date=str(seg["date"]),
+                    start=str(seg["start"]),
+                    end=str(seg["end"]),
+                    blocked_id=b.id,
+                    reason=b.reason,
+                )
+                msg = "해당 시간은 예약이 차단되어 있습니다."
+                if b.reason:
+                    msg += f" ({b.reason})"
+                raise HTTPException(400, msg)
 
-    db_r = models.Reservation(
-        room_id=reservation.room_id,
-        team_id=team.id if team else None,
-        member_id=member.id if member else None,
-        booker_name=booker_name,
-        booker_phone=booker_phone,
-        date=reservation.date,
-        start_time=reservation.start_time,
-        end_time=end_time,
-        duration=reservation.duration,
-        team_name=team.name if team else booker_name,
-        members=reservation.members,
-        note=reservation.note,
-        # 낼 것이 없는 예약(선불 팀 · 회비 낸 멤버)은 입금 확인 단계를 건너뛴다.
-        is_free=free,
-        status='confirmed' if free else 'pending',
-    )
-    db.add(db_r)
+    # 나뉜 예약도 사용자에겐 한 건이다 — group_key 로 묶어 함께 확정·취소한다.
+    group_key = secrets.token_hex(8) if len(segments) > 1 else None
+    created = []
+    for seg in segments:
+        row = models.Reservation(
+            room_id=reservation.room_id,
+            team_id=team.id if team else None,
+            member_id=member.id if member else None,
+            booker_name=booker_name,
+            booker_phone=booker_phone,
+            date=seg["date"],
+            start_time=seg["start"],
+            end_time=seg["end"],
+            duration=seg["hours"],
+            team_name=team.name if team else booker_name,
+            members=reservation.members,
+            note=reservation.note,
+            # 낼 것이 없는 예약(선불 팀 · 회비 낸 멤버)은 입금 확인 단계를 건너뛴다.
+            is_free=free,
+            status='confirmed' if free else 'pending',
+            group_key=group_key,
+        )
+        db.add(row)
+        created.append(row)
     db.commit()
-    db.refresh(db_r)
+    for row in created:
+        db.refresh(row)
+        broadcaster.publish("reservation_created", _sse_payload(row))
 
-    broadcaster.publish("reservation_created", _sse_payload(db_r))
+    db_r = created[0]
     log_event(
         "reservation_created",
         id=db_r.id,
         room_id=db_r.room_id,
         date=str(db_r.date),
         start=str(db_r.start_time),
-        end=str(db_r.end_time),
+        end=str(created[-1].end_time),
         team=db_r.team_name,
         member_id=db_r.member_id,
+        segments=len(created),
         status=db_r.status,
         client=request.client.host if request.client else None,
     )
@@ -275,11 +312,13 @@ def confirm_reservation(
     if res.status == 'confirmed':
         raise HTTPException(400, "이미 확정된 예약입니다.")
 
-    res.status = 'confirmed'
+    rows = _group_rows(db, res)
+    for row in rows:
+        row.status = 'confirmed'
     db.commit()
-    db.refresh(res)
-
-    broadcaster.publish("reservation_confirmed", _sse_payload(res))
+    for row in rows:
+        db.refresh(row)
+        broadcaster.publish("reservation_confirmed", _sse_payload(row))
     log_event(
         "reservation_confirmed",
         id=res.id,
@@ -301,23 +340,22 @@ def delete_reservation(
     db: Session = Depends(get_db),
 ):
     res = get_or_404(db, models.Reservation, reservation_id, "예약을 찾을 수 없습니다.")
-    payload = {
-        "id": res.id,
-        "room_id": res.room_id,
-        "date": str(res.date),
-    }
+    rows = _group_rows(db, res)
+    payloads = [{"id": r.id, "room_id": r.room_id, "date": str(r.date)} for r in rows]
     team = res.team_name
     audit(db, admin, "reservation.delete", team,
-          f"{res.date} {res.start_time}~{res.end_time}", request)
-    db.delete(res)
+          " / ".join(f"{r.date} {r.start_time}~{r.end_time}" for r in rows), request)
+    for row in rows:
+        db.delete(row)
     db.commit()
-    broadcaster.publish("reservation_deleted", payload)
-    log_event(
-        "reservation_deleted",
-        id=payload["id"],
-        room_id=payload["room_id"],
-        date=payload["date"],
-        team=team,
-        by=admin.username,
-    )
+    for payload in payloads:
+        broadcaster.publish("reservation_deleted", payload)
+        log_event(
+            "reservation_deleted",
+            id=payload["id"],
+            room_id=payload["room_id"],
+            date=payload["date"],
+            team=team,
+            by=admin.username,
+        )
     return {"message": "취소되었습니다."}

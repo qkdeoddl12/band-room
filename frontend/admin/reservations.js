@@ -262,7 +262,7 @@ function renderList(items) {
           </div>
           <div class="res-time-info">
             <div class="res-time-main">${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)}</div>
-            <div class="res-duration">${r.duration}시간</div>
+            <div class="res-duration">${r.duration}시간${r.group_key ? ' <span class="overnight-tag">🌙</span>' : ''}</div>
           </div>
           <div class="res-actions">
             ${confirmBtn}
@@ -287,6 +287,7 @@ function openDeleteModal(id) {
     ${escHtml(roomName(r.room_id))} · ${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)} (${r.duration}시간)<br>
     ${fmtDateKo(r.date)}
     ${r.members ? `<br>👥 ${escHtml(r.members)}` : ''}
+    ${r.group_key ? '<br><span class="overnight-note">🌙 자정을 넘긴 예약입니다. 나뉜 두 건이 함께 처리됩니다.</span>' : ''}
   `;
   openOverlay('deleteOverlay');
 }
@@ -327,6 +328,7 @@ function openConfirmModal(id) {
     ${fmtDateKo(r.date)}<br>
     💰 ${resFeeLabel(r)}
     ${r.members ? `<br>👥 ${escHtml(r.members)}` : ''}
+    ${r.group_key ? '<br><span class="overnight-note">🌙 자정을 넘긴 예약입니다. 나뉜 두 건이 함께 처리됩니다.</span>' : ''}
   `;
   openOverlay('confirmOverlay');
 }

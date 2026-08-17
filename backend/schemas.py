@@ -28,7 +28,7 @@ class ReservationCreate(BaseModel):
     booker_phone: Optional[str] = Field(None, max_length=30)
     date: date
     start_time: time
-    duration: int = Field(..., ge=1, le=24)   # 24시간 운영
+    duration: int = Field(..., ge=1, le=24)   # 한 번에 최대 24시간 (자정을 넘기면 두 건으로 나뉜다)
     members: Optional[str] = None
     note: Optional[str] = None
 
@@ -49,6 +49,7 @@ class ReservationResponse(BaseModel):
     note: Optional[str] = None
     status: str = 'pending'
     is_free: bool = False
+    group_key: Optional[str] = None
     created_at: datetime
     room: Room
     model_config = {"from_attributes": True}
