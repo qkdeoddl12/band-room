@@ -2367,92 +2367,66 @@ a { text-decoration: none; }
 .dues-sub a { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
 
 /* ============================================================
-   ADMIN: 멤버 표
-   넓은 화면에서는 열 제목이 있는 표, 좁은 화면에서는 두 줄 카드로 접힌다.
-   같은 마크업을 CSS 로만 다시 배치한다.
+   ADMIN: 멤버 카드
+   한 사람 = 카드 한 장. 처음 카드보다 촘촘하게 세 줄로 담고,
+   넓은 화면에서는 여러 장이 나란히 들어간다.
    ============================================================ */
-.member-table {
-  width: 100%;
-  border-collapse: collapse;
+.member-cards {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+.mcard {
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  overflow: hidden;
-  font-size: 13px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
 }
-.member-table th {
-  padding: 8px 10px;
-  text-align: left;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  font-size: 11px; font-weight: 800; color: var(--text-light);
-  letter-spacing: .04em; white-space: nowrap;
-}
-.member-table td {
-  padding: 9px 10px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-  color: var(--text-sub);
-}
-.member-table tbody tr:last-child td { border-bottom: none; }
+.mcard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.mcard.inactive { opacity: .55; }
+.mcard.needs-check { box-shadow: inset 3px 0 0 var(--warning); }
 
-.mt-row { cursor: pointer; }
-@media (hover: hover) { .mt-row:hover td { background: var(--bg); } }
-.mt-row.inactive, .mt-memo-row.inactive { opacity: .5; }
-.mt-row.needs-check td:first-child { box-shadow: inset 3px 0 0 var(--warning); }
+.mcard-top {
+  display: flex; align-items: center; gap: 5px;
+  margin-bottom: 5px;
+}
+.mcard-name {
+  font-size: 15px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mcard-fee { margin-left: auto; flex: none; }
 
-.mt-name { font-weight: 700; color: var(--text); white-space: nowrap; }
-.mt-phone { white-space: nowrap; font-variant-numeric: tabular-nums; }
-.mt-team { font-weight: 600; color: var(--text); white-space: nowrap; }
-.mt-parts, .mt-info { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 0; }
-.mt-parts { width: 26%; }
-.mt-info  { width: 26%; }
-.mt-fee-cell { white-space: nowrap; }
+.mcard-team {
+  font-size: 12px; font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mcard-parts { font-weight: 500; color: var(--text-sub); }
+.mcard-parts::before { content: ' · '; color: var(--text-light); }
+
+.mcard-meta {
+  display: flex; justify-content: space-between; gap: 8px;
+  margin-top: 3px;
+  font-size: 11px; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+.mcard-meta span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.mcard-memo {
+  margin-top: 7px; padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-size: 11px; color: var(--text-light); line-height: 1.5;
+}
+.mcard-memo::before { content: '📝 '; }
 
 .mt-badge {
-  margin-left: 4px; padding: 1px 4px; border-radius: 4px;
-  font-size: 9px; font-weight: 800; vertical-align: middle;
+  padding: 1px 4px; border-radius: 4px;
+  font-size: 9px; font-weight: 800; flex: none;
 }
 .mt-badge.doors { background: #111827; color: #fff; }
 .mt-badge.check { background: var(--warning-light); color: var(--warning-ink); }
 .mt-badge.off   { background: var(--bg); color: var(--text-light); }
-
-.mt-memo-row td {
-  padding: 0 10px 8px;
-  font-size: 11px; color: var(--text-light);
-  border-bottom: 1px solid var(--border);
-  cursor: pointer;
-}
-.mt-memo-row td::before { content: '📝 '; }
-
-/* 좁은 화면: 열 제목을 숨기고 한 사람당 세 줄로 접는다 */
-@media (max-width: 767px) {
-  .member-table, .member-table tbody, .member-table tr, .member-table td { display: block; }
-  .member-table thead { display: none; }
-  .member-table tbody tr.mt-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "name  fee"
-      "team  parts"
-      "phone info";
-    gap: 1px 10px;
-    padding: 8px 10px;
-    border-bottom: 1px solid var(--border);
-  }
-  .member-table tbody tr.mt-row td { padding: 0; border: none; }
-  .mt-name     { grid-area: name; }
-  .mt-fee-cell { grid-area: fee;  text-align: right; }
-  .mt-team     { grid-area: team; font-size: 12px; }
-  .mt-parts    { grid-area: parts; text-align: right; font-size: 11px; max-width: none; width: auto; }
-  .mt-phone    { grid-area: phone; font-size: 11px; }
-  .mt-info     { grid-area: info; text-align: right; font-size: 11px; max-width: none; width: auto; }
-  .mt-row.needs-check { box-shadow: inset 3px 0 0 var(--warning); }
-  .mt-row.needs-check td:first-child { box-shadow: none; }
-  .mt-memo-row td { padding: 0 10px 8px; }
-  /* 셀 배경이 깔리면 접힌 카드가 칸칸이 쪼개져 보인다 */
-  .mt-row:hover td { background: transparent; }
-}
 
 /* 팀 상세 — 읽기 전용 1인 회비 */
 .team-fee-note {

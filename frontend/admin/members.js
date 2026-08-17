@@ -90,7 +90,7 @@ function renderMembers() {
     return;
   }
 
-  const rows = items.map(m => {
+  list.innerHTML = '<div class="member-cards">' + items.map(m => {
     const fee = feeShort(m);
     const info = [
       m.birth_year ? `${String(m.birth_year).slice(2)}년생` : '',
@@ -99,36 +99,29 @@ function renderMembers() {
     ].filter(Boolean).join(' · ');
 
     return `
-      <tr class="mt-row${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
-          onclick="openMemberModal(${m.id})">
-        <td class="mt-name">
-          ${escHtml(m.name)}
+      <div class="mcard${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
+           onclick="openMemberModal(${m.id})">
+        <div class="mcard-top">
+          <span class="mcard-name">${escHtml(m.name)}</span>
           ${m.is_doors ? '<span class="mt-badge doors">D</span>' : ''}
           ${m.needs_check ? '<span class="mt-badge check">확인</span>' : ''}
           ${m.is_active ? '' : '<span class="mt-badge off">비활동</span>'}
-        </td>
-        <td class="mt-phone">${m.phone ? escHtml(formatPhone(m.phone)) : '—'}</td>
-        <td class="mt-team">${escHtml(m.team_name || '무소속')}</td>
-        <td class="mt-parts">${escHtml(splitParts(m.parts).join('·') || '—')}</td>
-        <td class="mt-fee-cell"><span class="fee-badge ${fee.cls}">${escHtml(fee.text)}</span></td>
-        <td class="mt-info">${escHtml(info || '—')}</td>
-      </tr>
-      ${m.memo ? `<tr class="mt-memo-row${m.is_active ? '' : ' inactive'}"
-                      onclick="openMemberModal(${m.id})">
-                    <td colspan="6">${escHtml(m.memo)}</td>
-                  </tr>` : ''}`;
-  }).join('');
+          <span class="fee-badge ${fee.cls} mcard-fee">${escHtml(fee.text)}</span>
+        </div>
 
-  list.innerHTML = `
-    <table class="member-table">
-      <thead>
-        <tr>
-          <th>이름</th><th>연락처</th><th>소속 팀</th>
-          <th>포지션</th><th>회비</th><th>인적사항</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-    </table>`;
+        <div class="mcard-team">
+          ${escHtml(m.team_name || '무소속')}
+          <span class="mcard-parts">${escHtml(splitParts(m.parts).join(' · ') || '포지션 미지정')}</span>
+        </div>
+
+        <div class="mcard-meta">
+          <span>${m.phone ? escHtml(formatPhone(m.phone)) : '연락처 없음'}</span>
+          ${info ? `<span>${escHtml(info)}</span>` : ''}
+        </div>
+
+        ${m.memo ? `<div class="mcard-memo">${escHtml(m.memo)}</div>` : ''}
+      </div>`;
+  }).join('') + '</div>';
 }
 
 function openMemberModal(memberId = null, presetTeamId = null) {
