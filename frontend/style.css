@@ -2246,8 +2246,8 @@ a { text-decoration: none; }
   display: flex; align-items: center; justify-content: center; gap: 7px;
   height: 52px; padding: 0 16px;
   border-radius: 14px;
-  border: 1px solid rgb(var(--tkp-accent) / .45);
-  background: rgb(var(--tkp-accent) / .16);
+  border: 1px solid rgb(var(--tkp-accent) / .62);
+  background: rgb(var(--tkp-accent) / .28);
   color: rgb(var(--tkp-ink));
   font-size: 15px; font-weight: 700;
   font-family: inherit;
@@ -2256,13 +2256,13 @@ a { text-decoration: none; }
   -webkit-tap-highlight-color: transparent;
   transition: background .18s, transform .12s, border-color .18s;
   }
-  .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .26); }
+  .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .32); }
   .tkp-btn:active { transform: scale(.97); }
 
   /* 길찾기는 주 동작이라 채워진 버튼으로 */
   .tkp-map {
   margin-top: 18px;
-  background: rgb(var(--tkp-accent) / .92);
+  background: rgb(var(--tkp-accent));
   border-color: transparent;
   color: rgb(var(--tkp-on-accent));
   font-weight: 800;

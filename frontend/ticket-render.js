@@ -196,9 +196,10 @@ function tkApplyAccent(info, target) {
   const bg2  = hslToRgb(altHue, sat(altSat), isLight ? 0.95 : 0.13);
 
   const ink = isLight ? TKP_DARK_INK : [255, 255, 255];
-  // 버튼은 배경에서 충분히 떠야 한다 (3:1 이상). 채도는 유지한 채 명도만 민다.
+  // 버튼은 배경에서 확실히 떠야 한다. 어두운 배경에선 파스텔에 가깝게 밝혀
+  // 애플 뮤직의 밝은 알약 버튼처럼 보이게 한다 (중간 톤이면 가라앉는다).
   const accent = tkFitContrast(
-    accHue, sat(accSat), isLight ? 0.46 : 0.62, bg, 3, !isLight,
+    accHue, sat(accSat), isLight ? 0.44 : 0.80, bg, 4.5, !isLight,
   );
 
   el.style.setProperty('--tkp-accent', accent.join(' '));
