@@ -295,10 +295,11 @@ def test_team_dues(h, team, member_id):
     mhist = client.get(f"/api/admin/dues/history/member/{member_id}", headers=h).json()
     assert [r["year_month"] for r in mhist] == [ym], mhist
 
-    # 연간 차트에 팀 이용료도 잡힌다
+    # 연간 차트는 회비와 팀 이용료를 따로 센다
     summary = client.get("/api/admin/dues/summary?year=2099", headers=h).json()
     jan = next(r for r in summary if r["year_month"] == ym)
-    assert jan["paid"] >= 200000, jan
+    assert jan["team_paid"] == 200000, jan
+    assert jan["paid"] < 200000, f"팀 이용료가 회비에 섞이면 안 된다: {jan}"
 
 
 def cleanup(h):

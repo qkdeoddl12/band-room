@@ -482,11 +482,17 @@
             <button class="btn-nav" onclick="duesNextMonth()" aria-label="다음 달">&#8250;</button>
           </div>
 
-          <div class="kpi-grid">
+          <!-- 월회비와 월 이용료는 성격이 다른 수입이라 KPI부터 갈라 보여준다 -->
+          <div class="kpi-grid four">
             <div class="kpi-card revenue">
-              <div class="kpi-period">수납 합계</div>
+              <div class="kpi-period">월회비 수납</div>
               <div class="kpi-main"><span class="kpi-value" id="duesPaid">—</span><span class="kpi-unit">원</span></div>
               <div class="kpi-sub">예상 <span id="duesExpected">0</span>원</div>
+            </div>
+            <div class="kpi-card team-fee">
+              <div class="kpi-period">월 이용료 수납</div>
+              <div class="kpi-main"><span class="kpi-value" id="duesTeamPaid">—</span><span class="kpi-unit">원</span></div>
+              <div class="kpi-sub">예상 <span id="duesTeamExpected">0</span>원</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-period">미납</div>
@@ -500,13 +506,6 @@
             </div>
           </div>
 
-          <div class="dues-progress">
-            <div class="dues-progress-track">
-              <div class="dues-progress-fill" id="duesProgressFill" style="width:0%"></div>
-            </div>
-            <div class="dues-progress-text" id="duesProgressText">수납률 0%</div>
-          </div>
-
           <div id="duesList"><div class="spinner"></div></div>
 
           <div class="dashboard-card" style="margin-top:16px;">
@@ -514,7 +513,15 @@
               <h3 class="dashboard-card-title" id="duesYearLabel">월별 수납</h3>
               <div class="dashboard-card-sub">납부 완료 기준</div>
             </div>
-            <div class="bar-chart mini" id="duesYearChart"></div>
+            <div class="chart-legend">
+              <span class="chart-legend-item">
+                <span class="chart-legend-swatch" style="background:var(--room1)"></span>월회비
+              </span>
+              <span class="chart-legend-item">
+                <span class="chart-legend-swatch" style="background:var(--room2)"></span>월 이용료
+              </span>
+            </div>
+            <div class="stack-chart" id="duesYearChart"></div>
           </div>
         </div>
 

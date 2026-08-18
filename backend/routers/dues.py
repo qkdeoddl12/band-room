@@ -254,8 +254,9 @@ def get_dues_summary(
         raise HTTPException(400, "연도가 올바르지 않습니다.")
     like = f"{year}-%"
     paid_by_month = {}
+    team_by_month = {}
     unpaid_by_month = {}
-    # 멤버 회비 + 팀 월 이용료 = 그 달에 실제로 들어온 돈
+    # 멤버 회비와 팀 월 이용료는 성격이 다른 수입이라 따로 센다.
     for r in db.query(models.MemberDues).filter(
         models.MemberDues.year_month.like(like)
     ).all():
@@ -266,12 +267,13 @@ def get_dues_summary(
     for r in db.query(models.TeamDues).filter(
         models.TeamDues.year_month.like(like), models.TeamDues.status == 'paid'
     ).all():
-        paid_by_month[r.year_month] = paid_by_month.get(r.year_month, 0) + r.amount
+        team_by_month[r.year_month] = team_by_month.get(r.year_month, 0) + r.amount
 
     return [
         schemas.DuesSummaryRow(
             year_month=f"{year}-{m:02d}",
             paid=paid_by_month.get(f"{year}-{m:02d}", 0),
+            team_paid=team_by_month.get(f"{year}-{m:02d}", 0),
             unpaid_count=unpaid_by_month.get(f"{year}-{m:02d}", 0),
         )
         for m in range(1, 13)

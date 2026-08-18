@@ -818,6 +818,8 @@ a { text-decoration: none; }
   gap: 14px;
   margin-bottom: 20px;
 }
+/* 카드가 4장이면 좁은 화면에서 3+1 로 갈라진다 — 2×2 로 묶는다 */
+.kpi-grid.four { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 
 .kpi-card {
   background: var(--card);
@@ -831,6 +833,7 @@ a { text-decoration: none; }
    금액 카드는 값 자체의 크기와 색으로 구분한다. */
 .kpi-card { border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
 .kpi-card.revenue .kpi-value { color: var(--primary-dark); }
+.kpi-card.team-fee .kpi-value { color: var(--room2); }
 .kpi-period {
   font-size: 11px; font-weight: 700;
   color: var(--text-sub);
@@ -1739,6 +1742,7 @@ a { text-decoration: none; }
   .filter-search { font-size: 13px; padding: 9px 12px; }
 
   .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .kpi-grid.four { grid-template-columns: repeat(2, 1fr); }
   .kpi-card { padding: 14px 12px; }
   .kpi-value { font-size: 20px; }
   .kpi-unit { font-size: 12px; }
@@ -1911,20 +1915,23 @@ a { text-decoration: none; }
 }
 .dues-progress-fill {
   height: 100%; border-radius: 5px;
-  background: var(--success);
+  background: var(--room1);
   transition: width .35s cubic-bezier(.2,.8,.3,1);
 }
+/* 계열 색은 화면마다 같아야 한다 — 차트 범례와 맞춘다 */
+.dues-progress-fill.team { background: var(--room2); }
 .dues-progress-text {
   margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
 }
 
 .dues-list { display: flex; flex-direction: column; gap: 8px; }
 
 /* 팀 납부 / 멤버 납부를 갈라 보여주는 소제목 */
-.dues-section { margin-bottom: 18px; }
+.dues-section { margin-top: 26px; }
 .dues-section-head {
   display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
-  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  font-size: 13px; font-weight: 800; color: var(--text);
   margin-bottom: 8px;
 }
 .dues-section-head span { font-weight: 600; color: var(--text-light); }

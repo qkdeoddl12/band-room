@@ -312,7 +312,8 @@ class DuesHistoryRow(BaseModel):
 
 class DuesSummaryRow(BaseModel):
     year_month: str
-    paid: int
+    paid: int            # 멤버 월회비
+    team_paid: int = 0   # 팀 월 이용료 — 성격이 달라 합치지 않는다
     unpaid_count: int
 
 

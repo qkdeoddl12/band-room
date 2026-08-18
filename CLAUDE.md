@@ -99,7 +99,8 @@ docker-compose.yml
 - `member_dues` = (member_id, year_month) 유니크. status는 `paid|unpaid|exempt|pending`
   - `GET /api/admin/dues`는 활성 멤버 전원을 반환하고, 기록 없는 달은 기본값으로 채워 보낸다. **조회로 row를 만들지 않는다** — 생성은 PUT upsert에서만
 - `team_dues` = (team_id, year_month) 유니크. **`billing_type='monthly'` 팀만** 대상 (다른 과금 방식은 400). `member_dues`와 같은 모양이고 같은 규칙(조회로 row 안 만듦)
-  - 정산 화면 상단 합계·수납률 = 멤버 회비 + 팀 이용료. 연간 차트도 둘을 합산
+  - **회비와 이용료는 절대 합산하지 않는다** — 성격이 다른 수입이다. KPI 카드 · 수납률 막대 · 연간 차트(스택 2계열) 모두 따로 센다
+  - 계열 색은 화면 어디서나 같다: 월회비 `--room1`(보라) / 월 이용료 `--room2`(청록)
   - 입금 이력: `GET /api/admin/dues/history/{member|team}/{id}` — 멤버·팀 수정 모달에서 `core.js::renderDuesHistory()` 하나로 렌더
 
 

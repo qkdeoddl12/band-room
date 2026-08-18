@@ -47,29 +47,29 @@ function renderDues() {
   const list = document.getElementById('duesList');
   const d = duesData;
 
-  // 합계는 멤버 회비 + 팀 월 이용료 — 그 달에 들어와야 할 돈 전체다.
-  const teamRows = d.team_rows || [];
-  const paid     = d.total_paid + (d.team_total_paid || 0);
-  const expected = d.total_expected + (d.team_total_expected || 0);
+  // 도어즈 멤버 월회비와 팀 월 이용료는 성격이 다른 수입이다 — 합치지 않는다.
+  const teamRows   = d.team_rows || [];
+  const teamPaid   = d.team_total_paid || 0;
+  const teamExpect = d.team_total_expected || 0;
   const teamUnpaid = teamRows.filter(r => r.status === 'unpaid').length;
 
-  document.getElementById('duesPaid').textContent     = paid.toLocaleString();
-  document.getElementById('duesExpected').textContent = expected.toLocaleString();
-  document.getElementById('duesUnpaid').textContent   = d.unpaid_count;
-  document.getElementById('duesPending').textContent  = d.pending_count;
+  document.getElementById('duesPaid').textContent         = d.total_paid.toLocaleString();
+  document.getElementById('duesExpected').textContent     = d.total_expected.toLocaleString();
+  document.getElementById('duesTeamPaid').textContent     = teamPaid.toLocaleString();
+  document.getElementById('duesTeamExpected').textContent = teamExpect.toLocaleString();
+  document.getElementById('duesUnpaid').textContent       = d.unpaid_count;
+  document.getElementById('duesPending').textContent      = d.pending_count;
   document.getElementById('duesUnpaidSub').textContent =
     teamUnpaid ? `+ 미납 ${teamUnpaid}팀` : '입금 확인 필요';
-
-  const pct = expected ? Math.round(paid / expected * 100) : 0;
-  document.getElementById('duesProgressFill').style.width = `${Math.min(100, pct)}%`;
-  document.getElementById('duesProgressText').textContent = `수납률 ${pct}%`;
 
   if (d.rows.length === 0 && teamRows.length === 0) {
     list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">💸</span><div class="admin-empty-text">활동 중인 멤버가 없습니다. 멤버 관리에서 먼저 등록해주세요.</div></div>';
     return;
   }
 
-  list.innerHTML = renderTeamDues(d) + '<div class="dues-list">' + d.rows.map(r => `
+  list.innerHTML = duesSectionHead(
+      '월회비 (도어즈 멤버)', `${d.rows.length}명`, d.total_paid, d.total_expected)
+    + '<div class="dues-list">' + d.rows.map(r => `
     <div class="dues-row status-${r.covered_by_team ? 'covered' : r.status}">
       <div class="dues-member">
         <div class="dues-name">
@@ -91,17 +91,32 @@ function renderDues() {
             `).join('')}
           </div>`}
     </div>
-  `).join('') + '</div>';
+  `).join('') + '</div>' + renderTeamDues(d);
 }
 
-/* 월 이용료 팀은 사람이 아니라 팀이 낸다 — 멤버 목록 위에 따로 묶어 보여준다. */
+/* 두 정산의 소제목 + 수납률 막대. 같은 모양을 두 번 쓰므로 하나로 뽑았다. */
+function duesSectionHead(title, count, paid, expected, teal = false) {
+  const pct = expected ? Math.round(paid / expected * 100) : 0;
+  return `
+    <div class="dues-section-head">${title}<span>${count}</span></div>
+    <div class="dues-progress">
+      <div class="dues-progress-track">
+        <div class="dues-progress-fill${teal ? ' team' : ''}" style="width:${Math.min(100, pct)}%"></div>
+      </div>
+      <div class="dues-progress-text">
+        ${paid.toLocaleString()}원 / 예상 ${expected.toLocaleString()}원 · 수납률 ${pct}%
+      </div>
+    </div>`;
+}
+
+/* 월 이용료 팀은 사람이 아니라 팀이 낸다 — 멤버 목록과 갈라 놓는다. */
 function renderTeamDues(d) {
   const rows = d.team_rows || [];
   if (!rows.length) return '';
-  const head = `${rows.length}팀 · ${d.team_total_paid.toLocaleString()}원 / ${d.team_total_expected.toLocaleString()}원`;
   return `
     <div class="dues-section">
-      <div class="dues-section-head">월 이용료 (팀 납부)<span>${head}</span></div>
+      ${duesSectionHead('월 이용료 (팀)', `${rows.length}팀`,
+                        d.team_total_paid, d.team_total_expected, true)}
       <div class="dues-list">
         ${rows.map(r => `
           <div class="dues-row status-${r.status}">
@@ -123,8 +138,7 @@ function renderTeamDues(d) {
           </div>
         `).join('')}
       </div>
-    </div>
-    <div class="dues-section-head">월회비 (멤버 납부)</div>`;
+    </div>`;
 }
 
 async function setTeamDuesStatus(teamId, status) {
@@ -160,23 +174,28 @@ async function setDuesStatus(memberId, status) {
 
 async function loadDuesSummary(year) {
   const chart = document.getElementById('duesYearChart');
-  document.getElementById('duesYearLabel').textContent = `${year}년 월별 수납 (회비 + 팀 이용료)`;
+  document.getElementById('duesYearLabel').textContent = `${year}년 월별 수납`;
   try {
     const rows = await apiJson(`/api/admin/dues/summary?year=${year}`);
-    if (!rows.some(r => r.paid)) {
+    const total = r => r.paid + (r.team_paid || 0);
+    if (!rows.some(total)) {
       chart.innerHTML = '<div class="chart-empty">올해 수납 기록이 없습니다.</div>';
       return;
     }
-    const max = Math.max(1, ...rows.map(r => r.paid));
+    // 위 칸이 월회비, 아래 칸이 팀 이용료. 합계는 기둥 전체 높이.
+    const max = Math.max(1, ...rows.map(total));
     chart.innerHTML = rows.map((r, i) => {
-      const pct = (r.paid / max) * 100;
+      const sum = total(r);
+      const peak = sum === max && sum > 0;
       return `
-        <div class="bar-col">
-          <div class="bar-value">${r.paid === max && r.paid > 0 ? (r.paid / 10000).toFixed(0) + '만' : ''}</div>
-          <div class="bar-track" title="${i + 1}월 ${r.paid.toLocaleString()}원">
-            <div class="bar-fill" style="height:${pct}%"></div>
+        <div class="stack-col" title="${i + 1}월 · 월회비 ${r.paid.toLocaleString()}원 · 월 이용료 ${(r.team_paid || 0).toLocaleString()}원">
+          <div class="stack-value">${peak ? (sum / 10000).toFixed(0) + '만' : ''}</div>
+          <div class="stack-track">
+            <div class="stack-fill" style="height:${(sum / max) * 100}%">
+              <div class="stack-r1" style="height:${sum ? (r.paid / sum) * 100 : 0}%"></div>
+            </div>
           </div>
-          <div class="bar-label">${i + 1}</div>
+          <div class="stack-label">${i + 1}</div>
         </div>
       `;
     }).join('');
