@@ -74,12 +74,11 @@ function renderDashboard() {
   const confWeek  = confirmed.filter(r => inRange(r, weekStart, weekEnd));
   const confMonth = confirmed.filter(r => inRange(r, monthStart, monthEnd));
 
-  document.getElementById('kpiRevToday').textContent = sumFee(confToday).toLocaleString();
-  document.getElementById('kpiRevWeek').textContent  = sumFee(confWeek).toLocaleString();
-  document.getElementById('kpiRevMonth').textContent = sumFee(confMonth).toLocaleString();
-  document.getElementById('kpiCntToday').textContent = confToday.length;
-  document.getElementById('kpiCntWeek').textContent  = confWeek.length;
-  document.getElementById('kpiCntMonth').textContent = confMonth.length;
+  // 팀 대부분이 선불이라 예약 매출은 0에 가깝다 — 이용 건수를 앞에 세운다.
+  [['Today', confToday], ['Week', confWeek], ['Month', confMonth]].forEach(([key, rows]) => {
+    setText(`kpiCnt${key}`, rows.length);
+    setText(`kpiRev${key}`, usageSub(rows));
+  });
 
   const pendingFee = sumFee(pending);
   document.getElementById('pendingSub').textContent =
@@ -90,6 +89,13 @@ function renderDashboard() {
 
   renderWeekChart(confirmed);
   renderRoomBreakdown('roomBreakdown', confMonth, { emptyMsg: '이번 달 확정된 예약이 없습니다.' });
+}
+
+/* KPI 아래 줄 — 시간 합계, 받을 돈이 있으면 그것도. */
+function usageSub(rows) {
+  const hours = rows.reduce((n, r) => n + (r.duration || 0), 0);
+  const fee = rows.reduce((n, r) => n + resFee(r), 0);
+  return `확정 ${hours}시간` + (fee ? ` · ${fee.toLocaleString()}원` : '');
 }
 
 /* 막대차트 3개가 같은 DOM 을 각자 만들고 있었다. 하나로 모은다.
@@ -105,34 +111,37 @@ function renderBarChart(elId, bars, emptyMsg) {
     <div class="bar-col${b.cls ? ' ' + b.cls : ''}">
       <div class="bar-value">${b.value === max ? escHtml(b.peakLabel ?? String(b.value)) : ''}</div>
       <div class="bar-track" title="${escHtml(b.title)}" aria-label="${escHtml(b.title)}">
-        <div class="bar-fill" style="height:${(b.value / max) * 100}%"></div>
+        <div class="bar-fill${b.value ? '' : ' is-zero'}" style="height:${(b.value / max) * 100}%"></div>
       </div>
       <div class="bar-label">${b.label}${b.sub ? `<br><span>${escHtml(b.sub)}</span>` : ''}</div>
     </div>`).join('');
 }
 
 function renderWeekChart(confirmedRes) {
-  const revByDate = {};
-  confirmedRes.forEach(r => { revByDate[r.date] = (revByDate[r.date] || 0) + resFee(r); });
+  const byDate = {};
+  confirmedRes.forEach(r => {
+    const cur = byDate[r.date] || { count: 0, hours: 0 };
+    cur.count += 1;
+    cur.hours += r.duration || 0;
+    byDate[r.date] = cur;
+  });
 
   const today = new Date();
   const bars = [];
   for (let i = 6; i >= 0; i--) {
     const d = new Date(today); d.setDate(today.getDate() - i);
     const date = toDateStr(d);
-    const value = revByDate[date] || 0;
+    const { count, hours } = byDate[date] || { count: 0, hours: 0 };
     bars.push({
-      value,
+      value: count,
       label: `${d.getMonth() + 1}/${d.getDate()}`,
       sub: DAY_KO[d.getDay()],
-      title: `${d.getMonth() + 1}/${d.getDate()} ${DAY_KO[d.getDay()]} · ${value.toLocaleString()}원`,
-      peakLabel: value.toLocaleString(),
+      title: `${d.getMonth() + 1}/${d.getDate()} ${DAY_KO[d.getDay()]} · ${count}건 · ${hours}시간`,
+      peakLabel: `${count}건`,
       cls: date === toDateStr(today) ? 'today' : '',
     });
   }
-  // 선불 팀·회비 낸 멤버 예약은 건당 0원이라 매출이 0일 수 있다.
-  // "예약이 없다"고 쓰면 거짓말이 된다.
-  renderBarChart('weekChart', bars, '최근 7일 확정 매출이 없습니다. (선불 팀 예약은 건당 0원)');
+  renderBarChart('weekChart', bars, '최근 7일 확정된 예약이 없습니다.');
 }
 
 function roomList() {
@@ -140,8 +149,9 @@ function roomList() {
 }
 
 /* 대시보드와 통계에서 같은 표를 각각 그리고 있었다. 시간 표시 여부만 다르다. */
-function renderRoomBreakdown(elId, items, { showHours = false, emptyMsg } = {}) {
-  const total = items.reduce((n, r) => n + resFee(r), 0) || 1;
+function renderRoomBreakdown(elId, items, { emptyMsg } = {}) {
+  // 매출 비율로 재면 선불 팀이 전부 0이라 막대가 비어 보인다 — 건수로 잰다.
+  const total = items.length || 1;
   const el = document.getElementById(elId);
 
   if (items.length === 0) {
@@ -153,18 +163,18 @@ function renderRoomBreakdown(elId, items, { showHours = false, emptyMsg } = {}) 
     const rows = items.filter(r => r.room_id === room.id);
     const rev = rows.reduce((n, r) => n + resFee(r), 0);
     const hours = rows.reduce((n, r) => n + (r.duration || 0), 0);
-    const pct = Math.round((rev / total) * 100);
+    const pct = Math.round((rows.length / total) * 100);
     return `
       <div class="room-row">
         <div class="room-row-head">
           <span class="res-room-tag ${roomTagCls(room.id)}">${escHtml(room.name)}</span>
-          <span class="room-row-count">${rows.length}건${showHours ? ` · ${hours}시간` : ''}</span>
+          <span class="room-row-count">${rows.length}건</span>
         </div>
         <div class="room-row-meter">
           <div class="room-row-meter-fill ${roomTagCls(room.id)}" style="width:${pct}%"></div>
         </div>
         <div class="room-row-amount">
-          <span>${rev.toLocaleString()}원</span>
+          <span>${hours}시간${rev ? ` · ${rev.toLocaleString()}원` : ''}</span>
           <span class="room-row-pct">${pct}%</span>
         </div>
       </div>`;
@@ -526,13 +536,12 @@ function renderStats() {
   const confirmed = scoped.filter(r => r.status === 'confirmed');
   const pending   = scoped.filter(r => r.status === 'pending');
 
-  const revenue = confirmed.reduce((n, r) => n + resFee(r), 0);
   const totalHours = confirmed.reduce((n, r) => n + (r.duration || 0), 0);
   const avg = confirmed.length ? (totalHours / confirmed.length) : 0;
   const rate = scoped.length ? Math.round(confirmed.length / scoped.length * 100) : 0;
 
-  document.getElementById('statsRev').textContent = revenue.toLocaleString();
-  document.getElementById('statsCount').textContent = confirmed.length;
+  setText('statsCount', confirmed.length);
+  setText('statsRev', usageSub(confirmed));
   document.getElementById('statsRate').textContent  = rate;
   document.getElementById('statsPendingCnt').textContent = pending.length;
   document.getElementById('statsAvg').textContent = confirmed.length ? avg.toFixed(1) : '—';
@@ -540,7 +549,7 @@ function renderStats() {
   renderMonthChart(confirmed, startDate);
   renderWeekdayChart(confirmed);
   renderHourChart(confirmed);
-  renderRoomBreakdown('statsRoomBreakdown', confirmed, { showHours: true, emptyMsg: '기간 내 확정된 예약이 없습니다.' });
+  renderRoomBreakdown('statsRoomBreakdown', confirmed, { emptyMsg: '기간 내 확정된 예약이 없습니다.' });
 }
 
 /* 두 계열 이상이면 범례가 항상 있어야 한다 — 색만으로 구분하면 안 된다. */
@@ -565,19 +574,20 @@ function renderMonthChart(confirmedRes, startDate) {
     cursor.setMonth(cursor.getMonth() + 1);
   }
 
+  // 매출이 아니라 확정 건수를 쌓는다 — 선불 팀 예약은 매출이 0이라 막대가 안 선다.
+  const firstRoomId = roomList()[0]?.id;
   const byMonth = {};
   months.forEach(m => { byMonth[m.key] = { r1: 0, r2: 0 }; });
   confirmedRes.forEach(r => {
     const key = r.date.substring(0, 7);
     if (!byMonth[key]) return;
-    const fee = resFee(r);
-    if (r.room_id === 1) byMonth[key].r1 += fee;
-    else byMonth[key].r2 += fee;
+    if (r.room_id === firstRoomId) byMonth[key].r1 += 1;
+    else byMonth[key].r2 += 1;
   });
 
   const grand = months.reduce((n, m) => n + byMonth[m.key].r1 + byMonth[m.key].r2, 0);
   if (!grand) {
-    chart.innerHTML = '<div class="chart-empty">기간 내 확정 매출이 없습니다. (선불 팀 예약은 건당 0원)</div>';
+    chart.innerHTML = '<div class="chart-empty">기간 내 확정된 예약이 없습니다.</div>';
     return;
   }
   const max = Math.max(1, ...months.map(m => byMonth[m.key].r1 + byMonth[m.key].r2));
@@ -590,10 +600,10 @@ function renderMonthChart(confirmedRes, startDate) {
     const r1Pct = total > 0 ? (v.r1 / total) * 100 : 0;
     const peak  = total === max && total > 0;
     return `
-      <div class="stack-col" title="${m.label} · 합계 ${total.toLocaleString()}원">
-        <div class="stack-value">${peak ? (total/10000).toFixed(0) + '만' : ''}</div>
+      <div class="stack-col" title="${m.label} · ${rooms[0] ? rooms[0].name : ''} ${v.r1}건 · ${rooms[1] ? rooms[1].name : ''} ${v.r2}건">
+        <div class="stack-value">${peak ? total + '건' : ''}</div>
         <div class="stack-track">
-          <div class="stack-fill" style="height:${pct}%;">
+          <div class="stack-fill${total ? '' : ' is-zero'}" style="height:${pct}%;">
             <div class="stack-r1" style="height:${r1Pct}%"></div>
           </div>
         </div>

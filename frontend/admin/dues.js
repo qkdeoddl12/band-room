@@ -190,7 +190,7 @@ async function loadDuesSummary(year) {
         <div class="stack-col" title="${i + 1}월 · 월회비 ${r.paid.toLocaleString()}원 · 월 이용료 ${(r.team_paid || 0).toLocaleString()}원">
           <div class="stack-value">${peak ? (sum / 10000).toFixed(0) + '만' : ''}</div>
           <div class="stack-track">
-            <div class="stack-fill" style="height:${(sum / max) * 100}%">
+            <div class="stack-fill${sum ? '' : ' is-zero'}" style="height:${(sum / max) * 100}%">
               <div class="stack-r1" style="height:${sum ? (r.paid / sum) * 100 : 0}%"></div>
             </div>
           </div>

@@ -856,7 +856,7 @@ a { text-decoration: none; }
   color: var(--text); letter-spacing: -.6px; line-height: 1.05;
 }
 .kpi-unit { font-size: 14px; font-weight: 700; color: var(--text-sub); }
-.kpi-sub { font-size: 12px; color: var(--text-sub); font-weight: 500; }
+.kpi-sub { font-size: 12px; color: var(--text-sub); font-weight: 500; word-break: keep-all; }
 .kpi-sub span { font-weight: 700; color: var(--text); }
 
 /* Dashboard: generic card */
@@ -922,6 +922,8 @@ a { text-decoration: none; }
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 2px;
 }
+/* 0 은 아무것도 안 그린다 — min-height 때문에 남는 2px 이 "조금 있음"으로 읽힌다 */
+.bar-fill.is-zero, .stack-fill.is-zero { min-height: 0; }
 /* 한 계열은 한 색. '오늘'은 다른 색이 아니라 라벨과 바닥 표시로 강조한다.
    (다른 색을 쓰면 두 번째 계열처럼 읽힌다) */
 .bar-col.today .bar-track { border-bottom-color: var(--warning); border-bottom-width: 2px; }

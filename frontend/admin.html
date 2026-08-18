@@ -184,26 +184,26 @@
           <div class="kpi-grid">
             <div class="kpi-card revenue">
               <div class="kpi-period">오늘</div>
-              <div class="kpi-main"><span class="kpi-value" id="kpiRevToday">—</span><span class="kpi-unit">원</span></div>
-              <div class="kpi-sub"><span id="kpiCntToday">0</span>건 · 확정 기준</div>
+              <div class="kpi-main"><span class="kpi-value" id="kpiCntToday">—</span><span class="kpi-unit">건</span></div>
+              <div class="kpi-sub" id="kpiRevToday">확정 기준</div>
             </div>
             <div class="kpi-card revenue">
               <div class="kpi-period">이번 주</div>
-              <div class="kpi-main"><span class="kpi-value" id="kpiRevWeek">—</span><span class="kpi-unit">원</span></div>
-              <div class="kpi-sub"><span id="kpiCntWeek">0</span>건 · 확정 기준</div>
+              <div class="kpi-main"><span class="kpi-value" id="kpiCntWeek">—</span><span class="kpi-unit">건</span></div>
+              <div class="kpi-sub" id="kpiRevWeek">확정 기준</div>
             </div>
             <div class="kpi-card revenue">
               <div class="kpi-period">이번 달</div>
-              <div class="kpi-main"><span class="kpi-value" id="kpiRevMonth">—</span><span class="kpi-unit">원</span></div>
-              <div class="kpi-sub"><span id="kpiCntMonth">0</span>건 · 확정 기준</div>
+              <div class="kpi-main"><span class="kpi-value" id="kpiCntMonth">—</span><span class="kpi-unit">건</span></div>
+              <div class="kpi-sub" id="kpiRevMonth">확정 기준</div>
             </div>
           </div>
 
           <!-- 7-day revenue chart -->
           <div class="dashboard-card">
             <div class="dashboard-card-header">
-              <h3 class="dashboard-card-title">최근 7일 매출</h3>
-              <div class="dashboard-card-sub">확정된 예약 기준</div>
+              <h3 class="dashboard-card-title">최근 7일 이용</h3>
+              <div class="dashboard-card-sub">확정 예약 건수</div>
             </div>
             <div class="bar-chart" id="weekChart"></div>
           </div>
@@ -212,7 +212,7 @@
           <div class="dashboard-card">
             <div class="dashboard-card-header">
               <h3 class="dashboard-card-title">이번 달 방별 이용</h3>
-              <div class="dashboard-card-sub">확정 건 기준</div>
+              <div class="dashboard-card-sub">확정 건수 비율</div>
             </div>
             <div class="room-breakdown" id="roomBreakdown"></div>
           </div>
@@ -284,9 +284,9 @@
           <!-- KPI -->
           <div class="kpi-grid">
             <div class="kpi-card revenue">
-              <div class="kpi-period">기간 매출</div>
-              <div class="kpi-main"><span class="kpi-value" id="statsRev">—</span><span class="kpi-unit">원</span></div>
-              <div class="kpi-sub"><span id="statsCount">0</span>건 · 확정 기준</div>
+              <div class="kpi-period">기간 이용</div>
+              <div class="kpi-main"><span class="kpi-value" id="statsCount">—</span><span class="kpi-unit">건</span></div>
+              <div class="kpi-sub" id="statsRev">확정 기준</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-period">확정률</div>
@@ -303,8 +303,8 @@
           <!-- Monthly revenue stack -->
           <div class="dashboard-card">
             <div class="dashboard-card-header">
-              <h3 class="dashboard-card-title">월별 매출 추이</h3>
-              <div class="dashboard-card-sub">방별 스택 · 확정 기준</div>
+              <h3 class="dashboard-card-title">월별 이용 추이</h3>
+              <div class="dashboard-card-sub">방별 스택 · 확정 건수</div>
             </div>
             <div id="monthChartLegend"></div>
             <div class="stack-chart" id="monthChart"></div>
@@ -331,8 +331,8 @@
           <!-- Room comparison -->
           <div class="dashboard-card">
             <div class="dashboard-card-header">
-              <h3 class="dashboard-card-title">방별 매출 비교</h3>
-              <div class="dashboard-card-sub">기간 합계</div>
+              <h3 class="dashboard-card-title">방별 이용 비교</h3>
+              <div class="dashboard-card-sub">확정 건수 비율</div>
             </div>
             <div class="room-breakdown" id="statsRoomBreakdown"></div>
           </div>
