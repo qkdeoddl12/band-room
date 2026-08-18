@@ -2217,7 +2217,6 @@ a { text-decoration: none; }
   --tkp-bg: 26 22 54;          /* 진한 색. 거의 검정으로 깔면 칙칙해진다 */
   --tkp-bg2: 16 14 34;
   --tkp-ink: 255 255 255;      /* 본문 글자 — 밝은 포스터면 어두운 색으로 뒤집힌다 */
-  --tkp-on-accent: 11 13 20;   /* 채워진 버튼 위 글자 */
 }
 
 /* flex + align-items:center 로 가운데 정렬하면 내용이 화면보다 길 때
@@ -2264,15 +2263,16 @@ a { text-decoration: none; }
   .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .28); }
   .tkp-btn:active { opacity: .72; transform: scale(.985); }
 
-  /* 길찾기는 주 동작이라 채워진 버튼으로 */
+  /* 길찾기도 같은 머티리얼. 꽉 찬 색으로 칠하면 덩어리처럼 튀고 칙칙해진다.
+     주 동작 표시는 채움을 조금 더 진하게 하는 정도면 충분하다. */
   .tkp-map {
   margin-top: 18px;
-  background: rgb(var(--tkp-accent));
-  color: rgb(var(--tkp-on-accent));
-  font-weight: 600;
+  background: rgb(var(--tkp-accent) / .42);
+  color: rgb(var(--tkp-ink));
+  font-weight: 700;
   box-shadow: none;
   }
-  .tkp-map:hover { background: rgb(var(--tkp-accent)); }
+  .tkp-map:hover { background: rgb(var(--tkp-accent) / .5); }
   .tkp-note {
   margin-top: 16px; text-align: center;
   font-size: 12px; color: rgb(var(--tkp-ink) / .42); line-height: 1.7;
@@ -2288,8 +2288,8 @@ a { text-decoration: none; }
   .tkp-page.light .tk-canvas {
   box-shadow: 0 12px 32px rgb(0 0 0 / .12), 0 0 0 1px rgb(0 0 0 / .06);
   }
-  .tkp-page.light .tkp-btn   { background: rgb(var(--tkp-accent) / .14); }
-  .tkp-page.light .tkp-map   { background: rgb(var(--tkp-accent)); }
+  .tkp-page.light .tkp-btn   { background: rgb(var(--tkp-accent) / .16); }
+  .tkp-page.light .tkp-map   { background: rgb(var(--tkp-accent) / .34); }
 
   @media (prefers-reduced-motion: reduce) {
   .tkp-page, .tkp-btn { transition: none; }

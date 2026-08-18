@@ -153,13 +153,7 @@ function tkContrast(a, b) {
   return (x + 0.05) / (y + 0.05);
 }
 
-/* 흰 글자와 검은 글자 중 대비가 더 큰 쪽. 임의의 밝기 기준으로 자르면
-   주황처럼 중간 밝기 색에서 읽기 힘든 조합이 나온다. */
 const TKP_DARK_INK = [17, 18, 24];
-function tkInkFor(bg) {
-  return tkContrast(bg, [255, 255, 255]) >= tkContrast(bg, TKP_DARK_INK)
-    ? [255, 255, 255] : TKP_DARK_INK;
-}
 
 /* 배경 대비 목표치를 넘을 때까지 명도만 조금씩 옮긴다.
    채도는 건드리지 않는다 — 그게 칙칙해지는 원인이다. */
@@ -173,7 +167,7 @@ function tkFitContrast(h, s, l, bg, target, towardLight) {
 }
 
 /* target 에 CSS 변수를 심는다 — 공개 페이지는 body(.tkp-page), 에디터는 미리보기 요소. */
-const TKP_VARS = ['--tkp-accent', '--tkp-bg', '--tkp-bg2', '--tkp-ink', '--tkp-on-accent'];
+const TKP_VARS = ['--tkp-accent', '--tkp-bg', '--tkp-bg2', '--tkp-ink'];
 
 function tkApplyAccent(info, target) {
   const el = target || document.body;
@@ -206,14 +200,13 @@ function tkApplyAccent(info, target) {
   // 버튼은 배경에서 확실히 떠야 한다. 어두운 배경에선 파스텔에 가깝게 밝혀
   // 애플 뮤직의 밝은 알약 버튼처럼 보이게 한다 (중간 톤이면 가라앉는다).
   const accent = tkFitContrast(
-    colored ? accHue : 0, accSatOf(accSat), isLight ? 0.30 : 0.80, bg, 4.5, !isLight,
+    colored ? accHue : 0, accSatOf(accSat), isLight ? 0.58 : 0.80, bg, 1.7, !isLight,
   );
 
   el.style.setProperty('--tkp-accent', accent.join(' '));
   el.style.setProperty('--tkp-bg', bg.join(' '));
   el.style.setProperty('--tkp-bg2', bg2.join(' '));
   el.style.setProperty('--tkp-ink', ink.join(' '));
-  el.style.setProperty('--tkp-on-accent', tkInkFor(accent).join(' '));
   el.classList.toggle('light', isLight);
 }
 
