@@ -2090,6 +2090,29 @@ a { text-decoration: none; }
   .tk-stage { max-width: 460px; }
 }
 
+/* 항목이 많은 수정창은 넓게 펴서 스크롤을 없앤다.
+   좁은 화면에서는 form-grid 를 투명하게 만들어 그냥 세로로 쌓는다. */
+.form-grid { display: contents; }
+
+@media (min-width: 900px) {
+  .modal.wide { max-width: 860px; }
+  .modal.wide .modal-body { padding: 14px 20px 20px; }
+  .modal.wide .modal-header { padding-bottom: 8px; }
+  body:has(.admin-dashboard) .modal.wide { max-height: 94vh; }
+  .modal.wide .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+    align-items: start;
+  }
+}
+
+/* 메모는 한 줄로는 못 적는다 */
+.memo-box {
+  min-height: 96px; resize: vertical; line-height: 1.6;
+  padding-top: 12px; padding-bottom: 12px;
+}
+
 /* ============================================================
    ADMIN: Mobile "더보기" menu
    ============================================================ */

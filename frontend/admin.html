@@ -1115,7 +1115,7 @@
 
   <!-- Team Modal -->
   <div class="modal-overlay" id="teamOverlay" style="z-index:300;">
-    <div class="modal">
+    <div class="modal wide">
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title" id="teamModalTitle">팀 등록</h3>
@@ -1123,6 +1123,8 @@
       </div>
       <div class="modal-body">
         <form id="teamForm" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-col">
           <div class="form-group">
             <label class="form-label" for="teamName">팀 이름 <span style="color:var(--danger)">*</span></label>
             <input type="text" class="form-input" id="teamName" maxlength="100" required>
@@ -1135,6 +1137,23 @@
             <label class="form-label" for="teamPhone">연락처</label>
             <input type="tel" class="form-input" id="teamPhone" maxlength="30" placeholder="010-0000-0000">
           </div>
+          <div class="form-group">
+            <label class="form-label">팀 구성 포지션</label>
+            <div class="part-checks" id="teamParts"></div>
+            <input type="text" class="form-input part-other" id="teamPartsOther"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="teamMemo">메모</label>
+            <textarea class="form-textarea memo-box" id="teamMemo" rows="3"
+                      maxlength="500" placeholder="특이사항 · 연락 기록 등"></textarea>
+          </div>
+          </div><!-- /form-col -->
+
+          <div class="form-col">
+
+
           <div class="form-group">
             <label class="form-label">과금 방식 <span style="color:var(--danger)">*</span></label>
             <div class="role-select">
@@ -1172,17 +1191,8 @@
             개인별로 다르면 멤버 수정에서 금액을 지정하세요.
           </div>
 
-          <div class="form-group">
-            <label class="form-label">팀 구성 포지션</label>
-            <div class="part-checks" id="teamParts"></div>
-            <input type="text" class="form-input part-other" id="teamPartsOther"
-                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
-          </div>
+          <div id="teamHistory"></div>
 
-          <div class="form-group">
-            <label class="form-label" for="teamMemo">메모</label>
-            <textarea class="form-textarea" id="teamMemo" rows="2"></textarea>
-          </div>
           <div class="form-group">
             <label class="toggle-row">
               <span>
@@ -1192,7 +1202,8 @@
               <input type="checkbox" class="toggle-switch" id="teamActive" checked>
             </label>
           </div>
-          <div id="teamHistory"></div>
+          </div><!-- /form-col -->
+        </div><!-- /form-grid -->
 
           <div class="modal-actions">
             <button type="button" id="teamDeleteBtn" onclick="deleteCurrentTeam()" class="btn-danger">삭제</button>
@@ -1217,7 +1228,7 @@
 
   <!-- Member Modal -->
   <div class="modal-overlay" id="memberOverlay" style="z-index:300;">
-    <div class="modal">
+    <div class="modal wide">
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title" id="memberModalTitle">멤버 등록</h3>
@@ -1225,6 +1236,8 @@
       </div>
       <div class="modal-body">
         <form id="memberForm" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-col">
           <div class="tk-panel-row">
             <div class="form-group">
               <label class="form-label" for="memberName">이름 <span style="color:var(--danger)">*</span></label>
@@ -1266,13 +1279,6 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">가능한 포지션</label>
-            <div class="part-checks" id="memberParts"></div>
-            <input type="text" class="form-input part-other" id="memberPartsOther"
-                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
-          </div>
-
-          <div class="form-group">
             <label class="form-label">상태</label>
             <div class="part-checks" id="memberFlags">
               <label class="part-check active">
@@ -1297,20 +1303,34 @@
             </div>
           </div>
 
-          <div class="tk-panel-row">
-            <div class="form-group" id="memberFeeRow">
-              <label class="form-label" for="memberFee">
-                월회비 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(비우면 기본값)</span>
-              </label>
-              <input type="number" min="0" step="1000" class="form-input" id="memberFee" placeholder="예: 50000">
-            </div>
-            <div class="form-group">
-              <label class="form-label" for="memberMemo">메모</label>
-              <input type="text" class="form-input" id="memberMemo" maxlength="200" placeholder="특이사항">
-            </div>
+          <div class="form-group" id="memberFeeRow">
+            <label class="form-label" for="memberFee">
+              월회비 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(비우면 기본값)</span>
+            </label>
+            <input type="number" min="0" step="1000" class="form-input" id="memberFee" placeholder="예: 50000">
+          </div>
+
+          </div><!-- /form-col -->
+
+          <div class="form-col">
+          <div class="form-group">
+            <label class="form-label">가능한 포지션</label>
+            <div class="part-checks" id="memberParts"></div>
+            <input type="text" class="form-input part-other" id="memberPartsOther"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
+          </div>
+
+
+
+          <div class="form-group">
+            <label class="form-label" for="memberMemo">메모</label>
+            <textarea class="form-input memo-box" id="memberMemo" rows="4"
+                      maxlength="500" placeholder="특이사항 · 연락 기록 등"></textarea>
           </div>
 
           <div id="memberHistory"></div>
+          </div><!-- /form-col -->
+        </div><!-- /form-grid -->
 
           <div class="modal-actions">
             <button type="button" id="memberDeleteBtn" onclick="deleteCurrentMember()" class="btn-danger">삭제</button>

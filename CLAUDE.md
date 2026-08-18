@@ -176,6 +176,9 @@ docker-compose.yml
 - **프론트엔드 빌드 없음**: `frontend/`는 `./frontend:/app/frontend` 볼륨으로 마운트돼 브라우저 새로고침만으로 반영됨. 백엔드 변경만 `--build` 필요
 - **`api()` 는 FormData 를 건드리지 않는다**: 본문이 FormData 면 Content-Type 을 붙이지 않아야 한다.
   `application/json` 을 씌우면 multipart boundary 가 사라져 서버가 422 를 낸다 (이미 한 번 겪음)
+- **항목 많은 수정창은 `.modal.wide` + `.form-grid`/`.form-col`** (멤버·팀). 좁은 화면에선 `display: contents` 로
+  그냥 세로로 쌓이고, 900px 이상에서만 2열이 된다. 칼럼에 항목을 넣을 땐 **양쪽 높이를 맞춰야** 스크롤이 안 생긴다
+  - 데스크탑 `max-height` 는 `body:has(.admin-dashboard) .modal` 이 88vh 로 잡고 있으니 같은 특이도로 눌러야 먹는다
 - **관리자 JS는 ES 모듈이 아니다**: 인라인 `onclick`이 전역 함수를 부르므로 일반 `<script>` 태그 + 전역 스코프를 유지한다. 새 페이지는 `PAGE_LOADERS.<page> = load<Page>` 로 자기 로더를 등록하고, `admin.html` 맨 아래 script 목록에 추가한다 (core.js가 항상 먼저)
 - **관리자 페이지에는 SSE 미연결**: 목록은 수동 새로고침 또는 액션 후 재호출
 - **대시보드·통계는 매출이 아니라 이용 건수 기준**: 팀 대부분이 선불(`monthly`/`dues`)이라 예약 건당 매출이 0이다. 매출로 재면 그래프가 통째로 비어 "예약이 없다"로 읽힌다. 건수를 주 지표로, 시간·매출은 보조로 표기한다. 방별 비율도 건수 기준. 실제 수입은 정산 화면(회비 + 팀 이용료)에 있다
