@@ -22,7 +22,7 @@ async function loadTicket() {
   document.title = `${ticket.title} — Band Room`;
   tkRender(canvas, ticket);
 
-  if (ticket.bg_url) tkTintFrom(ticket.bg_url, document.documentElement);
+  if (ticket.bg_url) tkTintFrom(ticket.bg_url, document.body);
 
   // 서버가 http/https 만 통과시키지만, href 로 넣기 전에 한 번 더 확인한다.
   const map = document.getElementById('tkpMap');

@@ -112,7 +112,9 @@ docker-compose.yml
 - 에디터와 공개 페이지가 `ticket-render.js::tkRender()` 하나를 공유 — 렌더 로직을 두 벌로 나누지 말 것
 - `slug` 는 관리자가 직접 바꿀 수 있다 (`/t/autumn-live`). 바꾸면 이전 링크는 죽는다
 - `map_url` 은 공개 페이지 `href` 로 나가므로 **http/https 만** 통과시킨다 (javascript: 차단). 프론트에서도 한 번 더 검사
-- 공개 페이지 버튼 색은 배경 이미지에서 뽑는다 (`ticket.js::accentFromImage`)
+- 공개 페이지 버튼 색은 배경 이미지에서 뽑는다 (`ticket-render.js::accentFromImage`).
+  뽑은 색은 `--tkp-accent` 로 **`.tkp-page` 요소 자체에** 얹어야 한다 — `:root` 에 얹으면
+  `.tkp-page` 의 기본값 선언이 상속값을 이겨서 조용히 무시된다 (공개 페이지만 기본 보라로 남았던 적 있음)
 - `.tk-canvas` 의 `touch-action: none` 은 **에디터(`.editing`)에만** 걸어야 한다. 공개 페이지에 걸면 스크롤이 죽는다
 - `is_published=false`면 `/api/tickets/{slug}`와 `/t/{slug}` 모두 404
 - `GET /t/{slug}`는 `ticket.html`의 `<!--OG-->` 자리에 og 태그를 문자열 치환으로 주입 (카톡 공유 미리보기용)
