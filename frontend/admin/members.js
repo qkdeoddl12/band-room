@@ -90,7 +90,7 @@ function renderMembers() {
     return;
   }
 
-  list.innerHTML = '<div class="member-cards">' + items.map(m => {
+  list.innerHTML = '<div class="entity-cards">' + items.map(m => {
     const fee = memberFee(m);
     const info = [
       m.birth_year ? `${m.birth_year}년생` : '',
@@ -99,27 +99,27 @@ function renderMembers() {
     ].filter(Boolean).join(' · ');
 
     return `
-      <div class="mcard${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
+      <div class="ecard${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
            onclick="openMemberModal(${m.id})">
-        <div class="mcard-top">
-          <span class="mcard-name">${escHtml(m.name)}</span>
+        <div class="ecard-top">
+          <span class="ecard-name">${escHtml(m.name)}</span>
           ${m.is_doors ? '<span class="mt-badge doors">도어즈</span>' : ''}
           ${m.needs_check ? '<span class="mt-badge check">활동 확인 필요</span>' : ''}
           ${m.is_active ? '' : '<span class="mt-badge off">비활동</span>'}
-          <span class="fee-badge ${fee.cls} mcard-fee">${escHtml(fee.text)}</span>
+          <span class="fee-badge ${fee.cls} ecard-fee">${escHtml(fee.text)}</span>
         </div>
 
-        <div class="mcard-team">
+        <div class="ecard-sub">
           ${escHtml(m.team_name || '무소속')}
-          <span class="mcard-parts">${escHtml(splitParts(m.parts).join(' · ') || '포지션 미지정')}</span>
+          <span class="ecard-parts">${escHtml(splitParts(m.parts).join(' · ') || '포지션 미지정')}</span>
         </div>
 
-        <div class="mcard-meta">
+        <div class="ecard-meta">
           <span>${m.phone ? escHtml(formatPhone(m.phone)) : '연락처 없음'}</span>
           ${info ? `<span>${escHtml(info)}</span>` : ''}
         </div>
 
-        ${m.memo ? `<div class="mcard-memo">${escHtml(m.memo)}</div>` : ''}
+        ${m.memo ? `<div class="ecard-memo">${escHtml(m.memo)}</div>` : ''}
       </div>`;
   }).join('') + '</div>';
 }

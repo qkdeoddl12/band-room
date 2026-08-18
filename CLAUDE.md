@@ -176,6 +176,9 @@ docker-compose.yml
 - **프론트엔드 빌드 없음**: `frontend/`는 `./frontend:/app/frontend` 볼륨으로 마운트돼 브라우저 새로고침만으로 반영됨. 백엔드 변경만 `--build` 필요
 - **`api()` 는 FormData 를 건드리지 않는다**: 본문이 FormData 면 Content-Type 을 붙이지 않아야 한다.
   `application/json` 을 씌우면 multipart boundary 가 사라져 서버가 422 를 낸다 (이미 한 번 겪음)
+- **목록 카드는 `.entity-cards` / `.ecard*` 공용** (멤버·팀). 새 목록도 이걸 쓴다.
+  카드 전체가 상세로 가고 `.ecard-edit` 버튼만 `event.stopPropagation()` 으로 수정창을 연다.
+  `.entity-list` / `.entity-item` 은 티켓 통계 줄에서만 쓰는 옛 형태
 - **항목 많은 수정창은 `.modal.wide` + `.form-grid`/`.form-col`** (멤버·팀). 좁은 화면에선 `display: contents` 로
   그냥 세로로 쌓이고, 900px 이상에서만 2열이 된다. 칼럼에 항목을 넣을 땐 **양쪽 높이를 맞춰야** 스크롤이 안 생긴다
   - 데스크탑 `max-height` 는 `body:has(.admin-dashboard) .modal` 이 88vh 로 잡고 있으니 같은 특이도로 눌러야 먹는다

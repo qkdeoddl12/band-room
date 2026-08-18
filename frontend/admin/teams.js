@@ -70,26 +70,33 @@ function renderTeams() {
     return;
   }
 
-  list.innerHTML = '<div class="entity-list">' + items.map(t => `
-    <div class="entity-item${t.is_active ? '' : ' inactive'}">
-      <div class="entity-avatar team" onclick="openTeamDetail(${t.id})">${escHtml(t.name.charAt(0))}</div>
-      <div class="entity-meta" onclick="openTeamDetail(${t.id})" style="cursor:pointer;">
-        <div class="entity-meta-top">
-          <span class="entity-name">${escHtml(t.name)}</span>
-          ${t.is_active ? '' : '<span class="user-inactive-tag">비활성</span>'}
-          ${teamBillingBadge(t)}
+  // 멤버 목록과 같은 카드. 카드를 누르면 상세, 오른쪽 아래 버튼은 수정.
+  list.innerHTML = '<div class="entity-cards">' + items.map(t => {
+    const contact = [
+      t.leader_name ? escHtml(t.leader_name) : '',
+      t.phone ? escHtml(formatPhone(t.phone)) : '',
+    ].filter(Boolean).join(' · ') || '담당자 미지정';
+    const counts = [
+      t.billing_type === 'dues' ? `멤버 ${t.member_count}명` : '',
+      `예약 ${t.reservation_count}건`,
+    ].filter(Boolean).join(' · ');
+
+    return `
+      <div class="ecard${t.is_active ? '' : ' inactive'}" onclick="openTeamDetail(${t.id})">
+        <div class="ecard-top">
+          <span class="ecard-name">${escHtml(t.name)}</span>
+          ${t.is_active ? '' : '<span class="mt-badge off">비활성</span>'}
+          <span class="ecard-fee">${teamBillingBadge(t)}</span>
         </div>
-        ${t.parts ? `<div class="part-tags">${partTagsHtml(t.parts)}</div>` : ''}
-        <div class="entity-meta-bottom">
-          ${t.leader_name ? `<span>👤 ${escHtml(t.leader_name)}</span>` : ''}
-          ${t.phone ? `<span>📞 ${escHtml(formatPhone(t.phone))}</span>` : ''}
-          ${t.billing_type === 'dues' ? `<span>🥁 멤버 ${t.member_count}명</span>` : ''}
-          <span>📋 예약 ${t.reservation_count}건</span>
+        <div class="ecard-sub">${contact}
+          <span class="ecard-parts">${escHtml(splitParts(t.parts).join(' · ') || '포지션 미지정')}</span>
         </div>
-      </div>
-      <button class="btn-edit-user" onclick="openTeamModal(${t.id})">수정</button>
-    </div>
-  `).join('') + '</div>';
+        <div class="ecard-meta">
+          <span>${counts}</span>
+          <button class="ecard-edit" onclick="event.stopPropagation(); openTeamModal(${t.id})">수정</button>
+        </div>
+      </div>`;
+  }).join('') + '</div>';
 }
 
 /* ============================================================
