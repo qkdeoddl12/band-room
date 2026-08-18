@@ -186,25 +186,27 @@ function tkApplyAccent(info, target) {
   const { bgHue, bgSat, altHue, altSat, accHue, accSat, chroma, light } = info;
   const isLight = light > 0.62;
 
-  // 무채색 포스터는 색을 지어내지 않는다.
-  const gray = chroma < 0.015;
-  // 배경은 포스터가 가진 만큼만 물들인다. 하한을 두면 흰 포스터에도
-  // 파란 배경이 깔린다 (실제로 그랬다). 밝은 톤일수록 더 옅게.
-  const bgSatOf = v => gray ? 0.03
-    : (isLight ? Math.min(0.5, v) * 0.5 : Math.min(0.75, v));
-  // 버튼은 색으로 읽혀야 하므로 하한을 둔다.
-  const accSatOf = v => gray ? 0.05 : Math.min(0.9, Math.max(0.35, v));
+  // "색이 있는 포스터인가"는 가중치 총합이 아니라 **채도**로 판단한다.
+  // 총합으로 재면 거의 흰 포스터의 미세한 색 얼룩도 '색 있음'이 돼서
+  // 채도 7% 짜리 초록을 35% 로 부풀려 칠하게 된다 (실제로 그랬다).
+  const NEUTRAL = 0.16;
+  const colored = accSat >= NEUTRAL && chroma > 0.01;
+  // 포스터에 있는 것보다 진하게 만들지 않는다. 없는 색은 지어내지 않는다.
+  const bgSatOf = v => colored
+    ? (isLight ? Math.min(0.5, v) * 0.5 : Math.min(0.75, v))
+    : 0.02;
+  const accSatOf = v => colored ? Math.min(0.85, v * 1.2) : 0;
 
   // 애플처럼 "진한 색". 거의 검정(0.07)이 아니라 0.22, 흰색이 아니라 0.92.
   const bgL  = isLight ? 0.92 : 0.22;
-  const bg   = hslToRgb(bgHue, bgSatOf(bgSat), bgL);
-  const bg2  = hslToRgb(altHue, bgSatOf(altSat), isLight ? 0.965 : 0.13);
+  const bg   = hslToRgb(colored ? bgHue : 0, bgSatOf(bgSat), bgL);
+  const bg2  = hslToRgb(colored ? altHue : 0, bgSatOf(altSat), isLight ? 0.965 : 0.13);
 
   const ink = isLight ? TKP_DARK_INK : [255, 255, 255];
   // 버튼은 배경에서 확실히 떠야 한다. 어두운 배경에선 파스텔에 가깝게 밝혀
   // 애플 뮤직의 밝은 알약 버튼처럼 보이게 한다 (중간 톤이면 가라앉는다).
   const accent = tkFitContrast(
-    accHue, accSatOf(accSat), isLight ? 0.44 : 0.80, bg, 4.5, !isLight,
+    colored ? accHue : 0, accSatOf(accSat), isLight ? 0.30 : 0.80, bg, 4.5, !isLight,
   );
 
   el.style.setProperty('--tkp-accent', accent.join(' '));
