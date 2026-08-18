@@ -186,20 +186,25 @@ function tkApplyAccent(info, target) {
   const { bgHue, bgSat, altHue, altSat, accHue, accSat, chroma, light } = info;
   const isLight = light > 0.62;
 
-  // 무채색 포스터는 색을 지어내지 않는다. 색이 있으면 채도를 살려 쓴다.
+  // 무채색 포스터는 색을 지어내지 않는다.
   const gray = chroma < 0.015;
-  const sat = v => gray ? 0.04 : Math.max(0.45, Math.min(0.9, v));
+  // 배경은 포스터가 가진 만큼만 물들인다. 하한을 두면 흰 포스터에도
+  // 파란 배경이 깔린다 (실제로 그랬다). 밝은 톤일수록 더 옅게.
+  const bgSatOf = v => gray ? 0.03
+    : (isLight ? Math.min(0.5, v) * 0.5 : Math.min(0.75, v));
+  // 버튼은 색으로 읽혀야 하므로 하한을 둔다.
+  const accSatOf = v => gray ? 0.05 : Math.min(0.9, Math.max(0.35, v));
 
-  // 애플처럼 "진한 색". 거의 검정(0.07)이 아니라 0.22, 흰색이 아니라 0.9.
-  const bgL  = isLight ? 0.90 : 0.22;
-  const bg   = hslToRgb(bgHue, sat(bgSat), bgL);
-  const bg2  = hslToRgb(altHue, sat(altSat), isLight ? 0.95 : 0.13);
+  // 애플처럼 "진한 색". 거의 검정(0.07)이 아니라 0.22, 흰색이 아니라 0.92.
+  const bgL  = isLight ? 0.92 : 0.22;
+  const bg   = hslToRgb(bgHue, bgSatOf(bgSat), bgL);
+  const bg2  = hslToRgb(altHue, bgSatOf(altSat), isLight ? 0.965 : 0.13);
 
   const ink = isLight ? TKP_DARK_INK : [255, 255, 255];
   // 버튼은 배경에서 확실히 떠야 한다. 어두운 배경에선 파스텔에 가깝게 밝혀
   // 애플 뮤직의 밝은 알약 버튼처럼 보이게 한다 (중간 톤이면 가라앉는다).
   const accent = tkFitContrast(
-    accHue, sat(accSat), isLight ? 0.44 : 0.80, bg, 4.5, !isLight,
+    accHue, accSatOf(accSat), isLight ? 0.44 : 0.80, bg, 4.5, !isLight,
   );
 
   el.style.setProperty('--tkp-accent', accent.join(' '));

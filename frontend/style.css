@@ -874,6 +874,7 @@ a { text-decoration: none; }
 .dashboard-card-title {
   font-size: 16px; font-weight: 700; color: var(--text);
   letter-spacing: -0.3px;
+  word-break: keep-all;
 }
 .dashboard-card-sub { font-size: 12px; color: var(--text-sub); font-weight: 500; }
 
@@ -2241,34 +2242,37 @@ a { text-decoration: none; }
 
   .tkp-actions { display: flex; gap: 10px; margin-top: 14px; }
 
+  /* 애플 스타일: 테두리 없이 반투명 머티리얼. 글로우도 없다. */
   .tkp-btn {
   flex: 1;
   display: flex; align-items: center; justify-content: center; gap: 7px;
-  height: 52px; padding: 0 16px;
+  height: 50px; padding: 0 16px;
   border-radius: 14px;
-  border: 1px solid rgb(var(--tkp-accent) / .62);
-  background: rgb(var(--tkp-accent) / .28);
+  border: 0;
+  background: rgb(var(--tkp-accent) / .20);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
   color: rgb(var(--tkp-ink));
-  font-size: 15px; font-weight: 700;
+  font-size: 15px; font-weight: 600;
+  letter-spacing: -.01em;
   font-family: inherit;
   text-decoration: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background .18s, transform .12s, border-color .18s;
+  transition: background .18s, opacity .12s, transform .12s;
   }
-  .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .32); }
-  .tkp-btn:active { transform: scale(.97); }
+  .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .28); }
+  .tkp-btn:active { opacity: .72; transform: scale(.985); }
 
   /* 길찾기는 주 동작이라 채워진 버튼으로 */
   .tkp-map {
   margin-top: 18px;
   background: rgb(var(--tkp-accent));
-  border-color: transparent;
   color: rgb(var(--tkp-on-accent));
-  font-weight: 800;
-  box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .32);
+  font-weight: 600;
+  box-shadow: none;
   }
-  .tkp-map:hover { background: rgb(var(--tkp-accent) / 1); }
+  .tkp-map:hover { background: rgb(var(--tkp-accent)); }
   .tkp-note {
   margin-top: 16px; text-align: center;
   font-size: 12px; color: rgb(var(--tkp-ink) / .42); line-height: 1.7;
@@ -2284,7 +2288,8 @@ a { text-decoration: none; }
   .tkp-page.light .tk-canvas {
   box-shadow: 0 12px 32px rgb(0 0 0 / .12), 0 0 0 1px rgb(0 0 0 / .06);
   }
-  .tkp-page.light .tkp-map   { box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .28); }
+  .tkp-page.light .tkp-btn   { background: rgb(var(--tkp-accent) / .14); }
+  .tkp-page.light .tkp-map   { background: rgb(var(--tkp-accent)); }
 
   @media (prefers-reduced-motion: reduce) {
   .tkp-page, .tkp-btn { transition: none; }
@@ -2305,7 +2310,11 @@ a { text-decoration: none; }
   box-shadow: 0 20px 60px rgba(0,0,0,.35);
   -webkit-overflow-scrolling: touch;
 }
-.tkp-phone .tkp-page { min-height: 100%; padding: 22px 14px 32px; }
+.tkp-phone .tkp-page {
+  min-height: 100%;
+  padding: 28px 16px 40px;
+  background-attachment: scroll;
+}
 .tkp-phone .tkp-btn { pointer-events: none; }
 .tkp-preview-size {
   font-size: 12px; color: var(--text-sub); text-align: center; margin-top: 10px;
