@@ -151,8 +151,11 @@ docker-compose.yml
   `application/json` 을 씌우면 multipart boundary 가 사라져 서버가 422 를 낸다 (이미 한 번 겪음)
 - **관리자 JS는 ES 모듈이 아니다**: 인라인 `onclick`이 전역 함수를 부르므로 일반 `<script>` 태그 + 전역 스코프를 유지한다. 새 페이지는 `PAGE_LOADERS.<page> = load<Page>` 로 자기 로더를 등록하고, `admin.html` 맨 아래 script 목록에 추가한다 (core.js가 항상 먼저)
 - **관리자 페이지에는 SSE 미연결**: 목록은 수동 새로고침 또는 액션 후 재호출
-- **HTML 셸과 `/static` 은 `Cache-Control: no-cache`** (`main.py` 미들웨어). 캐시 수명이 서로 달라지면 옛 `admin.html` 에 새 JS 가 붙어 화면이 죽는다 (이미 한 번 겪음). ETag 로 304 는 그대로 나가므로 비용은 요청 한 번뿐.
-  같은 이유로 새 DOM 요소를 읽을 땐 `core.js::setText()` 처럼 없으면 넘어가게 쓴다
+- **정적 자원 캐시**: 셸과 JS/CSS 의 캐시 수명이 어긋나면 옛 JS 에 새 HTML 이 붙어 화면이 죽는다 (두 번 겪음). 방어가 세 겹이다:
+  1. HTML 셸과 `/static` 에 `Cache-Control: no-cache` (`main.py` 미들웨어) — ETag 로 304 는 그대로 나간다
+  2. `main.py::render_page()` 가 셸의 `/static/*.js|css` 주소에 `?v=<가장 최근 mtime>` 을 붙인다. **이게 핵심** — 이미 캐시된 사본에는 헤더가 소급되지 않으므로 주소를 바꿔야 한다. 프론트만 고쳐도(재빌드 없이) 값이 바뀐다
+  3. 새 DOM 요소를 읽을 땐 `core.js::setText()` 처럼 없으면 넘어가게 쓴다
+  세 페이지(`/`, `/admin`, `/t/{slug}`)가 모두 `render_page()` 를 지난다
 - **포트**: 앱 8010, DB 호스트 5433 (5432는 다른 프로젝트가 점유 가능)
 - **Docker Compose v1 환경** (구형 시놀로지): `docker-compose up --build -d` 써야 함. `--build`만 단독이면 v1은 거부
 - **시놀로지에서 docker.sock 권한**: `sudo` 필요하거나 `docker` 그룹에 사용자 추가

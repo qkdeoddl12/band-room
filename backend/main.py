@@ -7,6 +7,7 @@ import asyncio
 import html
 import logging
 import os
+import re
 
 from database import engine, get_db, SessionLocal
 from broadcaster import broadcaster
@@ -188,14 +189,38 @@ app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 
-@app.get("/")
+ASSET_REF = re.compile(r'(?<=["\'])(/static/[^"\']+\.(?:js|css))(?=["\'])')
+
+
+def asset_version() -> str:
+    """frontend 의 js/css 중 가장 최근 수정 시각. 파일이 바뀌면 값이 바뀐다."""
+    latest = 0.0
+    for root, _dirs, files in os.walk(FRONTEND_DIR):
+        for name in files:
+            if name.endswith(('.js', '.css')):
+                latest = max(latest, os.path.getmtime(os.path.join(root, name)))
+    return str(int(latest))
+
+
+def render_page(filename: str) -> str:
+    """정적 자원 주소에 버전을 붙여 돌려준다.
+
+    브라우저가 옛 JS 를 들고 있으면 새 HTML 과 짝이 안 맞아 화면이 죽는다.
+    Cache-Control 은 이미 캐시된 사본에 소급되지 않으므로 주소 자체를 바꾼다.
+    """
+    with open(f"{FRONTEND_DIR}/{filename}", encoding="utf-8") as f:
+        page = f.read()
+    return ASSET_REF.sub(rf"\1?v={asset_version()}", page)
+
+
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    return FileResponse(f"{FRONTEND_DIR}/index.html")
+    return HTMLResponse(render_page("index.html"))
 
 
-@app.get("/admin")
+@app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
-    return FileResponse(f"{FRONTEND_DIR}/admin.html")
+    return HTMLResponse(render_page("admin.html"))
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -223,8 +248,7 @@ async def ticket_page(slug: str, request: Request, db: Session = Depends(get_db)
     )
     db.commit()
 
-    with open(f"{FRONTEND_DIR}/ticket.html", encoding="utf-8") as f:
-        page = f.read()
+    page = render_page("ticket.html")
 
     # Inject OG tags server-side so KakaoTalk/messenger previews show the real ticket.
     base = str(request.base_url).rstrip('/')
