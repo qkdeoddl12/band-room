@@ -187,7 +187,16 @@ def member_dues_ok(db: Session, member, year_month: str) -> bool:
 
 
 def default_monthly_fee(db: Session) -> int:
+    return _fee_setting(db, "default_monthly_fee")
+
+
+def default_team_fee(db: Session) -> int:
+    """월 이용료를 안 적은 팀이 쓰는 기본값. 멤버 회비와 같은 방식."""
+    return _fee_setting(db, "default_team_fee")
+
+
+def _fee_setting(db: Session, key: str) -> int:
     try:
-        return int(get_settings(db)["default_monthly_fee"])
+        return int(get_settings(db)[key])
     except (ValueError, TypeError):
-        return int(DEFAULT_SETTINGS["default_monthly_fee"])
+        return int(DEFAULT_SETTINGS[key])

@@ -289,6 +289,21 @@ def test_team_dues(h, team, member_id):
     row = next(r for r in month["team_rows"] if r["team_id"] == tid)
     assert row["status"] == "paid" and month["team_total_paid"] >= 200000, month
 
+    # 월 이용료를 안 적은 팀은 환경 설정의 기본 팀 이용료를 쓴다.
+    # 실제 설정을 잠깐 바꾸므로 실패해도 반드시 되돌린다.
+    saved = client.get("/api/admin/settings", headers=h).json()["values"].get("default_team_fee", "0")
+    try:
+        client.put("/api/admin/settings", headers=h,
+                   json={"values": {"default_team_fee": "123000"}})
+        client.patch(f"/api/admin/teams/{tid}", headers=h, json={"monthly_fee": None})
+        month2 = client.get("/api/admin/dues?year_month=2099-02", headers=h).json()
+        row2 = next(r for r in month2["team_rows"] if r["team_id"] == tid)
+        assert row2["fee"] == 123000, f"기본 팀 이용료가 안 먹는다: {row2}"
+    finally:
+        client.put("/api/admin/settings", headers=h,
+                   json={"values": {"default_team_fee": saved}})
+        client.patch(f"/api/admin/teams/{tid}", headers=h, json={"monthly_fee": 200000})
+
     hist = client.get(f"/api/admin/dues/history/team/{tid}", headers=h).json()
     assert len(hist) == 1 and hist[0]["year_month"] == ym, hist
 

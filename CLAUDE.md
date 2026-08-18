@@ -93,6 +93,7 @@ docker-compose.yml
   팀 이용료 팀으로 옮겨간 사람도 도어즈 명부에는 남는다
 - 소속 팀이 `monthly` 면 그 멤버는 개인 회비 대상에서 빠진다 (`DuesRow.covered_by_team`)
 - 회비 금액: `member.monthly_fee` > `team.dues_fee` > `app_settings.default_monthly_fee` (`deps.resolve_member_fee`)
+- 팀 이용료: `team.monthly_fee` > `app_settings.default_team_fee` (`deps.default_team_fee`). 프론트·백엔드가 같은 순서를 쓴다
 - `parts`는 콤마 문자열(`"기타,보컬"`), 조인 테이블 없음
 - 전화번호는 **숫자만 저장**하고 화면에서만 하이픈을 붙인다 (`deps.normalize_phone` / `core.js::formatPhone`).
   번호처럼 안 생긴 값은 손대지 않는다
@@ -150,6 +151,8 @@ docker-compose.yml
   `application/json` 을 씌우면 multipart boundary 가 사라져 서버가 422 를 낸다 (이미 한 번 겪음)
 - **관리자 JS는 ES 모듈이 아니다**: 인라인 `onclick`이 전역 함수를 부르므로 일반 `<script>` 태그 + 전역 스코프를 유지한다. 새 페이지는 `PAGE_LOADERS.<page> = load<Page>` 로 자기 로더를 등록하고, `admin.html` 맨 아래 script 목록에 추가한다 (core.js가 항상 먼저)
 - **관리자 페이지에는 SSE 미연결**: 목록은 수동 새로고침 또는 액션 후 재호출
+- **HTML 셸과 `/static` 은 `Cache-Control: no-cache`** (`main.py` 미들웨어). 캐시 수명이 서로 달라지면 옛 `admin.html` 에 새 JS 가 붙어 화면이 죽는다 (이미 한 번 겪음). ETag 로 304 는 그대로 나가므로 비용은 요청 한 번뿐.
+  같은 이유로 새 DOM 요소를 읽을 땐 `core.js::setText()` 처럼 없으면 넘어가게 쓴다
 - **포트**: 앱 8010, DB 호스트 5433 (5432는 다른 프로젝트가 점유 가능)
 - **Docker Compose v1 환경** (구형 시놀로지): `docker-compose up --build -d` 써야 함. `--build`만 단독이면 v1은 거부
 - **시놀로지에서 docker.sock 권한**: `sudo` 필요하거나 `docker` 그룹에 사용자 추가

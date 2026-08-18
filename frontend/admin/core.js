@@ -439,6 +439,13 @@ function closeMoreMenu() {
 }
 bindOverlayClose('moreMenuOverlay');
 
+/* 브라우저가 옛 HTML 을 들고 있으면 없는 칸이 생긴다.
+   그때 화면 전체가 죽지 않도록 조용히 넘긴다. */
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
 /* ============================================================
    입금 이력 — 멤버 상세와 팀 상세가 같은 모양을 쓴다
    ============================================================ */

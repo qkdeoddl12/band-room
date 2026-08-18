@@ -8,7 +8,8 @@ import re
 from database import get_db
 from app_logging import log_event
 from deps import (
-    get_current_admin, default_monthly_fee, resolve_member_fee, audit, get_or_404,
+    get_current_admin, default_monthly_fee, default_team_fee,
+    resolve_member_fee, audit, get_or_404,
 )
 import models
 import schemas
@@ -136,9 +137,11 @@ def _team_rows(db: Session, year_month: str, team_id=None):
         .group_by(models.Member.team_id).all()
     )
 
+    fallback = default_team_fee(db)
     rows, expected, paid = [], 0, 0
     for team in teams:
-        fee = team.monthly_fee or 0
+        # 금액을 안 적은 팀은 환경 설정의 기본 팀 이용료를 쓴다 (멤버 회비와 같은 규칙).
+        fee = team.monthly_fee if team.monthly_fee is not None else fallback
         rec = existing.get(team.id)
         status = rec.status if rec else 'unpaid'
         if status != 'exempt':
@@ -210,7 +213,7 @@ def upsert_team_dues(
     if team.billing_type != 'monthly':
         raise HTTPException(400, "월 이용료 팀만 팀 단위로 입금 기록을 남깁니다.")
 
-    fee = team.monthly_fee or 0
+    fee = team.monthly_fee if team.monthly_fee is not None else default_team_fee(db)
     rec = db.query(models.TeamDues).filter(
         models.TeamDues.team_id == team_id,
         models.TeamDues.year_month == year_month,

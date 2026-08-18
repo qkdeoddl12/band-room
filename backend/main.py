@@ -166,6 +166,11 @@ async def access_log_middleware(request: Request, call_next):
             status=response.status_code,
             client=request.client.host if request.client else None,
         )
+    # HTML 셸과 /static 스크립트는 항상 재검증한다.
+    # 캐시 수명이 서로 달라지면 옛 admin.html 에 새 JS 가 붙어 화면이 죽는다 (겪음).
+    path = request.url.path
+    if path in ('/', '/admin') or path.startswith('/static/'):
+        response.headers['Cache-Control'] = 'no-cache'
     return response
 
 

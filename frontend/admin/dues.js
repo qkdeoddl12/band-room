@@ -53,14 +53,13 @@ function renderDues() {
   const teamExpect = d.team_total_expected || 0;
   const teamUnpaid = teamRows.filter(r => r.status === 'unpaid').length;
 
-  document.getElementById('duesPaid').textContent         = d.total_paid.toLocaleString();
-  document.getElementById('duesExpected').textContent     = d.total_expected.toLocaleString();
-  document.getElementById('duesTeamPaid').textContent     = teamPaid.toLocaleString();
-  document.getElementById('duesTeamExpected').textContent = teamExpect.toLocaleString();
-  document.getElementById('duesUnpaid').textContent       = d.unpaid_count;
-  document.getElementById('duesPending').textContent      = d.pending_count;
-  document.getElementById('duesUnpaidSub').textContent =
-    teamUnpaid ? `+ 미납 ${teamUnpaid}팀` : '입금 확인 필요';
+  setText('duesPaid',         d.total_paid.toLocaleString());
+  setText('duesExpected',     d.total_expected.toLocaleString());
+  setText('duesTeamPaid',     teamPaid.toLocaleString());
+  setText('duesTeamExpected', teamExpect.toLocaleString());
+  setText('duesUnpaid',       d.unpaid_count);
+  setText('duesPending',      d.pending_count);
+  setText('duesUnpaidSub',    teamUnpaid ? `+ 미납 ${teamUnpaid}팀` : '입금 확인 필요');
 
   if (d.rows.length === 0 && teamRows.length === 0) {
     list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">💸</span><div class="admin-empty-text">활동 중인 멤버가 없습니다. 멤버 관리에서 먼저 등록해주세요.</div></div>';
