@@ -2213,7 +2213,8 @@ a { text-decoration: none; }
    :root 에 같이 선언하면 안 된다 — 여기 선언이 상속값을 이겨서 덮어쓰기가 죽는다. */
 .tkp-page {
   --tkp-accent: 124 111 247;
-  --tkp-bg: 14 16 23;
+  --tkp-bg: 26 22 54;          /* 진한 색. 거의 검정으로 깔면 칙칙해진다 */
+  --tkp-bg2: 16 14 34;
   --tkp-ink: 255 255 255;      /* 본문 글자 — 밝은 포스터면 어두운 색으로 뒤집힌다 */
   --tkp-on-accent: 11 13 20;   /* 채워진 버튼 위 글자 */
 }
@@ -2221,10 +2222,14 @@ a { text-decoration: none; }
 /* flex + align-items:center 로 가운데 정렬하면 내용이 화면보다 길 때
    위쪽이 잘리고 스크롤로 닿지 못한다. block 레이아웃 + margin auto 로 처리. */
 .tkp-page {
+  /* 뽑은 두 색을 겹쳐 깔아 한 톤으로 죽지 않게 한다 (애플 뮤직의 메시 느낌) */
   background:
-  radial-gradient(120% 80% at 50% 0%,
-    rgb(var(--tkp-accent) / .20) 0%,
-    transparent 60%),
+  radial-gradient(90% 55% at 15% 0%,
+    rgb(var(--tkp-accent) / .38) 0%, transparent 62%),
+  radial-gradient(85% 60% at 88% 22%,
+    rgb(var(--tkp-bg2) / .95) 0%, transparent 66%),
+  radial-gradient(120% 90% at 50% 100%,
+    rgb(var(--tkp-bg2) / .7) 0%, transparent 70%),
   rgb(var(--tkp-bg));
   background-attachment: fixed;
   min-height: 100vh;
@@ -2272,8 +2277,13 @@ a { text-decoration: none; }
   text-align: center; color: rgb(var(--tkp-ink) / .72);
   font-size: 15px; line-height: 1.9; padding: 72px 0;
   }
+  .tkp-page .tk-canvas {
+  box-shadow: 0 18px 44px rgb(0 0 0 / .34), 0 0 0 1px rgb(255 255 255 / .10);
+  }
   /* 밝은 포스터에선 그림자를 옅게 — 흰 바탕에 검은 그림자는 때가 탄 것처럼 보인다 */
-  .tkp-page.light .tk-canvas { box-shadow: 0 10px 30px rgb(0 0 0 / .14); }
+  .tkp-page.light .tk-canvas {
+  box-shadow: 0 12px 32px rgb(0 0 0 / .12), 0 0 0 1px rgb(0 0 0 / .06);
+  }
   .tkp-page.light .tkp-map   { box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .28); }
 
   @media (prefers-reduced-motion: reduce) {
