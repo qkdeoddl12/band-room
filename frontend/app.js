@@ -870,10 +870,21 @@ async function init() {
   connectRealtime();
   setInterval(updateCurrentTimeLine, 60_000);
 
-  // Scroll timeline to current hour on load
-  const now = new Date();
-  const scrollH = Math.max(0, now.getHours() - HOURS_START - 1);
-  document.getElementById('timelineSection').scrollTop = scrollH * SLOT_H;
+  scrollTimelineToNow();
+}
+
+/* 00시부터 그리므로 그냥 두면 매번 한밤중이 먼저 보인다.
+   스크롤 주체는 페이지다 — timelineSection 자체는 스크롤되지 않는다. */
+function scrollTimelineToNow() {
+  const section = document.getElementById('timelineSection');
+  if (!section) return;
+  const hour = Math.max(0, new Date().getHours() - HOURS_START - 1);
+  const top = section.getBoundingClientRect().top + window.scrollY + hour * SLOT_H;
+  // 고정 헤더 + 붙어 있는 날짜·공간 바에 가리지 않게 그만큼 뺀다.
+  const sticky = document.querySelector('.page-sticky');
+  const header = parseInt(getComputedStyle(document.documentElement)
+    .getPropertyValue('--header-height'), 10) || 0;
+  window.scrollTo(0, top - header - (sticky ? sticky.offsetHeight : 0));
 }
 
 init();

@@ -165,6 +165,13 @@ a { text-decoration: none; }
 }
 
 /* --- Date Nav --- */
+/* 24시간 타임라인은 한참 스크롤한다 — 날짜·공간 선택이 사라지면 길을 잃는다.
+   헤더가 fixed 라 그 높이만큼 내려 붙인다. */
+.page-sticky {
+  position: sticky; top: var(--header-height); z-index: 30;
+  background: var(--card);
+}
+
 .date-nav {
   background: var(--card);
   padding: 10px 20px 0;
