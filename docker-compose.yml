@@ -35,6 +35,9 @@ services:
       INITIAL_ADMIN_USERNAME: ${INITIAL_ADMIN_USERNAME:-superadmin}
       INITIAL_ADMIN_PASSWORD: ${INITIAL_ADMIN_PASSWORD:?.env 에 INITIAL_ADMIN_PASSWORD 를 설정하세요}
       UPLOAD_DIR: /app/uploads
+      # 카톡 미리보기용 절대 주소. 비우면 요청 헤더로 추정한다.
+      # 역방향 프록시 뒤에서는 반드시 채울 것 (예: https://band.ericwoolab.com)
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
       # 티켓 배경 이미지 최대 크기(MB). 0 이면 제한 없음.
       MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-25}
       TZ: Asia/Seoul

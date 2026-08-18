@@ -29,6 +29,9 @@ UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/app/uploads")
 INITIAL_ADMIN_USERNAME = os.getenv("INITIAL_ADMIN_USERNAME", "superadmin")
 # 기본 비밀번호를 코드에 박아두지 않는다. 값이 없으면 무작위로 만들어 로그에 한 번만 남긴다.
 INITIAL_ADMIN_PASSWORD = os.getenv("INITIAL_ADMIN_PASSWORD", "")
+# 카톡·메신저 미리보기가 쓰는 절대 주소. 프록시 헤더가 못 미더울 때 확실하게 못 박는다.
+# 예: https://band.ericwoolab.com
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
 
 
 # ========== DB migrations (lightweight — no Alembic) ==========
@@ -251,12 +254,23 @@ async def ticket_page(slug: str, request: Request, db: Session = Depends(get_db)
     page = render_page("ticket.html")
 
     # Inject OG tags server-side so KakaoTalk/messenger previews show the real ticket.
-    base = str(request.base_url).rstrip('/')
-    image = f"{base}{ticket.bg_url}" if ticket.bg_url else ""
-    og = (
-        f'<meta property="og:title" content="{html.escape(ticket.title, quote=True)}">'
-        f'<meta property="og:type" content="website">'
-        f'<meta property="og:url" content="{base}/t/{html.escape(slug, quote=True)}">'
-        f'<meta property="og:image" content="{html.escape(image, quote=True)}">'
-    )
+    # 이미지 주소가 외부에서 열리지 않으면 미리보기가 흰 칸으로 뜬다.
+    base = PUBLIC_BASE_URL or str(request.base_url).rstrip('/')
+    esc = lambda v: html.escape(str(v), quote=True)
+    url = f"{base}/t/{esc(slug)}"
+    tags = [
+        ('og:site_name', 'Band Room'),
+        ('og:type', 'website'),
+        ('og:title', ticket.title),
+        ('og:description', '공연 티켓 · 눌러서 확인하세요'),
+        ('og:url', url),
+    ]
+    if ticket.bg_url:
+        tags += [
+            ('og:image', f"{base}{ticket.bg_url}"),
+            ('og:image:secure_url', f"{base}{ticket.bg_url}"),
+            ('og:image:alt', ticket.title),
+        ]
+    og = ''.join(f'<meta property="{k}" content="{esc(v)}">' for k, v in tags)
+    og += '<meta name="twitter:card" content="summary_large_image">'
     return HTMLResponse(page.replace("<!--OG-->", og))
