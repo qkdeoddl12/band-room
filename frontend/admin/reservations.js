@@ -130,7 +130,9 @@ function renderWeekChart(confirmedRes) {
       cls: date === toDateStr(today) ? 'today' : '',
     });
   }
-  renderBarChart('weekChart', bars, '최근 7일 확정된 예약이 없습니다.');
+  // 선불 팀·회비 낸 멤버 예약은 건당 0원이라 매출이 0일 수 있다.
+  // "예약이 없다"고 쓰면 거짓말이 된다.
+  renderBarChart('weekChart', bars, '최근 7일 확정 매출이 없습니다. (선불 팀 예약은 건당 0원)');
 }
 
 function roomList() {
@@ -575,7 +577,7 @@ function renderMonthChart(confirmedRes, startDate) {
 
   const grand = months.reduce((n, m) => n + byMonth[m.key].r1 + byMonth[m.key].r2, 0);
   if (!grand) {
-    chart.innerHTML = '<div class="chart-empty">기간 내 확정된 예약이 없습니다.</div>';
+    chart.innerHTML = '<div class="chart-empty">기간 내 확정 매출이 없습니다. (선불 팀 예약은 건당 0원)</div>';
     return;
   }
   const max = Math.max(1, ...months.map(m => byMonth[m.key].r1 + byMonth[m.key].r2));
@@ -618,19 +620,19 @@ function renderWeekdayChart(confirmedRes) {
 }
 
 function renderHourChart(confirmedRes) {
-  const HOUR_START = 9, HOUR_END = 23;
-  const counts = new Array(HOUR_END - HOUR_START).fill(0);
+  // 24시간 운영이다. 예전 09~23시 범위로 두면 새벽·심야 예약이 통째로 빠진다.
+  const counts = new Array(24).fill(0);
   confirmedRes.forEach(r => {
     const startH = Number(String(r.start_time).substring(0, 2));
     for (let h = startH; h < startH + (r.duration || 0); h++) {
-      const idx = h - HOUR_START;
-      if (idx >= 0 && idx < counts.length) counts[idx]++;
+      if (h >= 0 && h < 24) counts[h]++;
     }
   });
-  renderBarChart('hourChart', counts.map((c, i) => ({
+  renderBarChart('hourChart', counts.map((c, h) => ({
     value: c,
-    label: String(HOUR_START + i),
-    title: `${HOUR_START + i}시 ${c}건`,
+    // 24칸에 두 자리 숫자를 다 쓰면 겹친다 — 짝수 시만 적고 나머지는 툴팁으로.
+    label: h % 2 === 0 ? String(h) : '',
+    title: `${h}시 ${c}건`,
   })), '데이터가 없습니다.');
 }
 
