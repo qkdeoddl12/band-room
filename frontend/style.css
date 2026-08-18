@@ -2214,6 +2214,8 @@ a { text-decoration: none; }
 .tkp-page {
   --tkp-accent: 124 111 247;
   --tkp-bg: 14 16 23;
+  --tkp-ink: 255 255 255;      /* 본문 글자 — 밝은 포스터면 어두운 색으로 뒤집힌다 */
+  --tkp-on-accent: 11 13 20;   /* 채워진 버튼 위 글자 */
 }
 
 /* flex + align-items:center 로 가운데 정렬하면 내용이 화면보다 길 때
@@ -2241,7 +2243,7 @@ a { text-decoration: none; }
   border-radius: 14px;
   border: 1px solid rgb(var(--tkp-accent) / .45);
   background: rgb(var(--tkp-accent) / .16);
-  color: #fff;
+  color: rgb(var(--tkp-ink));
   font-size: 15px; font-weight: 700;
   font-family: inherit;
   text-decoration: none;
@@ -2257,19 +2259,22 @@ a { text-decoration: none; }
   margin-top: 18px;
   background: rgb(var(--tkp-accent) / .92);
   border-color: transparent;
-  color: #0B0D14;
+  color: rgb(var(--tkp-on-accent));
   font-weight: 800;
   box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .32);
   }
   .tkp-map:hover { background: rgb(var(--tkp-accent) / 1); }
   .tkp-note {
   margin-top: 16px; text-align: center;
-  font-size: 12px; color: rgba(255,255,255,.38); line-height: 1.7;
+  font-size: 12px; color: rgb(var(--tkp-ink) / .42); line-height: 1.7;
   }
   .tkp-error {
-  text-align: center; color: rgba(255,255,255,.72);
+  text-align: center; color: rgb(var(--tkp-ink) / .72);
   font-size: 15px; line-height: 1.9; padding: 72px 0;
   }
+  /* 밝은 포스터에선 그림자를 옅게 — 흰 바탕에 검은 그림자는 때가 탄 것처럼 보인다 */
+  .tkp-page.light .tk-canvas { box-shadow: 0 10px 30px rgb(0 0 0 / .14); }
+  .tkp-page.light .tkp-map   { box-shadow: 0 8px 24px rgb(var(--tkp-accent) / .28); }
 
   @media (prefers-reduced-motion: reduce) {
   .tkp-page, .tkp-btn { transition: none; }

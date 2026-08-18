@@ -42,8 +42,9 @@ def _clean_map_url(value):
 
 
 def _new_slug(db: Session) -> str:
+    # 소문자·숫자만 — 공유 링크를 불러줄 때 대소문자를 따질 일이 없다.
     for _ in range(10):
-        slug = secrets.token_urlsafe(8)[:11]
+        slug = secrets.token_hex(6)
         if not db.query(models.Ticket).filter(models.Ticket.slug == slug).first():
             return slug
     raise HTTPException(500, "티켓 주소 생성에 실패했습니다. 다시 시도해주세요.")

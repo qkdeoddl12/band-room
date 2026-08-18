@@ -77,6 +77,8 @@ function hslToRgb(h, s, l) {
 
 /* 평균색만 쓰면 탁한 갈색이 나오기 쉽다.
    색상(hue)은 채도가 높은 픽셀 위주로 고르고, 채도·밝기는 버튼에 쓸 만한 값으로 보정한다. */
+/* 포스터에서 대표 색과 전체 밝기를 뽑는다.
+   애플 뮤직처럼 배경이 아트웍을 따라가야 하므로 색만이 아니라 밝기도 필요하다. */
 function accentFromImage(img) {
   const SIZE = 28;
   const cv = document.createElement('canvas');
@@ -93,40 +95,80 @@ function accentFromImage(img) {
   const weightSum = new Array(BINS).fill(0);
   const hueSum    = new Array(BINS).fill(0);
   const satSum    = new Array(BINS).fill(0);
+  let lightSum = 0, seen = 0;
 
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] < 128) continue;                 // 투명 픽셀 제외
     const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
-    if (l < 0.08 || l > 0.95) continue;              // 거의 검정/흰색 제외
+    // 밝기는 흰 여백까지 포함해야 "밝은 포스터"를 알아본다.
+    lightSum += l; seen++;
+    if (l < 0.08 || l > 0.95) continue;              // 색 뽑기에서만 거의 검정/흰색 제외
     const idx = Math.min(BINS - 1, Math.floor(h * BINS));
     const weight = s * s;                            // 선명한 색일수록 크게 반영
     weightSum[idx] += weight;
     hueSum[idx]    += h * weight;
     satSum[idx]    += s * weight;
   }
+  if (!seen) return null;
 
   let best = 0;
   for (let i = 1; i < BINS; i++) if (weightSum[i] > weightSum[best]) best = i;
-  if (weightSum[best] <= 0.001) return null;         // 무채색 포스터 — 기본색 유지
 
+  const light = lightSum / seen;
+  if (weightSum[best] <= 0.001) {
+    // 무채색 포스터(흑백·흰 바탕). 색은 없지만 밝기는 따라간다.
+    return { hue: 0, sat: 0, light };
+  }
   // 칸 중앙이 아니라 칸 안의 가중 평균 색상을 쓴다 (빨강이 분홍으로 밀리지 않게).
-  const hue = hueSum[best] / weightSum[best];
-  const sat = Math.min(0.85, Math.max(0.5, satSum[best] / weightSum[best]));
-  return hslToRgb(hue, sat, 0.6);
+  return {
+    hue: hueSum[best] / weightSum[best],
+    sat: Math.min(0.85, Math.max(0.35, satSum[best] / weightSum[best])),
+    light,
+  };
 }
 
-/* target 에 CSS 변수를 심는다 — 공개 페이지는 :root, 에디터 미리보기는 미리보기 요소. */
-function tkApplyAccent(rgb, target) {
-  const el = target || document.documentElement;
-  if (!rgb) {
-    el.style.removeProperty('--tkp-accent');
-    el.style.removeProperty('--tkp-bg');
+/* 상대 휘도 (WCAG). 채워진 버튼 위 글자색을 고르는 데 쓴다. */
+function tkLuminance([r, g, b]) {
+  const f = v => { v /= 255; return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+}
+
+/* 흰 글자와 검은 글자 중 대비가 더 큰 쪽. 임의의 밝기 기준으로 자르면
+   주황처럼 중간 밝기 색에서 읽기 힘든 조합이 나온다. */
+const TKP_DARK_INK = [17, 18, 24];
+function tkInkFor(bg) {
+  const L = tkLuminance(bg);
+  const onWhite = 1.05 / (L + 0.05);
+  const onDark  = (L + 0.05) / (tkLuminance(TKP_DARK_INK) + 0.05);
+  return onWhite >= onDark ? [255, 255, 255] : TKP_DARK_INK;
+}
+
+/* target 에 CSS 변수를 심는다 — 공개 페이지는 body(.tkp-page), 에디터는 미리보기 요소. */
+function tkApplyAccent(info, target) {
+  const el = target || document.body;
+  const props = ['--tkp-accent', '--tkp-bg', '--tkp-ink', '--tkp-on-accent'];
+  if (!info) {
+    props.forEach(k => el.style.removeProperty(k));
+    el.classList.remove('light');
     return;
   }
-  el.style.setProperty('--tkp-accent', rgb.join(' '));
-  // 배경도 같은 색을 아주 어둡게 깔아 포스터와 톤을 맞춘다.
-  const [h, s] = rgbToHsl(...rgb);
-  el.style.setProperty('--tkp-bg', hslToRgb(h, Math.min(s, 0.35), 0.06).join(' '));
+
+  const { hue, sat, light } = info;
+  // 포스터가 밝으면 페이지도 밝게. 애플 뮤직에서 앨범 커버가 흰색이면
+  // 배경도 흰 톤으로 가는 것과 같은 규칙.
+  const isLight = light > 0.62;
+
+  const bg     = hslToRgb(hue, Math.min(sat, 0.30), isLight ? 0.94 : 0.07);
+  // 버튼은 배경과 충분히 갈라져야 한다 — 밝은 페이지에선 진하게, 어두우면 밝게.
+  const accent = hslToRgb(hue, sat, isLight ? 0.42 : 0.62);
+  const ink      = isLight ? TKP_DARK_INK : [255, 255, 255];
+  const onAccent = tkInkFor(accent);
+
+  el.style.setProperty('--tkp-accent', accent.join(' '));
+  el.style.setProperty('--tkp-bg', bg.join(' '));
+  el.style.setProperty('--tkp-ink', ink.join(' '));
+  el.style.setProperty('--tkp-on-accent', onAccent.join(' '));
+  el.classList.toggle('light', isLight);
 }
 
 function tkTintFrom(url, target) {

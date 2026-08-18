@@ -318,6 +318,12 @@ class DuesSummaryRow(BaseModel):
 
 
 # ========== Ticket ==========
+# 자동 생성 slug 는 secrets.token_urlsafe 라 대문자·밑줄이 섞인다.
+# 수정 저장 때 쓰는 검사도 그걸 받아줘야 한다 — 안 그러면 자동 생성된 티켓은
+# 슬러그를 손으로 고치기 전엔 저장 자체가 안 된다 (422). 실제로 겪음.
+SLUG_PATTERN = r'^[A-Za-z0-9][A-Za-z0-9_-]*[A-Za-z0-9]$'
+
+
 class TicketElement(BaseModel):
     id: str = Field(..., max_length=20)
     text: str = Field('', max_length=300)
@@ -338,7 +344,7 @@ class TicketUpdate(BaseModel):
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     # 공유 주소 뒷부분(/t/여기). 영소문자·숫자·하이픈만.
     slug: Optional[str] = Field(None, min_length=3, max_length=32,
-                                pattern=r'^[a-z0-9][a-z0-9-]*[a-z0-9]$')
+                                pattern=SLUG_PATTERN)
     bg_url: Optional[str] = Field(None, max_length=300)
     map_url: Optional[str] = Field(None, max_length=500)
     aspect: Optional[str] = Field(None, pattern=r'^\d{1,2}:\d{1,2}$')

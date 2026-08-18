@@ -110,10 +110,17 @@ docker-compose.yml
 - **좌표는 퍼센트, 글자 크기는 `cqw`**(캔버스 폭의 %) — 어떤 화면 크기에서도 같은 비율로 보인다.
   `.tk-canvas`에 `container-type: inline-size`가 걸려 있어야 동작한다
 - 에디터와 공개 페이지가 `ticket-render.js::tkRender()` 하나를 공유 — 렌더 로직을 두 벌로 나누지 말 것
-- `slug` 는 관리자가 직접 바꿀 수 있다 (`/t/autumn-live`). 바꾸면 이전 링크는 죽는다
+- `slug` 는 관리자가 직접 바꿀 수 있다 (`/t/autumn-live`). 바꾸면 이전 링크는 죽는다.
+  **자동 생성값과 수정 시 검사 규칙이 반드시 같아야 한다** (`schemas.SLUG_PATTERN`) —
+  전에는 생성이 `token_urlsafe`(대문자·밑줄 포함)인데 검사는 소문자만 받아서
+  자동 생성된 티켓은 저장 자체가 422 로 막혔다. 지금 생성은 `token_hex(6)`
 - `map_url` 은 공개 페이지 `href` 로 나가므로 **http/https 만** 통과시킨다 (javascript: 차단). 프론트에서도 한 번 더 검사
-- 공개 페이지 버튼 색은 배경 이미지에서 뽑는다 (`ticket-render.js::accentFromImage`).
-  뽑은 색은 `--tkp-accent` 로 **`.tkp-page` 요소 자체에** 얹어야 한다 — `:root` 에 얹으면
+- **공개 페이지 테마는 포스터를 따라간다** (애플 뮤직 방식). `accentFromImage()` 가
+  대표 색(hue·sat)과 **전체 밝기**를 뽑고, `tkApplyAccent()` 가 `--tkp-accent` / `--tkp-bg` /
+  `--tkp-ink` / `--tkp-on-accent` 를 심는다. 밝기 0.62 초과면 `.light` 를 붙여 배경·글자를 뒤집는다
+  (흰 포스터에 검은 배경이 나오던 문제). 채워진 버튼 글자색은 임의 임계값이 아니라
+  흰색/검은색 중 **대비가 큰 쪽**을 계산해 고른다 (`tkInkFor`)
+- 뽑은 값은 **`.tkp-page` 요소 자체에** 얹어야 한다 — `:root` 에 얹으면
   `.tkp-page` 의 기본값 선언이 상속값을 이겨서 조용히 무시된다 (공개 페이지만 기본 보라로 남았던 적 있음)
 - `.tk-canvas` 의 `touch-action: none` 은 **에디터(`.editing`)에만** 걸어야 한다. 공개 페이지에 걸면 스크롤이 죽는다
 - `is_published=false`면 `/api/tickets/{slug}`와 `/t/{slug}` 모두 404
