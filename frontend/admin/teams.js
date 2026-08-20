@@ -41,6 +41,16 @@ function teamDuesFee(t) {
     : { fee: settingNum('default_monthly_fee'), own: false };
 }
 
+/* 평균 나이 + 연령대별 인원. 출생년도를 아는 멤버가 없으면 아무 것도 안 그린다 —
+   '평균 0세' 는 정보가 아니라 오해다. */
+function teamAgeText(t) {
+  if (t.age_avg == null) return '';
+  const buckets = Object.entries(t.age_buckets || {})
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([decade, n]) => `${decade === '60' ? '60대+' : `${decade}대`} ${n}`);
+  return `평균 ${t.age_avg}세${buckets.length ? ` · ${buckets.join(' · ')}` : ''}`;
+}
+
 function teamBillingBadge(t) {
   const meta = BILLING[t.billing_type] || BILLING.hourly;
   let amount = '';
@@ -76,10 +86,10 @@ function renderTeams() {
       t.leader_name ? escHtml(t.leader_name) : '',
       t.phone ? escHtml(formatPhone(t.phone)) : '',
     ].filter(Boolean).join(' · ') || '담당자 미지정';
-    const counts = [
-      t.billing_type === 'dues' ? `멤버 ${t.member_count}명` : '',
-      `예약 ${t.reservation_count}건`,
-    ].filter(Boolean).join(' · ');
+    // 멤버 수는 과금 방식과 상관없이 늘 보여준다 — 옆에 나이 통계가 붙는데
+    // 인원이 없으면 무슨 모수인지 알 수 없다.
+    const counts = `멤버 ${t.member_count}명 · 예약 ${t.reservation_count}건`;
+    const ages = teamAgeText(t);
 
     return `
       <div class="ecard${t.is_active ? '' : ' inactive'}" onclick="openTeamDetail(${t.id})">
@@ -93,6 +103,7 @@ function renderTeams() {
         </div>
         <div class="ecard-meta">
           <span>${counts}</span>
+          ${ages ? `<span>${escHtml(ages)}</span>` : ''}
           <button class="ecard-edit" onclick="event.stopPropagation(); openTeamModal(${t.id})">수정</button>
         </div>
       </div>`;
@@ -270,6 +281,7 @@ async function renderTeamDetail() {
       ${team.leader_name ? `<span>👤 ${escHtml(team.leader_name)}</span>` : ''}
       ${team.phone ? `<span>📞 ${escHtml(formatPhone(team.phone))}</span>` : ''}
       <span>📋 예약 ${team.reservation_count}건</span>
+      ${teamAgeText(team) ? `<span>🎂 ${escHtml(teamAgeText(team))}</span>` : ''}
     </div>
     ${teamDuesNote(team)}
     ${team.memo ? `<div class="team-detail-memo">${escHtml(team.memo)}</div>` : ''}
@@ -286,7 +298,8 @@ async function renderTeamDetail() {
       apiJson('/api/admin/members?active=true'),
       isDues ? apiJson(`/api/admin/dues?year_month=${ym}&team_id=${team.id}`) : Promise.resolve(null),
     ]);
-    roster = detailMembers.filter(m => m.team_id === team.id);
+    // 대표 팀이 아니라 '이 팀에 속해 있는가' 로 고른다 (여러 밴드 가능).
+    roster = detailMembers.filter(m => (m.teams || []).some(t => t.id === team.id));
   } catch (e) {
     body.innerHTML = head + `<div class="admin-empty"><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
     return;
@@ -321,15 +334,18 @@ async function renderTeamDetail() {
       <div class="dues-chips">
         ${Object.entries(DUES_STATUS).map(([key, meta]) => `
           <button class="dues-chip ${meta.cls}${d.status === key ? ' active' : ''}"
-                  onclick="setTeamDuesStatus(${m.id}, '${key}')">${meta.label}</button>
+                  onclick="setRosterDuesStatus(${m.id}, '${key}')">${meta.label}</button>
         `).join('')}
       </div>` : '';
+    // 다른 밴드도 하는 사람은 어디에 또 속했는지 같이 보여준다.
+    const others = (m.teams || []).filter(t => t.id !== team.id);
     return `
       <div class="dues-row${isDues && d ? ` status-${d.covered_by_team ? 'covered' : d.status}` : ''}">
         <div class="dues-member">
           <div class="dues-name">
             ${escHtml(m.name)}
             ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
+            ${others.map(t => `<span class="mt-badge team">${escHtml(t.name)}</span>`).join('')}
           </div>
           <div class="dues-sub">
             ${m.parts ? escHtml(splitParts(m.parts).join(' · ')) : '포지션 미지정'}
@@ -358,10 +374,12 @@ async function editTeamMember(memberId) {
 
 /* 이미 이 팀 소속인 사람은 후보에서 뺀다. */
 function renderAddMemberBox() {
-  const candidates = detailMembers.filter(m => m.team_id !== detailTeamId);
-  const options = candidates.map(m =>
-    `<option value="${m.id}">${escHtml(m.name)}${m.team_name ? ` (현재: ${escHtml(m.team_name)})` : ' (무소속)'}</option>`
-  ).join('');
+  const candidates = detailMembers.filter(
+    m => !(m.teams || []).some(t => t.id === detailTeamId));
+  const options = candidates.map(m => {
+    const now = (m.teams || []).map(t => t.name).join(' · ');
+    return `<option value="${m.id}">${escHtml(m.name)}${now ? ` (현재: ${escHtml(now)})` : ' (무소속)'}</option>`;
+  }).join('');
 
   return `
     <div class="team-add-member">
@@ -386,14 +404,18 @@ async function addMemberToTeam() {
   if (!memberId) { showToast('추가할 멤버를 선택해주세요.', 'error'); return; }
 
   const member = detailMembers.find(m => m.id === memberId);
-  if (member?.team_name && !confirm(
-    `${member.name} 님은 현재 [${member.team_name}] 소속입니다.\n이 팀으로 옮기시겠습니까?`
+  const current = (member?.teams || []).map(t => t.name).join(' · ');
+  // 기존 소속에서 빼는 게 아니라 더하는 것이다 — 밴드를 여러 개 할 수 있다.
+  if (current && !confirm(
+    `${member.name} 님은 현재 [${current}] 소속입니다.\n이 팀에도 추가하시겠습니까?`
   )) return;
 
   try {
     await apiJson(`/api/admin/members/${memberId}`, {
       method: 'PATCH',
-      body: JSON.stringify({ team_id: detailTeamId }),
+      body: JSON.stringify({
+        team_ids: [...(member?.teams || []).map(t => t.id), detailTeamId],
+      }),
     });
     await loadTeams();
     await renderTeamDetail();
@@ -410,12 +432,15 @@ function newMemberForTeam() {
   openMemberModal(null, teamId);
 }
 
-async function setTeamDuesStatus(memberId, status) {
+/* 팀 상세 명단의 회비 칩. 이름을 setTeamDuesStatus 로 두면 dues.js 의
+   같은 이름(팀 이용료용)이 나중에 로드되며 덮어써서 아무 동작도 하지 않는다. */
+async function setRosterDuesStatus(memberId, status) {
   try {
-    await apiJson(`/api/admin/dues/${memberId}/${ymStr(detailCursor)}`, {
-      method: 'PUT',
-      body: JSON.stringify({ status }),
-    });
+    await apiJson(
+      `/api/admin/dues/${memberId}/${ymStr(detailCursor)}?team_id=${detailTeamId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
     await renderTeamDetail();
   } catch (e) {
     showToast(e.message, 'error');

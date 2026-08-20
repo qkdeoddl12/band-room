@@ -61,6 +61,19 @@ def migrate_schema():
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booker_phone VARCHAR(30)",
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS is_free BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS group_key VARCHAR(32)",
+        "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancel_token VARCHAR(32)",
+        # 한 사람이 밴드를 여러 개 하는 경우. members.team_id 는 대표 팀으로만 남는다.
+        "CREATE TABLE IF NOT EXISTS member_teams ("
+        " member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,"
+        " team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,"
+        " dues_exempt BOOLEAN NOT NULL DEFAULT FALSE,"
+        " PRIMARY KEY (member_id, team_id))",
+        "ALTER TABLE member_teams ALTER COLUMN dues_exempt SET DEFAULT FALSE",
+        "INSERT INTO member_teams (member_id, team_id, dues_exempt)"
+        " SELECT id, team_id, FALSE FROM members WHERE team_id IS NOT NULL"
+        " ON CONFLICT DO NOTHING",
+        "ALTER TABLE member_dues ADD COLUMN IF NOT EXISTS team_id INTEGER"
+        " REFERENCES teams(id) ON DELETE CASCADE",
     ]
     with engine.begin() as conn:
         for stmt in statements:
@@ -81,6 +94,22 @@ def migrate_schema():
         conn.execute(text(
             "UPDATE rooms SET booking_mode = 'personal' WHERE name = '개인연습실' "
             "AND NOT EXISTS (SELECT 1 FROM rooms WHERE booking_mode = 'personal')"
+        ))
+        # 회비가 (멤버, 달) 에서 (멤버, 팀, 달) 로 넓어졌다. 옛 유니크 키가 아직
+        # 남아 있을 때 = 이 DB 에서 처음 도는 경우에만 기존 기록을 그 사람 팀으로 옮긴다.
+        # 가드가 없으면 나중에 무소속(team_id IS NULL) 기록까지 덧칠해 버린다.
+        if conn.execute(text(
+            "SELECT 1 FROM pg_constraint WHERE conname = 'uq_member_dues_month'"
+        )).first():
+            conn.execute(text(
+                "UPDATE member_dues d SET team_id = m.team_id FROM members m "
+                "WHERE d.member_id = m.id AND m.team_id IS NOT NULL"
+            ))
+            conn.execute(text("ALTER TABLE member_dues DROP CONSTRAINT uq_member_dues_month"))
+        # 새 DB 는 create_all 이 같은 이름으로 이미 만들어 둔다 (IF NOT EXISTS 로 흡수).
+        conn.execute(text(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_member_dues_team_month "
+            "ON member_dues (member_id, team_id, year_month) NULLS NOT DISTINCT"
         ))
 
 
@@ -219,6 +248,12 @@ def render_page(filename: str) -> str:
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return HTMLResponse(render_page("index.html"))
+
+
+@app.get("/guide", response_class=HTMLResponse)
+async def guide_page():
+    """예약 이용안내. 화면으로도 보고 브라우저 인쇄로 PDF 로도 뽑는다."""
+    return HTMLResponse(render_page("guide.html"))
 
 
 @app.get("/admin", response_class=HTMLResponse)

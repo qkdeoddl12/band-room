@@ -33,6 +33,23 @@ class ReservationCreate(BaseModel):
     note: Optional[str] = None
 
 
+class ReservationPublic(BaseModel):
+    """로그인 없이 보는 타임라인용. **개인정보를 싣지 않는다** —
+    이 엔드포인트는 인증이 없어서 주소만 알면 누구나 받아간다.
+    연락처·메모·예약자 실명은 관리자용 응답에만 있다."""
+    id: int
+    room_id: int
+    date: date
+    start_time: time
+    end_time: time
+    duration: int
+    team_name: Optional[str] = None   # 개인연습실은 예약 시점 이름 스냅샷
+    members: Optional[str] = None     # 타임라인에 '누가 쓰는지' 로 이미 보여주던 값
+    status: str = 'pending'
+    group_key: Optional[str] = None   # 자정 넘김 예약을 한 건으로 묶어 보기 위해
+    model_config = {"from_attributes": True}
+
+
 class ReservationResponse(BaseModel):
     id: int
     room_id: int
@@ -53,6 +70,31 @@ class ReservationResponse(BaseModel):
     created_at: datetime
     room: Room
     model_config = {"from_attributes": True}
+
+
+class ReservationCreated(ReservationResponse):
+    """예약을 만든 본인에게만 돌려주는 응답. 취소 토큰이 여기에만 실린다."""
+    cancel_token: Optional[str] = None
+
+
+class ReservationAdminUpdate(BaseModel):
+    """관리자가 예약을 고칠 때. 보낸 항목만 바뀐다.
+    시간·날짜·공간을 건드리면 서버가 슬롯을 다시 검사하고, 자정을 넘기면 다시 쪼갠다."""
+    room_id: Optional[int] = None
+    # dt.date 로 쓴다 — 필드 이름이 date 라 `= None` 을 붙이는 순간 클래스 안에서
+    # date 라는 이름이 None 으로 덮여 타입이 None 이 돼버린다 (실제로 422 가 났었다).
+    date: Optional[dt.date] = None
+    start_time: Optional[dt.time] = None
+    duration: Optional[int] = Field(None, ge=1, le=24)
+    team_id: Optional[int] = None
+    booker_name: Optional[str] = Field(None, max_length=50)
+    booker_phone: Optional[str] = Field(None, max_length=30)
+    members: Optional[str] = None
+    note: Optional[str] = None
+
+
+class ReservationCancel(BaseModel):
+    token: str = Field(..., min_length=8, max_length=64)
 
 
 # ========== Auth ==========
@@ -191,6 +233,9 @@ class TeamResponse(BaseModel):
     created_at: datetime
     reservation_count: int = 0
     member_count: int = 0
+    # 출생년도를 아는 멤버만 센다. 아무도 없으면 None / 빈 dict.
+    age_avg: Optional[float] = None
+    age_buckets: Dict[str, int] = {}
     model_config = {"from_attributes": True}
 
 
@@ -198,7 +243,19 @@ class TeamResponse(BaseModel):
 GENDER_PATTERN = '^(male|female)$'
 
 
+class MemberTeamRef(BaseModel):
+    """멤버가 속한 팀 하나. dues_exempt = 이 팀 몫 회비는 안 받음."""
+    id: int
+    name: str
+    billing_type: str = 'hourly'
+    dues_exempt: bool = False
+
+
 class MemberCreate(BaseModel):
+    # team_ids 가 소속의 정본. team_id 는 옛 단일 소속 호출을 위해 남겨둔 입력이고,
+    # 응답에서는 '대표 팀'(team_ids 의 첫 팀) 을 뜻한다.
+    team_ids: Optional[List[int]] = None
+    team_exempt_ids: Optional[List[int]] = None
     team_id: Optional[int] = None
     is_doors: bool = True
     name: str = Field(..., min_length=1, max_length=50)
@@ -215,6 +272,8 @@ class MemberCreate(BaseModel):
 
 
 class MemberUpdate(BaseModel):
+    team_ids: Optional[List[int]] = None
+    team_exempt_ids: Optional[List[int]] = None
     team_id: Optional[int] = None
     is_doors: Optional[bool] = None
     name: Optional[str] = Field(None, min_length=1, max_length=50)
@@ -232,8 +291,10 @@ class MemberUpdate(BaseModel):
 
 class MemberResponse(BaseModel):
     id: int
+    # 대표 팀 (소속 목록의 첫 팀). 전체 소속은 teams 를 본다.
     team_id: Optional[int] = None
     team_name: Optional[str] = None
+    teams: List[MemberTeamRef] = []
     is_doors: bool = True
     name: str
     phone: Optional[str] = None
@@ -259,6 +320,8 @@ class DuesUpsert(BaseModel):
 
 
 class DuesRow(BaseModel):
+    """(멤버, 팀, 달) 한 건. 두 밴드를 하면 같은 사람의 행이 두 개 나온다 —
+    프론트에서 행을 찾을 때 member_id 만으로는 부족하고 team_id 까지 봐야 한다."""
     member_id: int
     team_id: Optional[int] = None
     team_name: Optional[str] = None
@@ -302,8 +365,10 @@ class DuesMonthResponse(BaseModel):
 
 
 class DuesHistoryRow(BaseModel):
-    """멤버·팀 상세에서 보는 달별 입금 이력 한 줄."""
+    """멤버·팀 상세에서 보는 달별 입금 이력 한 줄.
+    멤버 이력에는 소속 팀이 여럿 섞여 나오므로 어느 팀 몫인지 함께 보낸다."""
     year_month: str
+    team_name: Optional[str] = None
     status: str
     amount: int
     paid_on: Optional[date] = None

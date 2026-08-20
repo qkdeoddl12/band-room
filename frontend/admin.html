@@ -439,6 +439,7 @@
           <div class="filter-panel">
             <div class="chip-row" role="tablist" aria-label="상태">
               <button class="chip active" data-mstat="all" onclick="setMemberStatus('all')">전체</button>
+              <button class="chip" data-mstat="doors" onclick="setMemberStatus('doors')">🚪 도어즈</button>
               <button class="chip" data-mstat="check" onclick="setMemberStatus('check')">⚠️ 확인 필요</button>
               <button class="chip" data-mstat="inactive" onclick="setMemberStatus('inactive')">비활동</button>
             </div>
@@ -812,6 +813,84 @@
           <button onclick="closeDeleteModal()" class="btn-secondary">취소</button>
           <button id="confirmDeleteBtn" class="btn-danger">예약 취소 확정</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reservation Edit Modal (수정 요청 처리용) -->
+  <div class="modal-overlay" id="resEditOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">예약 수정</h3>
+        <button class="modal-close" onclick="closeResEditModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="resEditForm" autocomplete="off">
+
+          <div id="resEditOvernight" class="overnight-note" style="display:none;margin-bottom:12px;"></div>
+
+          <div class="form-group">
+            <label class="form-label" for="resEditRoom">공간</label>
+            <select class="form-select" id="resEditRoom" onchange="syncResEditMode()"></select>
+          </div>
+
+          <div class="tk-panel-row">
+            <div class="form-group">
+              <label class="form-label" for="resEditDate">날짜</label>
+              <input type="date" class="form-input" id="resEditDate">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="resEditStart">시작 시간</label>
+              <select class="form-select" id="resEditStart"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="resEditDuration">이용 시간 (시간)</label>
+            <input type="number" class="form-input" id="resEditDuration" min="1" max="24" step="1">
+            <div class="field-hint" id="resEditRange"></div>
+          </div>
+
+          <div class="form-group" id="resEditTeamRow">
+            <label class="form-label" for="resEditTeam">예약 팀</label>
+            <select class="form-select" id="resEditTeam"></select>
+          </div>
+
+          <div id="resEditPersonalRow" style="display:none;">
+            <div class="tk-panel-row">
+              <div class="form-group">
+                <label class="form-label" for="resEditBooker">이용자 이름</label>
+                <input type="text" class="form-input" id="resEditBooker" maxlength="50">
+              </div>
+              <div class="form-group">
+                <label class="form-label" for="resEditPhone">연락처</label>
+                <input type="tel" class="form-input" id="resEditPhone" maxlength="30"
+                       placeholder="010-0000-0000">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="resEditMembers">참여 멤버</label>
+            <input type="text" class="form-input" id="resEditMembers"
+                   placeholder="홍길동, 김철수">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="resEditNote">메모</label>
+            <textarea class="form-input memo-box" id="resEditNote" rows="3"></textarea>
+          </div>
+
+          <div class="field-hint">
+            입금 상태와 요금 여부는 그대로 유지됩니다. 이용자 쪽 취소 버튼도 계속 동작합니다.
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" onclick="closeResEditModal()" class="btn-secondary">닫기</button>
+            <button type="submit" class="btn-submit" id="resEditSaveBtn">변경 저장</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -1249,20 +1328,25 @@
             </div>
           </div>
 
-          <div class="tk-panel-row">
-            <div class="form-group">
-              <label class="form-label" for="memberTeam">소속 팀</label>
-              <select class="form-select" id="memberTeam">
-                <option value="">무소속</option>
-              </select>
+          <div class="form-group">
+            <label class="form-label">소속 팀</label>
+            <div class="part-checks" id="memberTeams"></div>
+            <div class="field-hint">
+              밴드를 여러 개 하면 여러 팀을 고를 수 있습니다. 월회비는 팀마다 각각 청구됩니다.
             </div>
+          </div>
+
+          <div class="form-group" id="memberTeamExemptRow" style="display:none;">
+            <label class="form-label">회비 제외할 팀</label>
+            <div class="part-checks" id="memberTeamExempt"></div>
+            <div class="field-hint">체크한 팀 몫은 청구하지 않습니다.</div>
+          </div>
+
+          <div class="tk-panel-row">
             <div class="form-group">
               <label class="form-label" for="memberJoined">가입일</label>
               <input type="date" class="form-input" id="memberJoined">
             </div>
-          </div>
-
-          <div class="tk-panel-row">
             <div class="form-group">
               <label class="form-label" for="memberGender">성별</label>
               <select class="form-select" id="memberGender">
@@ -1271,11 +1355,28 @@
                 <option value="female">여</option>
               </select>
             </div>
+          </div>
+
+          <div class="tk-panel-row">
             <div class="form-group">
               <label class="form-label" for="memberBirthYear">출생년도</label>
               <input type="number" class="form-input" id="memberBirthYear"
                      min="1900" max="2100" step="1" placeholder="예: 1995">
             </div>
+            <div class="form-group" id="memberFeeRow">
+              <label class="form-label" for="memberFee">월회비 (비우면 기본값)</label>
+              <input type="number" min="0" step="1000" class="form-input" id="memberFee" placeholder="예: 50000">
+            </div>
+          </div>
+
+          </div><!-- /form-col -->
+
+          <div class="form-col">
+          <div class="form-group">
+            <label class="form-label">가능한 포지션</label>
+            <div class="part-checks" id="memberParts"></div>
+            <input type="text" class="form-input part-other" id="memberPartsOther"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
           </div>
 
           <div class="form-group">
@@ -1301,23 +1402,6 @@
             <div class="field-hint">
               활동 중을 끄면 정산에서 빠집니다. 확인 필요는 표시만 하고 정산에는 남습니다.
             </div>
-          </div>
-
-          <div class="form-group" id="memberFeeRow">
-            <label class="form-label" for="memberFee">
-              월회비 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(비우면 기본값)</span>
-            </label>
-            <input type="number" min="0" step="1000" class="form-input" id="memberFee" placeholder="예: 50000">
-          </div>
-
-          </div><!-- /form-col -->
-
-          <div class="form-col">
-          <div class="form-group">
-            <label class="form-label">가능한 포지션</label>
-            <div class="part-checks" id="memberParts"></div>
-            <input type="text" class="form-input part-other" id="memberPartsOther"
-                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
           </div>
 
 

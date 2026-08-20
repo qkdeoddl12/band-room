@@ -9,6 +9,7 @@ let memberTeamFil = '';
 let memberStatus  = 'all';
 let editMemberId  = null;
 let returnToTeamId = null;   // 팀 상세에서 넘어온 경우 저장 후 그리로 돌아간다
+let memberExemptIds = [];    // 팀별 회비 제외 — 모달 여는 동안만 들고 있는다
 
 PAGE_LOADERS.members = loadMembers;
 
@@ -56,24 +57,55 @@ function renderTeamOptions() {
 
 const GENDER_KO = { male: '남성', female: '여성' };
 
-/* 회비는 금액 그대로 보여준다 — 줄여 쓰면 얼마인지 다시 열어봐야 한다. */
+/* 이 팀에서 이 사람이 내는 금액. 서버의 resolve_member_fee 와 같은 순서다. */
+function memberTeamFee(m, team) {
+  if (m.monthly_fee != null) return m.monthly_fee;
+  if (team && team.dues_fee != null) return team.dues_fee;
+  return settingNum('default_monthly_fee');
+}
+
+/* 회비는 금액 그대로 보여준다 — 줄여 쓰면 얼마인지 다시 열어봐야 한다.
+   소속이 여럿이면 팀마다 각각 청구되므로 합계를 보여준다. */
 function memberFee(m) {
-  const team = teamsById[m.team_id];
-  if (team && team.billing_type === 'monthly') return { text: '팀 이용료 납부', cls: 'monthly' };
   if (m.dues_exempt) return { text: '회비 면제', cls: 'exempt' };
-  if (m.monthly_fee != null) return { text: `${m.monthly_fee.toLocaleString()}원`, cls: '' };
-  if (team && team.dues_fee != null) return { text: `${team.dues_fee.toLocaleString()}원`, cls: 'dues' };
-  const base = settingNum('default_monthly_fee');
-  return { text: base ? `${base.toLocaleString()}원` : '회비 미설정', cls: 'default' };
+
+  const teams = m.teams || [];
+  if (!teams.length) {
+    const fee = memberTeamFee(m, null);
+    return fee
+      ? { text: `${fee.toLocaleString()}원`, cls: m.monthly_fee != null ? '' : 'default' }
+      : { text: '회비 미설정', cls: 'default' };
+  }
+
+  let total = 0, charged = 0, cls = '';
+  teams.forEach(ref => {
+    const team = teamsById[ref.id] || ref;
+    // 팀이 월 이용료를 통째로 내거나 이 팀만 제외했으면 개인이 낼 것이 없다.
+    if (team.billing_type === 'monthly' || ref.dues_exempt) return;
+    charged++;
+    total += memberTeamFee(m, team);
+    if (m.monthly_fee == null && team.dues_fee != null) cls = 'dues';
+  });
+  if (!charged) return { text: '팀 이용료 납부', cls: 'monthly' };
+  return {
+    text: `${total.toLocaleString()}원${charged > 1 ? ` (${charged}팀)` : ''}`,
+    cls,
+  };
 }
 
 function renderMembers() {
   const list = document.getElementById('memberList');
   const items = allMembers.filter(m => {
+    // 도어즈는 위 카운터('도어즈 N')와 같은 기준으로 센다 — 활동 중인 도어즈 멤버.
+    // 두 숫자가 어긋나면 어느 쪽이 맞는지 매번 세어보게 된다.
+    if (memberStatus === 'doors'    && !(m.is_doors && m.is_active)) return false;
     if (memberStatus === 'check'    && !m.needs_check) return false;
     if (memberStatus === 'inactive' && m.is_active)    return false;
-    if (memberTeamFil === 'none' && m.team_id) return false;
-    if (memberTeamFil && memberTeamFil !== 'none' && String(m.team_id) !== memberTeamFil) return false;
+    const teams = m.teams || [];
+    if (memberTeamFil === 'none' && teams.length) return false;
+    // 대표 팀이 아니라 '이 팀에 속해 있는가' 로 거른다.
+    if (memberTeamFil && memberTeamFil !== 'none' &&
+        !teams.some(t => String(t.id) === memberTeamFil)) return false;
     if (!memberSearch) return true;
     return `${m.name} ${m.parts || ''} ${m.phone || ''} ${m.memo || ''}`.toLowerCase().includes(memberSearch);
   });
@@ -110,7 +142,7 @@ function renderMembers() {
         </div>
 
         <div class="ecard-sub">
-          ${escHtml(m.team_name || '무소속')}
+          ${escHtml((m.teams || []).map(t => t.name).join(' · ') || '무소속')}
           <span class="ecard-parts">${escHtml(splitParts(m.parts).join(' · ') || '포지션 미지정')}</span>
         </div>
 
@@ -131,8 +163,13 @@ function openMemberModal(memberId = null, presetTeamId = null) {
 
   document.getElementById('memberModalTitle').textContent = m ? '멤버 수정' : '멤버 등록';
   document.getElementById('memberName').value    = m?.name || '';
-  document.getElementById('memberTeam').innerHTML =
-    teamOptionsHtml(m?.team_id ?? presetTeamId ?? '', '무소속');
+  memberExemptIds = (m?.teams || []).filter(t => t.dues_exempt).map(t => t.id);
+  renderTeamPicker(
+    'memberTeams',
+    m ? (m.teams || []).map(t => t.id) : (presetTeamId ? [Number(presetTeamId)] : []),
+    syncMemberTeams,
+  );
+  syncMemberTeams();
   document.getElementById('memberDoors').checked  = m ? m.is_doors : true;
   document.getElementById('memberPhone').value   = formatPhone(m?.phone);
   document.getElementById('memberGender').value  = m?.gender || '';
@@ -162,6 +199,30 @@ function closeMemberModal() {
 
 bindOverlayClose('memberOverlay', closeMemberModal);
 
+/* 소속이 둘 이상일 때만 '회비 제외할 팀' 줄을 띄운다 — 한 팀이면 위의
+   '회비 면제' 체크로 충분하고, 두 곳에 같은 뜻의 스위치가 있으면 헷갈린다. */
+function syncMemberTeams() {
+  const chosen = readTeamPicker('memberTeams');
+  const box = document.getElementById('memberTeamExempt');
+  // 이미 그려둔 게 있으면 화면 상태가 정본, 처음 열 때는 멤버 값이 정본.
+  const prev = box.querySelector('input') ? readTeamPicker('memberTeamExempt') : memberExemptIds;
+  memberExemptIds = chosen.length >= 2 ? prev.filter(id => chosen.includes(id)) : [];
+
+  document.getElementById('memberTeamExemptRow').style.display =
+    chosen.length >= 2 ? '' : 'none';
+  box.innerHTML = chosen.map(id => {
+    const team = teamsById[id];
+    if (!team) return '';
+    const on = memberExemptIds.includes(id);
+    return `
+      <label class="part-check${on ? ' active' : ''}">
+        <input type="checkbox" value="${id}"${on ? ' checked' : ''}
+               onchange="this.closest('.part-check').classList.toggle('active', this.checked)">
+        <span>${escHtml(team.name)}</span>
+      </label>`;
+  }).join('');
+}
+
 /* 상태 체크박스는 포지션 칩과 같은 모양이라 active 클래스를 직접 맞춰준다. */
 function syncMemberFlags() {
   document.querySelectorAll('#memberFlags input').forEach(input => {
@@ -182,9 +243,17 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
   e.preventDefault();
   const feeRaw = document.getElementById('memberFee').value.trim();
   const yearRaw = document.getElementById('memberBirthYear').value.trim();
-  const teamVal = document.getElementById('memberTeam').value;
+  const teamIds = readTeamPicker('memberTeams');
+  // 대표 팀은 목록의 첫 팀. 원래 대표였던 팀이 그대로 남아 있으면 자리를 지킨다 —
+  // 팀을 하나 더 넣었다고 대표가 멋대로 바뀌지 않게.
+  const wasPrimary = editMemberId
+    ? allMembers.find(x => x.id === editMemberId)?.team_id : null;
+  const at = teamIds.indexOf(wasPrimary);
+  if (at > 0) teamIds.unshift(...teamIds.splice(at, 1));
+
   const body = {
-    team_id:     teamVal ? Number(teamVal) : null,
+    team_ids:        teamIds,
+    team_exempt_ids: readTeamPicker('memberTeamExempt'),
     is_doors:    document.getElementById('memberDoors').checked,
     name:        document.getElementById('memberName').value.trim(),
     phone:       document.getElementById('memberPhone').value.trim(),

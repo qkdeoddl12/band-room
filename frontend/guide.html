@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>이용안내 — Band Room 합주실 예약</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="guide-body">
+
+  <!-- 인쇄물에는 안 나간다 -->
+  <div class="guide-topbar no-print">
+    <a class="guide-back" href="/">‹ 예약 페이지</a>
+    <button type="button" class="guide-print" onclick="window.print()">🖨 인쇄 · PDF 저장</button>
+  </div>
+
+  <article class="guide">
+
+    <header class="guide-head">
+      <div class="guide-logo">🎸 Band Room</div>
+      <h1 class="guide-title">합주실 예약 이용안내</h1>
+      <p class="guide-sub">처음이신 분은 이대로만 따라 하시면 됩니다.</p>
+    </header>
+
+    <!-- 공간과 요금은 서버 설정에서 가져온다 (화면에 박아두지 않는다) -->
+    <section class="guide-rooms" id="guideRooms"></section>
+
+    <ol class="guide-steps">
+
+      <li class="guide-step">
+        <h2>날짜 고르기</h2>
+        <p>화면 위쪽 날짜 줄에서 원하는 날을 누릅니다. 좌우 <b>‹ ›</b> 로 하루씩 넘길 수도 있습니다.</p>
+        <figure class="guide-shot">
+          <img src="/static/guide/step-date.png" alt="위쪽 날짜 줄과 공간 탭" loading="lazy">
+          <figcaption>위쪽 날짜 줄과 공간 탭</figcaption>
+        </figure>
+      </li>
+
+      <li class="guide-step">
+        <h2>공간 고르기</h2>
+        <p>날짜 아래 탭에서 쓸 공간을 고릅니다. 공간마다 요금이 다릅니다.</p>
+      </li>
+
+      <li class="guide-step">
+        <h2>빈 시간 확인</h2>
+        <p>아래 시간표에서 비어 있는 칸이 예약 가능한 시간입니다.</p>
+        <figure class="guide-shot">
+          <img src="/static/guide/step-timeline.png" alt="보라색은 확정, 흐린 빗금은 입금 대기" loading="lazy">
+          <figcaption>보라색은 확정, 흐린 빗금은 입금 대기</figcaption>
+        </figure>
+        <ul class="guide-legend">
+          <li><span class="lg-chip lg-confirmed"></span> 색이 찬 칸 — 이미 확정된 예약</li>
+          <li><span class="lg-chip lg-pending"></span> 빗금 친 칸 — 입금 대기 중 (이 시간도 이미 잡혀 있습니다)</li>
+          <li><span class="lg-chip lg-blocked"></span> 회색 칸 — 점검 등으로 막아둔 시간</li>
+        </ul>
+      </li>
+
+      <li class="guide-step">
+        <h2>예약 신청</h2>
+        <p>맨 아래 <b>+ 예약하기</b> 를 누르고 채웁니다.</p>
+        <figure class="guide-shot">
+          <img src="/static/guide/step-form.png" alt="예약 신청 화면 — 시간과 팀을 고릅니다" loading="lazy">
+          <figcaption>예약 신청 화면 — 시간과 팀을 고릅니다</figcaption>
+        </figure>
+        <ul class="guide-list">
+          <li><b>시작·종료 시간</b> — 자정을 넘겨 <b id="guideOvernight">다음날 새벽 6시</b>까지 고를 수 있습니다.</li>
+          <li><b>합주실</b> — 등록된 팀 중에서 고릅니다. 목록에 팀이 없으면 <b>문의하기</b> 로 등록을 요청해주세요.</li>
+          <li><b>개인연습실</b> — 이름을 적습니다. 도어즈 멤버이고 이번 달 회비가 확인되면 <b>무료로 바로 확정</b>됩니다.
+              그렇지 않으면 시간당 요금이 붙고, 멤버가 아닌 분은 <b>연락처가 꼭 필요</b>합니다.</li>
+          <li><b>참여 멤버 · 메모</b> — 안 적어도 됩니다.</li>
+        </ul>
+      </li>
+
+      <li class="guide-step">
+        <h2>입금하고 확정 기다리기</h2>
+        <p>요금이 있으면 신청 화면에 입금 계좌가 함께 뜹니다. 입금하시면 관리자가 확인한 뒤
+           <b>입금 대기</b> 가 <b>확정</b> 으로 바뀝니다.</p>
+        <figure class="guide-shot">
+          <img src="/static/guide/step-fee.png" alt="요금이 있는 예약에만 계좌가 나옵니다" loading="lazy">
+          <figcaption>요금이 있는 예약에만 계좌가 나옵니다</figcaption>
+        </figure>
+        <p class="guide-callout">월 이용료나 월회비를 미리 내는 팀은 요금 없이 <b>신청 즉시 확정</b>됩니다.</p>
+      </li>
+
+      <li class="guide-step">
+        <h2>취소하기</h2>
+        <p>예약을 신청한 그 기기에서 시간표를 열면 내 예약에 <b>내 예약</b> 표시와 <b>취소</b> 버튼이 보입니다.</p>
+        <figure class="guide-shot">
+          <img src="/static/guide/step-cancel.png" alt="내가 신청한 예약에만 취소 버튼이 보입니다" loading="lazy">
+          <figcaption>내가 신청한 예약에만 취소 버튼이 보입니다</figcaption>
+        </figure>
+        <ul class="guide-list">
+          <li>예약 <b>시작 시각이 지나면</b> 취소 버튼이 사라집니다.</li>
+          <li>다른 기기·다른 브라우저에서는 취소 버튼이 보이지 않습니다. 이때는 <b>문의</b> 로 연락주세요.</li>
+          <li>이미 입금하신 건의 환불은 관리자가 따로 처리합니다.</li>
+        </ul>
+      </li>
+
+    </ol>
+
+    <!-- 계좌도 서버 설정에서 -->
+    <section class="guide-deposit" id="guideDeposit"></section>
+
+    <section class="guide-notes">
+      <h2>알아두면 좋은 것</h2>
+      <ul class="guide-list">
+        <li>한 번에 예약할 수 있는 시간은 <b>하루를 넘겨 이틀까지</b>입니다.</li>
+        <li>입금 대기 중인 예약도 그 시간을 차지합니다. 겹쳐서 신청할 수 없습니다.</li>
+        <li>팀 등록·변경은 관리자만 할 수 있습니다. <b>문의</b> 로 요청해주세요.</li>
+        <li>같은 이름을 쓰는 멤버가 여러 명이면 자동으로 확인되지 않습니다. 이때도 <b>문의</b> 로 알려주세요.</li>
+        <li>시설이 망가졌거나 사고가 있었다면 <b>사고 접수</b> 로 남겨주세요. 다음 이용자를 위해 꼭 필요합니다.</li>
+      </ul>
+    </section>
+
+    <footer class="guide-foot">
+      문의 · 불편사항 · 사고 접수는 예약 페이지 오른쪽 위 <b>📩 문의·신고</b> 버튼으로 보내주세요.
+    </footer>
+
+  </article>
+
+  <script src="/static/guide.js"></script>
+</body>
+</html>

@@ -200,7 +200,9 @@ function renderReservations() {
 
     const block = document.createElement('div');
     const isPending = r.status === 'pending';
-    block.className = `reservation-block ${roomCls(currentRoomId)}${isPending ? ' pending' : ''}`;
+    const mine = myResFor(r);
+    block.className = `reservation-block ${roomCls(currentRoomId)}`
+      + (isPending ? ' pending' : '') + (mine ? ' mine' : '');
     block.style.top    = `${top + 4}px`;
     block.style.height = `${height - 8}px`;
 
@@ -210,12 +212,97 @@ function renderReservations() {
         ${isPending
           ? '<span class="res-status-badge pending">입금 대기</span>'
           : '<span class="res-status-badge confirmed">확정</span>'}
+        ${mine ? '<span class="res-status-badge mine">내 예약</span>' : ''}
       </div>
       <div class="res-time">${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)}</div>
       ${r.members ? `<div class="res-members">👥 ${escHtml(r.members)}</div>` : ''}
+      ${mine && canCancel(r)
+        ? `<button type="button" class="btn-res-cancel"
+                   onclick="cancelMyReservation(${r.id})">취소</button>`
+        : ''}
     `;
     layer.appendChild(block);
   });
+}
+
+/* ============================================================
+   내 예약 — 로그인이 없으므로 '이 브라우저로 신청한 것' 을 기억해 둔다.
+   서버가 준 취소 토큰이 신분증이고, 이게 없으면 취소를 못 한다.
+   ============================================================ */
+const MY_RES_KEY = 'bandroom_my_res';
+
+function loadMyRes() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(MY_RES_KEY) || '{}');
+    // 지난 예약은 취소할 일이 없다 — 쌓이기만 하므로 읽을 때 털어낸다.
+    const today = toDateStr(new Date());
+    const kept = {};
+    Object.entries(raw).forEach(([id, v]) => {
+      if (v && v.token && v.date >= today) kept[id] = v;
+    });
+    if (Object.keys(kept).length !== Object.keys(raw).length) saveMyRes(kept);
+    return kept;
+  } catch { return {}; }
+}
+
+function saveMyRes(map) {
+  try { localStorage.setItem(MY_RES_KEY, JSON.stringify(map)); } catch {}
+}
+
+function rememberMyRes(created) {
+  const map = loadMyRes();
+  map[created.id] = {
+    token: created.cancel_token,
+    date: String(created.date),
+    group_key: created.group_key || null,
+  };
+  saveMyRes(map);
+}
+
+/* 이 예약이 내 것이면 저장해 둔 정보를, 아니면 null.
+   자정을 넘겨 나뉜 예약은 뒤 조각의 id 를 모르므로 group_key 로도 맞춰본다. */
+function myResFor(r) {
+  const map = loadMyRes();
+  if (map[r.id]) return map[r.id];
+  if (!r.group_key) return null;
+  return Object.values(map).find(v => v.group_key === r.group_key) || null;
+}
+
+function forgetMyRes(r) {
+  const map = loadMyRes();
+  delete map[r.id];
+  if (r.group_key) {
+    Object.entries(map).forEach(([id, v]) => {
+      if (v.group_key === r.group_key) delete map[id];
+    });
+  }
+  saveMyRes(map);
+}
+
+/* 시작 시각이 지나면 서버도 막는다 — 버튼을 미리 감춰 헛클릭을 줄인다. */
+function canCancel(r) {
+  return new Date(`${r.date}T${r.start_time}`) > new Date();
+}
+
+async function cancelMyReservation(id) {
+  const r = reservations.find(x => x.id === id);
+  const mine = r && myResFor(r);
+  if (!r || !mine) { showToast('취소 정보를 찾을 수 없습니다. 문의로 연락해주세요.', 'error'); return; }
+  if (!confirm(`${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)} 예약을 취소할까요?`)) return;
+
+  try {
+    const res = await fetch(`/api/reservations/${id}/cancel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: mine.token }),
+    });
+    if (!res.ok) throw new Error((await res.json()).detail || '취소에 실패했습니다.');
+    forgetMyRes(r);
+    await loadReservations();
+    showToast('예약이 취소되었습니다.', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 /* ============================================================
@@ -634,6 +721,8 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
     }
 
     const created = await res.json();
+    // 취소 토큰은 이 응답에만 실려 온다 — 여기서 안 챙기면 다시는 못 받는다.
+    rememberMyRes(created);
     closeModal();
     await loadReservations();
     showToast(

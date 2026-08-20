@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from typing import List
+from datetime import date
+from typing import Dict, List, Optional, Tuple
 
 from database import get_db
 from app_logging import log_event
@@ -12,12 +13,51 @@ import schemas
 router = APIRouter(tags=["teams"])
 
 
-def _team_response(t: models.Team, res_count: int = 0, member_count: int = 0) -> schemas.TeamResponse:
+def _team_response(t: models.Team, res_count: int = 0, member_count: int = 0,
+                   ages: Tuple[Optional[float], Dict[str, int]] = (None, {})) -> schemas.TeamResponse:
     # 컬럼이 늘어도 여기를 고치지 않도록 model_validate 로 받고 파생값만 얹는다.
     out = schemas.TeamResponse.model_validate(t)
     out.reservation_count = res_count
     out.member_count = member_count
+    out.age_avg, out.age_buckets = ages
     return out
+
+
+def _member_counts(db: Session) -> dict:
+    """활동 중인 소속 인원. 한 사람이 여러 팀에 들어갈 수 있으므로 member_teams 를 센다."""
+    return dict(
+        db.query(models.MemberTeam.team_id, func.count(models.MemberTeam.member_id))
+        .join(models.Member, models.Member.id == models.MemberTeam.member_id)
+        .filter(models.Member.is_active == True)
+        .group_by(models.MemberTeam.team_id).all()
+    )
+
+
+def _age_stats(db: Session) -> dict:
+    """팀별 (평균 나이, 연령대별 인원). 나이는 한국식 연 나이(올해 - 출생년도),
+    연령대는 10년 단위이고 60 이상은 하나로 묶는다.
+    출생년도를 모르는 멤버는 평균에도 연령대에도 들어가지 않는다 — 모르는 값을
+    0살로 세면 평균이 통째로 무너진다."""
+    this_year = date.today().year
+    rows = (
+        db.query(models.MemberTeam.team_id, models.Member.birth_year)
+        .join(models.Member, models.Member.id == models.MemberTeam.member_id)
+        .filter(models.Member.is_active == True,
+                models.Member.birth_year.isnot(None))
+        .all()
+    )
+    by_team: Dict[int, list] = {}
+    for team_id, birth_year in rows:
+        by_team.setdefault(team_id, []).append(this_year - birth_year)
+
+    stats = {}
+    for team_id, ages in by_team.items():
+        buckets: Dict[str, int] = {}
+        for age in ages:
+            key = str(min(60, max(0, age) // 10 * 10))
+            buckets[key] = buckets.get(key, 0) + 1
+        stats[team_id] = (round(sum(ages) / len(ages), 1), buckets)
+    return stats
 
 
 def _apply_billing(team: models.Team, billing_type: str, monthly_fee, dues_fee, has_dues_fee=False):
@@ -55,14 +95,11 @@ def list_teams(
         .group_by(models.Reservation.team_id)
         .all()
     )
-    member_counts = dict(
-        db.query(models.Member.team_id, func.count(models.Member.id))
-        .filter(models.Member.team_id.isnot(None), models.Member.is_active == True)
-        .group_by(models.Member.team_id)
-        .all()
-    )
+    member_counts = _member_counts(db)
+    ages = _age_stats(db)
     return [
-        _team_response(t, res_counts.get(t.id, 0), member_counts.get(t.id, 0))
+        _team_response(t, res_counts.get(t.id, 0), member_counts.get(t.id, 0),
+                       ages.get(t.id, (None, {})))
         for t in teams
     ]
 
@@ -147,10 +184,8 @@ def update_team(
     audit(db, admin, "team.update", team.name,
           "바꾼 항목: " + (", ".join(fields) or "없음"), request)
     res_count = db.query(models.Reservation).filter(models.Reservation.team_id == team.id).count()
-    member_count = db.query(models.Member).filter(
-        models.Member.team_id == team.id, models.Member.is_active == True
-    ).count()
-    return _team_response(team, res_count, member_count)
+    return _team_response(team, res_count, _member_counts(db).get(team.id, 0),
+                          _age_stats(db).get(team.id, (None, {})))
 
 
 @router.delete("/api/admin/teams/{team_id}")
@@ -167,7 +202,9 @@ def delete_team(
             400,
             f"예약 이력이 {used}건 있어 삭제할 수 없습니다. 비활성 처리해주세요.",
         )
-    members = db.query(models.Member).filter(models.Member.team_id == team_id).count()
+    members = db.query(models.MemberTeam).filter(
+        models.MemberTeam.team_id == team_id
+    ).count()
     if members:
         raise HTTPException(
             400,

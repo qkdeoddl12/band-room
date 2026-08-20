@@ -26,7 +26,7 @@ PAGE_LOADERS.stats        = loadStats;
 async function loadAllReservations() {
   document.getElementById('reservationList').innerHTML = '<div class="spinner"></div>';
   try {
-    allReservations = await apiJson('/api/reservations');
+    allReservations = await apiJson('/api/admin/reservations');
   } catch (e) {
     allReservations = [];
     showToast(e.message, 'error');
@@ -39,7 +39,7 @@ async function loadAllReservations() {
    ============================================================ */
 async function loadDashboard() {
   try {
-    allReservations = await apiJson('/api/reservations');
+    allReservations = await apiJson('/api/admin/reservations');
   } catch (e) {
     allReservations = [];
     showToast(e.message, 'error');
@@ -278,6 +278,7 @@ function renderList(items) {
           </div>
           <div class="res-actions">
             ${confirmBtn}
+            <button class="btn-edit-res" onclick="openResEditModal(${r.id})" aria-label="수정">수정</button>
             <button class="btn-delete" onclick="openDeleteModal(${r.id})" aria-label="삭제">🗑</button>
           </div>
         </div>`;
@@ -286,6 +287,120 @@ function renderList(items) {
   html += '</div>';
   container.innerHTML = html;
 }
+
+/* ============================================================
+   Reservation Edit — 이용자가 시간을 바꿔달라고 할 때 쓴다.
+   서버가 슬롯을 다시 검사하고, 자정을 넘기면 다시 두 건으로 쪼갠다.
+   ============================================================ */
+let editResId = null;
+
+function openResEditModal(id) {
+  const r = allReservations.find(x => x.id === id);
+  if (!r) return;
+  editResId = id;
+
+  // 자정을 넘긴 예약은 나뉜 두 건이 한 예약이다 — 합친 시간으로 보여준다.
+  const pair = r.group_key
+    ? allReservations.filter(x => x.group_key === r.group_key)
+        .sort((a, b) => `${a.date}${a.start_time}`.localeCompare(`${b.date}${b.start_time}`))
+    : [r];
+  const head = pair[0];
+  const total = pair.reduce((sum, x) => sum + x.duration, 0);
+
+  const note = document.getElementById('resEditOvernight');
+  note.style.display = pair.length > 1 ? '' : 'none';
+  note.textContent = pair.length > 1
+    ? '🌙 자정을 넘긴 예약입니다. 나뉜 두 건을 한 건으로 고칩니다.' : '';
+
+  document.getElementById('resEditRoom').innerHTML = Object.values(roomsById)
+    .sort((a, b) => a.id - b.id)
+    .map(room => `<option value="${room.id}"${room.id === head.room_id ? ' selected' : ''}>${escHtml(room.name)}</option>`)
+    .join('');
+  document.getElementById('resEditStart').innerHTML = Array.from({ length: 24 }, (_, h) => {
+    const v = `${String(h).padStart(2, '0')}:00`;
+    return `<option value="${v}"${head.start_time.startsWith(v) ? ' selected' : ''}>${v}</option>`;
+  }).join('');
+  document.getElementById('resEditTeam').innerHTML = Object.values(teamsById)
+    .filter(t => t.is_active || t.id === head.team_id)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(t => `<option value="${t.id}"${t.id === head.team_id ? ' selected' : ''}>${escHtml(t.name)}</option>`)
+    .join('');
+
+  document.getElementById('resEditDate').value     = head.date;
+  document.getElementById('resEditDuration').value = total;
+  document.getElementById('resEditBooker').value   = head.booker_name || '';
+  document.getElementById('resEditPhone').value    = formatPhone(head.booker_phone);
+  document.getElementById('resEditMembers').value  = head.members || '';
+  document.getElementById('resEditNote').value     = head.note || '';
+  document.getElementById('resEditRange').textContent =
+    `지금: ${fmtDateKo(head.date)} ${fmtTime(head.start_time)} ~ ${fmtEndTime(pair[pair.length - 1].end_time)}`;
+
+  syncResEditMode();
+  openOverlay('resEditOverlay');
+}
+
+/* 공간 종류에 따라 팀을 고르거나 이용자 이름을 적는다 (예약 페이지와 같은 규칙). */
+function syncResEditMode() {
+  const roomId = Number(document.getElementById('resEditRoom').value);
+  const personal = roomsById[roomId]?.booking_mode === 'personal';
+  document.getElementById('resEditTeamRow').style.display     = personal ? 'none' : '';
+  document.getElementById('resEditPersonalRow').style.display = personal ? '' : 'none';
+}
+
+function closeResEditModal() {
+  closeOverlay('resEditOverlay');
+  editResId = null;
+}
+
+bindOverlayClose('resEditOverlay', closeResEditModal);
+
+document.getElementById('resEditForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  if (!editResId) return;
+
+  const roomId = Number(document.getElementById('resEditRoom').value);
+  const personal = roomsById[roomId]?.booking_mode === 'personal';
+  const duration = Number(document.getElementById('resEditDuration').value);
+  if (!duration || duration < 1 || duration > 24) {
+    showToast('이용 시간은 1~24 사이여야 합니다.', 'error');
+    return;
+  }
+
+  const body = {
+    room_id:    roomId,
+    date:       document.getElementById('resEditDate').value,
+    start_time: document.getElementById('resEditStart').value + ':00',
+    duration,
+    members:    document.getElementById('resEditMembers').value.trim() || null,
+    note:       document.getElementById('resEditNote').value.trim() || null,
+  };
+  if (personal) {
+    body.booker_name  = document.getElementById('resEditBooker').value.trim();
+    body.booker_phone = document.getElementById('resEditPhone').value.trim() || null;
+    if (!body.booker_name) { showToast('이용자 이름을 입력해주세요.', 'error'); return; }
+  } else {
+    body.team_id = Number(document.getElementById('resEditTeam').value) || null;
+    if (!body.team_id) { showToast('예약 팀을 선택해주세요.', 'error'); return; }
+  }
+
+  const btn = document.getElementById('resEditSaveBtn');
+  btn.disabled = true; btn.textContent = '저장 중...';
+  try {
+    await apiJson(`/api/admin/reservations/${editResId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+    });
+    closeResEditModal();
+    await loadAllReservations();
+    showToast('예약이 수정되었습니다.', 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '변경 저장';
+  }
+});
+
+attachPhoneMask(document.getElementById('resEditPhone'));
 
 /* ============================================================
    Reservation Delete Modal
@@ -375,7 +490,7 @@ async function loadCalendar() {
   document.getElementById('calendarGrid').innerHTML = '<div class="spinner"></div>';
   try {
     const [res, blk] = await Promise.all([
-      apiJson('/api/reservations'),
+      apiJson('/api/admin/reservations'),
       apiJson('/api/blocked').catch(() => []),
     ]);
     allReservations = res;
@@ -507,7 +622,7 @@ bindOverlayClose('dayDetailOverlay', closeDayDetail);
    ============================================================ */
 async function loadStats() {
   try {
-    allReservations = await apiJson('/api/reservations');
+    allReservations = await apiJson('/api/admin/reservations');
   } catch (e) {
     allReservations = [];
     showToast(e.message, 'error');

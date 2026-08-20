@@ -19,7 +19,10 @@ PASS = os.getenv("INITIAL_ADMIN_PASSWORD", "")   # 기본값을 두지 않는다
 
 MARK = "[smoke]"
 client = httpx.Client(base_url=BASE, timeout=20.0)
-created = {"team": None, "member": None, "member2": None, "ticket": None,
+created = {"team": None, "team2": None, "team3": None,
+           "cancel": None, "past": None, "edit": None, "edit2": None,
+           "member": None, "member2": None, "member3": None,
+           "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
            "reservation4": None, "overnight": None}
 
@@ -317,17 +320,212 @@ def test_team_dues(h, team, member_id):
     assert jan["paid"] < 200000, f"팀 이용료가 회비에 섞이면 안 된다: {jan}"
 
 
+def test_self_cancel(h):
+    """예약한 본인이 취소한다. 로그인이 없어 생성 때 받은 토큰이 신분증이다.
+    같은 김에 공개 목록이 개인정보를 흘리지 않는지도 본다."""
+    day = date.today() + timedelta(days=120)
+    rooms = client.get("/api/rooms").json()
+    personal = next(r for r in rooms if r["booking_mode"] == "personal")
+    body = {"room_id": personal["id"], "date": str(day), "start_time": "10:00:00",
+            "duration": 1, "booker_name": f"{MARK}취소테스트",
+            "booker_phone": "010-9999-0000", "note": "비밀 메모"}
+
+    res = client.post("/api/reservations", json=body)
+    assert res.status_code == 200, res.text
+    made = res.json()
+    created["cancel"] = made["id"]
+    token = made.get("cancel_token")
+    assert token, "생성 응답에는 취소 토큰이 있어야 한다"
+
+    # 공개 목록은 인증이 없다 — 연락처·메모·토큰이 새면 안 된다
+    pub = client.get(f"/api/reservations?date={day}").json()
+    row = next(r for r in pub if r["id"] == made["id"])
+    for leak in ("booker_phone", "note", "cancel_token", "booker_name"):
+        assert leak not in row, f"공개 목록에 {leak} 가 실렸다: {row}"
+
+    # 관리자 목록에는 그대로 다 있어야 한다
+    adm = client.get(f"/api/admin/reservations?date={day}", headers=h).json()
+    arow = next(r for r in adm if r["id"] == made["id"])
+    assert arow["booker_phone"] == "01099990000" and arow["note"] == "비밀 메모", arow
+    assert client.get("/api/admin/reservations").status_code == 401, \
+        "관리자 목록은 인증을 요구해야 한다"
+
+    # 틀린 토큰으로는 못 지운다
+    bad = client.post(f"/api/reservations/{made['id']}/cancel",
+                      json={"token": "0" * 32})
+    assert bad.status_code == 403, f"남의 예약이 지워진다, got {bad.status_code}"
+
+    # 이미 시작된 예약은 본인도 못 지운다
+    past = client.post("/api/reservations", json={
+        **body, "date": str(date.today() - timedelta(days=200))}).json()
+    created["past"] = past["id"]
+    late = client.post(f"/api/reservations/{past['id']}/cancel",
+                       json={"token": past["cancel_token"]})
+    assert late.status_code == 400, f"지난 예약은 막아야 한다, got {late.status_code}"
+
+    # 제대로 된 토큰이면 취소된다
+    ok = client.post(f"/api/reservations/{made['id']}/cancel", json={"token": token})
+    assert ok.status_code == 200, ok.text
+    created["cancel"] = None
+    left = client.get(f"/api/reservations?date={day}").json()
+    assert not any(r["id"] == made["id"] for r in left), "취소했는데 남아 있다"
+
+
+def test_admin_edit(h, team):
+    """관리자가 예약을 고친다. 자정 넘김이면 다시 쪼개지고, 입금 상태와
+    이용자의 취소 토큰은 그대로 살아 있어야 한다."""
+    day = date.today() + timedelta(days=140)
+    rooms = client.get("/api/rooms").json()
+    room = next(r for r in rooms if r["booking_mode"] == "team")
+
+    made = client.post("/api/reservations", json={
+        "room_id": room["id"], "team_id": team["id"], "date": str(day),
+        "start_time": "10:00:00", "duration": 2, "note": "원래 메모"}).json()
+    created["edit"] = made["id"]
+    token, status = made["cancel_token"], made["status"]
+
+    # 자기 시간과 겹친다고 거부하면 메모만 고쳐도 막힌다
+    only_note = client.patch(f"/api/admin/reservations/{made['id']}", headers=h,
+                             json={"note": "바뀐 메모"})
+    assert only_note.status_code == 200, only_note.text
+    assert only_note.json()["note"] == "바뀐 메모", only_note.text
+    assert only_note.json()["id"] == made["id"], "고쳤다고 예약 id 가 바뀌면 안 된다"
+
+    # 시간 옮기기 — 상태는 그대로
+    moved = client.patch(f"/api/admin/reservations/{made['id']}", headers=h,
+                         json={"start_time": "15:00:00", "duration": 3})
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["start_time"].startswith("15:00"), moved.text
+    assert moved.json()["status"] == status, "고쳤다고 입금 상태가 바뀌면 안 된다"
+    assert moved.json()["id"] == made["id"], "시간을 옮겨도 id 는 그대로여야 한다"
+
+    # 날짜도 옮겨진다 (필드 이름이 date 라 스키마가 조용히 깨진 적 있다)
+    other_day = day + timedelta(days=2)
+    day_moved = client.patch(f"/api/admin/reservations/{made['id']}", headers=h,
+                             json={"date": str(other_day)})
+    assert day_moved.status_code == 200, day_moved.text
+    assert day_moved.json()["date"] == str(other_day), day_moved.text
+    client.patch(f"/api/admin/reservations/{made['id']}", headers=h, json={"date": str(day)})
+
+    # 이미 찬 시간으로는 못 옮긴다
+    other = client.post("/api/reservations", json={
+        "room_id": room["id"], "team_id": team["id"], "date": str(day),
+        "start_time": "20:00:00", "duration": 1}).json()
+    created["edit2"] = other["id"]
+    clash = client.patch(f"/api/admin/reservations/{created['edit']}", headers=h,
+                         json={"start_time": "20:00:00", "duration": 1})
+    assert clash.status_code == 400, f"겹치는 시간은 막아야 한다, got {clash.status_code}"
+
+    # 자정을 넘기게 고치면 두 건으로 나뉜다
+    split = client.patch(f"/api/admin/reservations/{created['edit']}", headers=h,
+                         json={"start_time": "23:00:00", "duration": 3})
+    assert split.status_code == 200, split.text
+    assert split.json()["id"] == made["id"], "쪼개져도 앞 조각 id 는 그대로여야 한다"
+    assert split.json()["group_key"], "자정을 넘기면 group_key 로 묶여야 한다"
+    nxt = client.get(f"/api/reservations?date={day + timedelta(days=1)}").json()
+    assert any(r["group_key"] == split.json()["group_key"] for r in nxt), "뒷 조각이 없다"
+
+    # 이용자의 취소 토큰은 수정 뒤에도 살아 있어야 한다
+    gone = client.post(f"/api/reservations/{created['edit']}/cancel", json={"token": token})
+    assert gone.status_code == 200, f"수정하면 취소 토큰이 죽는다: {gone.text}"
+    created["edit"] = None
+
+    assert client.patch(f"/api/admin/reservations/{created['edit2']}",
+                        json={"note": "x"}).status_code == 401, "수정은 관리자만"
+
+
+def test_multi_team(h):
+    """한 사람이 밴드를 여러 개 하면 회비도 팀마다 따로 걸린다."""
+    ym = "2099-03"
+
+    def make_team(name, fee):
+        res = client.post("/api/admin/teams", headers=h, json={
+            "name": f"{MARK} {name}", "billing_type": "dues", "dues_fee": fee,
+        })
+        assert res.status_code == 200, res.text
+        return res.json()["id"]
+
+    a = created["team2"] = make_team("멀티A", 10000)
+    b = created["team3"] = make_team("멀티B", 20000)
+
+    before = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+
+    res = client.post("/api/admin/members", headers=h, json={
+        "name": f"{MARK} 겸업", "birth_year": 1990, "team_ids": [a, b],
+    })
+    assert res.status_code == 200, res.text
+    m = res.json()
+    created["member3"] = m["id"]
+    assert [t["id"] for t in m["teams"]] == [a, b], m["teams"]
+    assert m["team_id"] == a, "대표 팀은 목록의 첫 팀이다"
+
+    # 1) 소속마다 한 건씩, 금액은 각 팀의 회비
+    month = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+    mine = [r for r in month["rows"] if r["member_id"] == m["id"]]
+    assert len(mine) == 2, f"두 팀이면 회비도 두 건이어야 한다: {mine}"
+    assert {r["team_id"]: r["fee"] for r in mine} == {a: 10000, b: 20000}, mine
+    assert month["total_expected"] - before["total_expected"] == 30000, "두 팀 요금이 다 잡혀야 한다"
+
+    # 2) 한 팀만 납부해도 다른 팀은 그대로 미납
+    paid = client.put(f"/api/admin/dues/{m['id']}/{ym}?team_id={a}", headers=h,
+                      json={"status": "paid"})
+    assert paid.status_code == 200, paid.text
+    assert paid.json()["amount"] == 10000 and paid.json()["team_id"] == a, paid.text
+
+    month = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+    got = {r["team_id"]: r["status"] for r in month["rows"] if r["member_id"] == m["id"]}
+    assert got == {a: "paid", b: "unpaid"}, f"팀별 회비가 서로 물리면 안 된다: {got}"
+
+    # 3) 소속이 아닌 팀으로는 기록을 못 남긴다
+    bad = client.put(f"/api/admin/dues/{m['id']}/{ym}?team_id={created['team']}",
+                     headers=h, json={"status": "paid"})
+    assert bad.status_code == 400, f"남의 팀 회비는 거부돼야 한다, got {bad.status_code}"
+
+    # 4) 팀별 회비 제외는 그 팀 건만 면제로 만든다
+    upd = client.patch(f"/api/admin/members/{m['id']}", headers=h,
+                       json={"team_ids": [a, b], "team_exempt_ids": [b]})
+    assert upd.status_code == 200, upd.text
+    assert [t["dues_exempt"] for t in upd.json()["teams"]] == [False, True], upd.text
+    month = client.get(f"/api/admin/dues?year_month=2099-04", headers=h).json()
+    got = {r["team_id"]: r["status"] for r in month["rows"] if r["member_id"] == m["id"]}
+    assert got == {a: "unpaid", b: "exempt"}, f"팀별 면제가 안 먹는다: {got}"
+
+    # 5) 이력에는 어느 팀 몫인지 함께 나온다
+    hist = client.get(f"/api/admin/dues/history/member/{m['id']}", headers=h).json()
+    assert any(r["team_name"] and r["year_month"] == ym for r in hist), hist
+
+    # 6) 소속 멤버가 있으면 팀을 못 지운다 (대표 팀이 아닌 B 도 마찬가지)
+    blocked = client.delete(f"/api/admin/teams/{b}", headers=h)
+    assert blocked.status_code == 400, f"소속 멤버가 있으면 막아야 한다, got {blocked.status_code}"
+
+    # 7) 팀 카드 나이 통계 — 출생년도를 아는 멤버만 센다
+    res = client.post("/api/admin/members", headers=h, json={
+        "name": f"{MARK} 나이없음", "team_ids": [a],
+    })
+    assert res.status_code == 200, res.text
+    created["member4"] = res.json()["id"]
+
+    teams = {t["id"]: t for t in client.get("/api/admin/teams", headers=h).json()}
+    year = date.today().year
+    assert teams[a]["member_count"] == 2, teams[a]
+    assert teams[a]["age_avg"] == float(year - 1990), teams[a]
+    assert teams[a]["age_buckets"] == {str((year - 1990) // 10 * 10): 1}, teams[a]
+    assert teams[b]["age_avg"] == float(year - 1990), "겸업 멤버는 두 팀 모두에서 센다"
+
+
 def cleanup(h):
-    for key in ("reservation", "reservation2", "reservation3", "reservation4", "overnight"):
+    for key in ("reservation", "reservation2", "reservation3", "reservation4",
+                "overnight", "cancel", "past", "edit", "edit2"):
         if created[key]:
             client.delete(f"/api/reservations/{created[key]}", headers=h)
     if created["ticket"]:
         client.delete(f"/api/admin/tickets/{created['ticket']}", headers=h)
-    for key in ("member", "member2"):
+    for key in ("member", "member2", "member3", "member4"):
         if created[key]:
             client.delete(f"/api/admin/members/{created[key]}?force=true", headers=h)
-    if created["team"]:
-        client.delete(f"/api/admin/teams/{created['team']}", headers=h)
+    for key in ("team", "team2", "team3"):
+        if created[key]:
+            client.delete(f"/api/admin/teams/{created[key]}", headers=h)
 
 
 def main():
@@ -348,6 +546,9 @@ def main():
         test_personal_room(h);                 steps.append("personal room")
         member_id = test_members_and_dues(h);   steps.append("members + dues")
         test_team_dues(h, team, member_id);     steps.append("team dues")
+        test_multi_team(h);                     steps.append("multi team")
+        test_self_cancel(h);                    steps.append("self cancel")
+        test_admin_edit(h, team);               steps.append("admin edit")
         test_tickets(h);                       steps.append("tickets")
         test_upload_guards(h);                 steps.append("upload guards")
         test_settings(h);                      steps.append("settings")

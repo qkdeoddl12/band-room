@@ -127,6 +127,9 @@ a { text-decoration: none; }
   border-radius: 20px;
   transition: all .2s;
   white-space: nowrap;
+  /* 버튼으로도 <a> 로도 쓴다 — 두 모양이 같은 높이로 서야 한다 */
+  display: inline-flex; align-items: center;
+  text-decoration: none; background: none; cursor: pointer;
 }
 .header-link:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
 
@@ -558,6 +561,24 @@ a { text-decoration: none; }
   background: rgba(255, 255, 255, 0.28);
   color: #fff;
 }
+/* 내가 이 브라우저로 신청한 예약. 남의 예약과 한눈에 갈라져야 취소를 헷갈리지 않는다. */
+.res-status-badge.mine {
+  background: #fff; color: #111827;
+}
+.reservation-block.mine {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  box-shadow: 0 2px 14px rgba(0,0,0,.22);
+}
+.btn-res-cancel {
+  position: absolute; top: 6px; right: 8px;
+  padding: 3px 10px; border-radius: var(--radius-pill);
+  border: 1px solid rgba(255,255,255,.7);
+  background: rgba(255,255,255,.18); color: #fff;
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.btn-res-cancel:hover { background: rgba(255,255,255,.34); }
 
 /* Blocked period overlay on timeline */
 .blocked-block {
@@ -2368,6 +2389,7 @@ a { text-decoration: none; }
 .dashboard-card .settings-group-label:first-of-type { margin-top: 4px; padding-top: 0; border-top: none; }
 
 .field-hint { margin-top: 8px; font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.team-pick-empty { font-size: 12px; color: var(--text-light); }
 
 .booker-status {
   margin-top: 8px; font-size: 13px; font-weight: 600;
@@ -2517,6 +2539,17 @@ a { text-decoration: none; }
 .mt-badge.doors { background: #111827; color: #fff; }
 .mt-badge.check { background: var(--warning-light); color: var(--warning-ink); }
 .mt-badge.off   { background: var(--bg); color: var(--text-light); }
+/* 다른 밴드에도 속한 사람 표시 (팀 상세 명단) */
+.mt-badge.team  { background: var(--primary-light); color: var(--primary); }
+
+/* 예약 목록의 수정 버튼 — 삭제(🗑) 옆이라 눈에 덜 띄어야 한다 */
+.btn-edit-res {
+  padding: 5px 11px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-edit-res:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 
 /* 팀 상세 — 읽기 전용 1인 회비 */
 .team-fee-note {
@@ -2550,7 +2583,7 @@ a { text-decoration: none; }
 .dues-hist-rows { max-height: 190px; overflow-y: auto; }
 .dues-hist-row {
   display: grid;
-  grid-template-columns: 62px 52px 1fr 40px;
+  grid-template-columns: 76px 52px 1fr 40px;
   align-items: center; gap: 8px;
   padding: 7px 2px;
   border-bottom: 1px solid var(--border);
@@ -2558,6 +2591,11 @@ a { text-decoration: none; }
 }
 .dues-hist-row:last-child { border-bottom: 0; }
 .dh-ym   { font-weight: 700; color: var(--text); }
+/* 소속이 여럿이면 같은 달이 팀 수만큼 나온다 — 어느 팀 몫인지 밑줄로 붙인다. */
+.dh-team {
+  display: block; font-size: 10.5px; font-weight: 600; color: var(--text-light);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .dh-amt  { text-align: right; color: var(--text); font-weight: 600; }
 .dh-date { text-align: right; color: var(--text-light); font-size: 11px; }
 .dh-status {
@@ -2576,4 +2614,146 @@ a { text-decoration: none; }
   padding: 14px; text-align: center;
   font-size: 12px; color: var(--text-light);
   background: var(--bg); border-radius: var(--radius-sm);
+}
+
+
+/* ============================================================
+   GUIDE PAGE (/guide) — 화면으로도 보고 A4 로도 뽑는다.
+   앱은 480px 한 줄짜리지만 안내문은 읽는 글이라 더 넓게 간다.
+   ============================================================ */
+.guide-body { background: #ECECF4; }
+
+.guide-topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 16px;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.guide-back {
+  font-size: 14px; font-weight: 700; color: var(--text-sub); text-decoration: none;
+}
+.guide-back:hover { color: var(--primary); }
+.guide-print {
+  padding: 8px 16px; border-radius: var(--radius-pill);
+  border: 1px solid var(--primary); background: var(--primary); color: #fff;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.guide-print:hover { filter: brightness(1.06); }
+
+.guide {
+  max-width: 720px; margin: 0 auto; padding: 28px 22px 60px;
+  background: var(--card); min-height: 100vh;
+  box-shadow: 0 8px 40px rgba(0,0,0,.08);
+}
+
+.guide-head { text-align: center; padding-bottom: 22px; border-bottom: 2px solid var(--border); }
+.guide-logo { font-size: 15px; font-weight: 800; color: var(--primary); letter-spacing: -.3px; }
+.guide-title { font-size: 26px; font-weight: 800; color: var(--text); margin-top: 6px; letter-spacing: -.6px; }
+.guide-sub { font-size: 14px; color: var(--text-sub); margin-top: 6px; }
+
+.guide h2 {
+  font-size: 16px; font-weight: 800; color: var(--text);
+  margin: 26px 0 10px; letter-spacing: -.3px;
+}
+.guide p { font-size: 14px; line-height: 1.7; color: var(--text); margin: 6px 0; }
+
+/* --- 공간·요금 카드 --- */
+.guide-room-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.guide-room { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
+.guide-room.r1 { border-left: 4px solid var(--room1); }
+.guide-room.r2 { border-left: 4px solid var(--room2); }
+.guide-room-name  { font-size: 15px; font-weight: 800; color: var(--text); }
+.guide-room-desc  { font-size: 12.5px; color: var(--text-sub); margin-top: 3px; }
+.guide-room-price { font-size: 14px; font-weight: 800; color: var(--primary); margin-top: 8px; }
+.guide-room-mode  { font-size: 12px; color: var(--text-light); margin-top: 4px; line-height: 1.5; }
+
+/* --- 번호 붙은 단계 --- */
+.guide-steps { list-style: none; counter-reset: step; margin-top: 8px; }
+.guide-step {
+  counter-increment: step;
+  position: relative; padding: 18px 0 18px 44px;
+  border-bottom: 1px solid var(--border);
+  break-inside: avoid; page-break-inside: avoid;
+}
+.guide-step:last-child { border-bottom: 0; }
+.guide-step::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 20px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  font-size: 14px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.guide-step h2 { margin: 0 0 6px; font-size: 17px; }
+
+.guide-list { margin: 8px 0 0 18px; }
+.guide-list li { font-size: 13.5px; line-height: 1.75; color: var(--text); margin-bottom: 4px; }
+
+/* --- 시간표 색 설명 --- */
+.guide-legend { list-style: none; margin: 10px 0 0; }
+.guide-legend li {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13.5px; color: var(--text); margin-bottom: 6px;
+}
+.lg-chip { width: 30px; height: 18px; border-radius: 5px; flex: none; }
+.lg-confirmed { background: linear-gradient(135deg, #7C6FF7 0%, #A89DF8 100%); }
+.lg-pending {
+  background: linear-gradient(135deg, #7C6FF7 0%, #A89DF8 100%);
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 4px,
+                    rgba(255,255,255,.55) 4px, rgba(255,255,255,.55) 8px),
+                    linear-gradient(135deg, #7C6FF7 0%, #A89DF8 100%);
+  opacity: .7;
+}
+.lg-blocked { background: repeating-linear-gradient(45deg, #D8D8E0, #D8D8E0 4px, #EDEDF2 4px, #EDEDF2 8px); }
+
+.guide-callout {
+  background: var(--primary-light); border-radius: var(--radius-sm);
+  padding: 10px 14px; font-size: 13.5px; margin-top: 10px;
+}
+
+/* --- 화면 캡처 --- */
+.guide-shot { margin: 12px 0 2px; }
+.guide-shot img {
+  display: block; width: 100%; max-width: 320px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: 0 2px 12px rgba(0,0,0,.10);
+}
+.guide-shot figcaption { font-size: 12px; color: var(--text-light); margin-top: 6px; }
+
+/* --- 계좌 --- */
+.guide-deposit { break-inside: avoid; page-break-inside: avoid; }
+.guide-account {
+  border: 2px dashed var(--primary); border-radius: var(--radius-sm);
+  padding: 14px 18px; text-align: center;
+}
+.guide-account-num {
+  font-size: 19px; font-weight: 800; color: var(--text);
+  letter-spacing: .3px; font-variant-numeric: tabular-nums;
+}
+.guide-account-holder { font-size: 13.5px; color: var(--text-sub); margin-top: 4px; }
+.guide-account-note { font-size: 13px; color: var(--text-sub); margin-top: 8px; }
+
+.guide-foot {
+  margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-sub); text-align: center; line-height: 1.7;
+}
+
+/* --- 인쇄 --- */
+@media print {
+  .no-print { display: none !important; }
+  /* 배경색을 살려야 단계 번호와 시간표 설명이 흰 동그라미로 안 나온다 */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .guide-body { background: #fff; }
+  .guide {
+    max-width: none; margin: 0; padding: 0; min-height: 0;
+    box-shadow: none; background: #fff;
+  }
+  .guide-title { font-size: 22px; }
+  .guide h2 { margin-top: 14px; }
+  .guide-step { padding: 10px 0 10px 40px; }
+  .guide-step::before { top: 12px; }
+  .guide-shot img { max-width: 230px; }
+  @page { size: A4; margin: 14mm; }
 }

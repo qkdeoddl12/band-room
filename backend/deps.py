@@ -92,6 +92,33 @@ def require_system_admin(
     return admin
 
 
+def set_member_teams(db: Session, member, team_ids, exempt_ids=None):
+    """멤버의 소속 팀을 통째로 갈아끼운다. 한 사람이 밴드를 여러 개 할 수 있으므로
+    members.team_id 는 '회비 내는 팀' 이 아니라 목록 첫 팀 = 대표 팀일 뿐이다.
+    두 값을 여기서만 함께 쓰기 때문에 서로 어긋날 일이 없다.
+
+    exempt_ids 를 주지 않으면 팀별 회비 제외 설정은 건드리지 않는다 (이름만 고칠 때 등)."""
+    ids = list(dict.fromkeys(int(t) for t in (team_ids or [])))
+    if ids:
+        found = {row.id for row in db.query(models.Team.id).filter(models.Team.id.in_(ids)).all()}
+        if len(found) != len(ids):
+            raise HTTPException(400, "존재하지 않는 팀입니다.")
+
+    exempt = None if exempt_ids is None else {int(t) for t in exempt_ids}
+    current = {ms.team_id: ms for ms in member.memberships}
+    for team_id, ms in current.items():
+        if team_id not in ids:
+            member.memberships.remove(ms)   # delete-orphan 이 지운다
+    for team_id in ids:
+        ms = current.get(team_id)
+        if ms is None:
+            ms = models.MemberTeam(team_id=team_id)
+            member.memberships.append(ms)
+        if exempt is not None:
+            ms.dues_exempt = team_id in exempt
+    member.team_id = ids[0] if ids else None
+
+
 def get_or_404(db: Session, model, ident, message: str):
     """라우터마다 반복되던 조회+404 세 줄을 한 곳으로."""
     obj = db.query(model).filter(model.id == ident).first()
@@ -174,16 +201,20 @@ def resolve_member_fee(member, team, fallback: int) -> int:
 
 def member_dues_ok(db: Session, member, year_month: str) -> bool:
     """이번 달 회비가 해결된 상태인지. 면제 회원과 팀이 월 이용료를 내는 회원도
-    '해결됨'으로 본다 — 개인이 더 낼 것이 없기 때문."""
+    '해결됨'으로 본다 — 개인이 더 낼 것이 없기 때문.
+
+    밴드를 여러 개 하면 회비도 소속마다 따로 있다. 여기서는 하나라도 해결돼 있으면
+    통과시킨다 — 개인연습실 무료 판정이라 지금까지의 관대함을 그대로 둔다."""
     if member.dues_exempt:
         return True
-    if member.team is not None and member.team.billing_type == 'monthly':
-        return True
-    row = db.query(models.MemberDues).filter(
+    for ms in member.memberships:
+        if ms.dues_exempt or (ms.team is not None and ms.team.billing_type == 'monthly'):
+            return True
+    rows = db.query(models.MemberDues).filter(
         models.MemberDues.member_id == member.id,
         models.MemberDues.year_month == year_month,
-    ).first()
-    return bool(row and row.status in ('paid', 'exempt'))
+    ).all()
+    return any(r.status in ('paid', 'exempt') for r in rows)
 
 
 def default_monthly_fee(db: Session) -> int:

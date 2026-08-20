@@ -32,21 +32,25 @@ def get_dues_month(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    """활성 멤버를 반환한다. 해당 월 기록이 없는 멤버는 기본 상태로 채워 보낸다
-    (조회만으로 DB row를 만들지 않는다 — 생성은 PUT upsert에서만).
-    team_id 를 주면 그 팀 소속만 추린다."""
+    """활성 멤버의 그 달 회비를 소속 팀마다 한 건씩 반환한다 — 밴드를 두 개 하면
+    회비도 두 건이다. 무소속이면 팀 없는 한 건. 기록이 없는 달은 기본 상태로 채워
+    보낸다 (조회만으로 DB row를 만들지 않는다 — 생성은 PUT upsert에서만).
+    team_id 를 주면 그 팀 소속 건만 추린다."""
     _check_year_month(year_month)
     fallback = default_monthly_fee(db)
 
-    # m.team 을 행마다 건드리므로 미리 조인해 온다 (N+1 방지).
+    # 소속 팀을 행마다 건드리므로 미리 조인해 온다 (N+1 방지).
     query = db.query(models.Member).options(
-        joinedload(models.Member.team)
+        joinedload(models.Member.memberships).joinedload(models.MemberTeam.team)
     ).filter(models.Member.is_active == True)
     if team_id is not None:
-        query = query.filter(models.Member.team_id == team_id)
+        query = query.filter(models.Member.memberships.any(
+            models.MemberTeam.team_id == team_id
+        ))
     members = query.order_by(models.Member.name).all()
+    # 키가 (멤버, 팀) 이다. 팀이 다르면 같은 사람이라도 다른 회비다.
     existing = {
-        d.member_id: d
+        (d.member_id, d.team_id): d
         for d in db.query(models.MemberDues).filter(
             models.MemberDues.year_month == year_month
         ).all()
@@ -57,41 +61,52 @@ def get_dues_month(
     unpaid = pending = exempt = covered = 0
 
     for m in members:
-        fee = resolve_member_fee(m, m.team, fallback)
-        rec = existing.get(m.id)
-        if rec:
-            status, amount = rec.status, rec.amount
-            paid_on, memo = rec.paid_on, rec.memo
-        else:
-            status = 'exempt' if m.dues_exempt else 'unpaid'
-            amount, paid_on, memo = 0, None, None
+        mine = [ms for ms in m.memberships
+                if team_id is None or ms.team_id == team_id]
+        mine.sort(key=lambda ms: ms.team.name if ms.team else '')
+        if not mine and team_id is not None:
+            continue
 
-        # 팀이 월 이용료를 통째로 내는 경우 이 사람은 개인 회비 대상이 아니다.
-        # (도어즈 멤버십은 그대로 유지된다 — 명부에는 계속 남는다)
-        covered_by_team = m.team is not None and m.team.billing_type == 'monthly'
-        if covered_by_team:
-            covered += 1
-        elif status != 'exempt':
-            total_expected += fee
+        for ms in (mine or [None]):
+            team = ms.team if ms else None
+            fee = resolve_member_fee(m, team, fallback)
+            rec = existing.get((m.id, team.id if team else None))
+            if rec:
+                status, amount = rec.status, rec.amount
+                paid_on, memo = rec.paid_on, rec.memo
+            else:
+                # 멤버 전체 면제와 이 팀만 면제, 둘 다 기본값을 면제로 만든다.
+                off = m.dues_exempt or (ms.dues_exempt if ms else False)
+                status = 'exempt' if off else 'unpaid'
+                amount, paid_on, memo = 0, None, None
 
-        if covered_by_team:
-            pass
-        elif status == 'paid':
-            total_paid += amount
-        elif status == 'unpaid':
-            unpaid += 1
-        elif status == 'pending':
-            pending += 1
-        else:
-            exempt += 1
+            # 그 팀이 월 이용료를 통째로 내면 이 건은 개인이 낼 것이 없다.
+            # (도어즈 멤버십은 그대로 유지된다 — 명부에는 계속 남는다)
+            covered_by_team = team is not None and team.billing_type == 'monthly'
+            if covered_by_team:
+                covered += 1
+            elif status != 'exempt':
+                total_expected += fee
 
-        rows.append(schemas.DuesRow(
-            member_id=m.id, team_id=m.team_id,
-            team_name=m.team.name if m.team else None,
-            covered_by_team=covered_by_team,
-            name=m.name, parts=m.parts, dues_exempt=m.dues_exempt,
-            fee=fee, status=status, amount=amount, paid_on=paid_on, memo=memo,
-        ))
+            if covered_by_team:
+                pass
+            elif status == 'paid':
+                total_paid += amount
+            elif status == 'unpaid':
+                unpaid += 1
+            elif status == 'pending':
+                pending += 1
+            else:
+                exempt += 1
+
+            rows.append(schemas.DuesRow(
+                member_id=m.id,
+                team_id=team.id if team else None,
+                team_name=team.name if team else None,
+                covered_by_team=covered_by_team,
+                name=m.name, parts=m.parts, dues_exempt=m.dues_exempt,
+                fee=fee, status=status, amount=amount, paid_on=paid_on, memo=memo,
+            ))
 
     team_rows, team_expected, team_paid = _team_rows(db, year_month, team_id)
 
@@ -131,10 +146,11 @@ def _team_rows(db: Session, year_month: str, team_id=None):
         ).all()
     }
     counts = dict(
-        db.query(models.Member.team_id, func.count(models.Member.id))
+        db.query(models.MemberTeam.team_id, func.count(models.MemberTeam.member_id))
+        .join(models.Member, models.Member.id == models.MemberTeam.member_id)
         .filter(models.Member.is_active == True,
-                models.Member.team_id.in_([t.id for t in teams]))
-        .group_by(models.Member.team_id).all()
+                models.MemberTeam.team_id.in_([t.id for t in teams]))
+        .group_by(models.MemberTeam.team_id).all()
     )
 
     fallback = default_team_fee(db)
@@ -167,9 +183,12 @@ def member_dues_history(
     db: Session = Depends(get_db),
 ):
     get_or_404(db, models.Member, member_id, "멤버를 찾을 수 없습니다.")
-    return _history(db.query(models.MemberDues).filter(
+    # 소속이 여럿이면 같은 달이 팀 수만큼 나오므로 어느 팀 몫인지 함께 보낸다.
+    return _history(db.query(models.MemberDues).options(
+        joinedload(models.MemberDues.team)
+    ).filter(
         models.MemberDues.member_id == member_id
-    ).order_by(models.MemberDues.year_month.desc()), months)
+    ).order_by(models.MemberDues.year_month.desc()), months, with_team=True)
 
 
 @router.get("/history/team/{team_id}", response_model=List[schemas.DuesHistoryRow])
@@ -185,12 +204,13 @@ def team_dues_history(
     ).order_by(models.TeamDues.year_month.desc()), months)
 
 
-def _history(query, months: int):
+def _history(query, months: int, with_team: bool = False):
     """기록이 있는 달만 최근 순으로. 없는 달은 아무 일도 없었던 달이다."""
     records = query.limit(max(1, min(months, 60))).all()
     return [
         schemas.DuesHistoryRow(
             year_month=r.year_month, status=r.status, amount=r.amount,
+            team_name=(r.team.name if with_team and r.team else None),
             paid_on=r.paid_on, memo=r.memo,
         )
         for r in records
@@ -289,19 +309,33 @@ def upsert_dues(
     year_month: str,
     data: schemas.DuesUpsert,
     request: Request,
+    team_id: Optional[int] = None,
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
+    """team_id 는 어느 소속 몫인지. 생략하면 무소속일 때의 회비 한 건이다."""
     _check_year_month(year_month)
     member = get_or_404(db, models.Member, member_id, "멤버를 찾을 수 없습니다.")
 
-    fee = resolve_member_fee(member, member.team, default_monthly_fee(db))
+    team = None
+    if team_id is not None:
+        ms = next((x for x in member.memberships if x.team_id == team_id), None)
+        if ms is None:
+            raise HTTPException(400, "이 멤버의 소속 팀이 아닙니다.")
+        team = ms.team
+
+    fee = resolve_member_fee(member, team, default_monthly_fee(db))
+    # 무소속 건은 team_id 가 NULL 이라 == 로는 안 잡힌다.
+    same_team = (models.MemberDues.team_id == team_id) if team_id is not None \
+        else models.MemberDues.team_id.is_(None)
     rec = db.query(models.MemberDues).filter(
         models.MemberDues.member_id == member_id,
         models.MemberDues.year_month == year_month,
+        same_team,
     ).first()
     if not rec:
-        rec = models.MemberDues(member_id=member_id, year_month=year_month)
+        rec = models.MemberDues(member_id=member_id, team_id=team_id,
+                                year_month=year_month)
         db.add(rec)
 
     rec.status = data.status
@@ -319,16 +353,20 @@ def upsert_dues(
         "dues_updated",
         member_id=member_id,
         member=member.name,
+        team=(team.name if team else None),
         month=year_month,
         status=rec.status,
         amount=rec.amount,
         by=admin.username,
     )
-    audit(db, admin, "dues.update", f"{member.name} {year_month}",
+    audit(db, admin, "dues.update",
+          f"{member.name}{f'({team.name})' if team else ''} {year_month}",
           f"{rec.status} {rec.amount:,}원", request)
     return schemas.DuesRow(
-        member_id=member.id, team_id=member.team_id,
-        team_name=member.team.name if member.team else None,
+        member_id=member.id,
+        team_id=team.id if team else None,
+        team_name=team.name if team else None,
+        covered_by_team=(team is not None and team.billing_type == 'monthly'),
         name=member.name, parts=member.parts,
         dues_exempt=member.dues_exempt, fee=fee,
         status=rec.status, amount=rec.amount, paid_on=rec.paid_on, memo=rec.memo,

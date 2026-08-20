@@ -41,7 +41,12 @@ function contactMatches(text) {
 function contactGroups() {
   const groups = [];
   const byTeam = {};
-  contactData.members.forEach(m => { (byTeam[m.team_id] ||= []).push(m); });
+  // 밴드를 여러 개 하는 사람은 속한 팀 아래 모두 나온다 — 연락망은 팀 단위로 본다.
+  contactData.members.forEach(m => {
+    const teams = m.teams || [];
+    if (!teams.length) (byTeam[null] ||= []).push(m);
+    else teams.forEach(t => (byTeam[t.id] ||= []).push(m));
+  });
 
   contactData.teams
     .filter(t => t.is_active)
@@ -56,7 +61,7 @@ function contactGroups() {
       if (teamHit || members.length) groups.push({ team: t, members, showLeader: teamHit });
     });
 
-  const loose = (byTeam[null] || []).concat(byTeam[undefined] || [])
+  const loose = (byTeam[null] || [])
     .filter(m => contactMatches(`${m.name} ${m.phone || ''} ${m.parts || ''}`));
   if (loose.length) groups.push({ team: null, members: loose });
 

@@ -67,6 +67,10 @@ class Reservation(Base):
     # 자정을 넘기는 예약은 날짜별 두 건으로 나눠 저장하고 같은 group_key 로 묶는다.
     # 확정·취소는 짝을 함께 처리한다.
     group_key = Column(String(32), index=True)
+    # 본인 취소용. 로그인이 없으므로 '이 예약을 신청한 브라우저' 를 이 토큰으로 가린다.
+    # 절대 공개 목록에 실으면 안 된다 — 생성 응답에서만 한 번 내보낸다.
+    # 자정을 넘겨 나뉜 예약은 group_key 처럼 같은 토큰을 공유한다.
+    cancel_token = Column(String(32), index=True)
     # 예약 시점의 과금 판정을 그대로 남긴다. 나중에 팀 과금 방식이나 회비 상태가
     # 바뀌어도 지난 예약의 요금이 따라 바뀌지 않게.
     is_free = Column(Boolean, nullable=False, server_default='false')
@@ -132,7 +136,8 @@ class BlockedPeriod(Base):
 
 
 class Member(Base):
-    """밴드 멤버 명부. team_id 로 소속 팀을 가리킨다 (NULL = 무소속)."""
+    """밴드 멤버 명부. 소속은 member_teams 에 있다 (여러 팀 가능).
+    team_id 는 그 중 대표 팀 — 카드 첫 줄과 정렬에만 쓴다."""
     __tablename__ = "members"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -157,14 +162,38 @@ class Member(Base):
 
     dues = relationship("MemberDues", back_populates="member", cascade="all, delete-orphan")
     team = relationship("Team", back_populates="members")
+    memberships = relationship(
+        "MemberTeam", back_populates="member", cascade="all, delete-orphan",
+    )
+
+
+class MemberTeam(Base):
+    """멤버 ↔ 팀 다대다. 한 사람이 밴드를 여러 개 할 수 있다.
+    dues_exempt = 이 팀 몫 회비는 받지 않음 (members.dues_exempt 의 팀 단위 버전)."""
+    __tablename__ = "member_teams"
+
+    member_id = Column(Integer, ForeignKey("members.id", ondelete="CASCADE"), primary_key=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), primary_key=True)
+    dues_exempt = Column(Boolean, nullable=False, server_default='false')
+
+    member = relationship("Member", back_populates="memberships")
+    team = relationship("Team")
 
 
 class MemberDues(Base):
+    """(멤버, 팀, 달) 하나당 한 건. 두 밴드를 하면 그 달 회비도 두 건이다.
+    team_id 가 NULL 이면 무소속일 때의 회비 — Postgres 15 의 NULLS NOT DISTINCT 로
+    중복을 막는다 (마이그레이션에서 인덱스로 건다)."""
     __tablename__ = "member_dues"
-    __table_args__ = (UniqueConstraint('member_id', 'year_month', name='uq_member_dues_month'),)
+    __table_args__ = (
+        UniqueConstraint('member_id', 'team_id', 'year_month',
+                         name='uq_member_dues_team_month',
+                         postgresql_nulls_not_distinct=True),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("members.id", ondelete="CASCADE"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), index=True)
     year_month = Column(String(7), nullable=False, index=True)  # 'YYYY-MM'
     status = Column(String(20), nullable=False, server_default='unpaid')  # paid|unpaid|exempt|pending
     amount = Column(Integer, nullable=False, server_default='0')
@@ -173,6 +202,7 @@ class MemberDues(Base):
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     member = relationship("Member", back_populates="dues")
+    team = relationship("Team")
 
 
 class TeamDues(Base):

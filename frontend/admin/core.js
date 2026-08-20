@@ -103,7 +103,7 @@ function attachPhoneMask(input) {
    ============================================================ */
 /* 한 팀에 기타가 둘일 수 있어 리드·세컨을 따로 둔다.
    저장은 콤마 문자열이고 같은 값만 중복 제거되므로 셋은 공존한다. */
-const FIXED_PARTS = ['보컬', '기타', '리드기타', '세컨기타', '베이스', '드럼', '키보드'];
+const FIXED_PARTS = ['보컬', '여보컬', '남보컬', '기타', '리드기타', '세컨기타', '베이스', '드럼', '키보드'];
 
 function splitParts(parts) {
   return String(parts || '').split(',').map(s => s.trim()).filter(Boolean);
@@ -129,6 +129,37 @@ function readPartPicker(boxId, textId) {
   const checked = [...document.querySelectorAll(`#${boxId} input:checked`)].map(i => i.value);
   const custom  = splitParts(document.getElementById(textId).value);
   return [...new Set([...checked, ...custom])].join(',');
+}
+
+/* 소속 팀 다중 선택. 한 사람이 밴드를 여러 개 할 수 있다.
+   포지션 칩(.part-checks)과 같은 모양을 그대로 쓴다 — 새 CSS 없음. */
+function renderTeamPicker(boxId, teamIds, onChange) {
+  const chosen = new Set((teamIds || []).map(Number));
+  // 비활성 팀은 이미 속해 있는 사람에게만 보인다 (모르고 새로 넣지 않게).
+  const teams = Object.values(teamsById)
+    .filter(t => t.is_active || chosen.has(t.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const box = document.getElementById(boxId);
+  if (!teams.length) {
+    box.innerHTML = '<span class="team-pick-empty">등록된 팀이 없습니다.</span>';
+    return;
+  }
+  box.innerHTML = teams.map(t => `
+    <label class="part-check${chosen.has(t.id) ? ' active' : ''}">
+      <input type="checkbox" value="${t.id}"${chosen.has(t.id) ? ' checked' : ''}>
+      <span>${escHtml(t.name)}</span>
+    </label>
+  `).join('');
+  box.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', () => {
+      input.closest('.part-check').classList.toggle('active', input.checked);
+      if (onChange) onChange();
+    });
+  });
+}
+
+function readTeamPicker(boxId) {
+  return [...document.querySelectorAll(`#${boxId} input:checked`)].map(i => Number(i.value));
 }
 
 /* 목록에 뿌릴 태그. 고정 항목이 아닌 것은 다른 색으로 구분한다. */
@@ -183,7 +214,14 @@ async function apiJson(path, opts = {}) {
   if (!res.ok) {
     if (res.status === 401) { forceLogout(); throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.'); }
     let detail = '요청에 실패했습니다.';
-    try { detail = (await res.json()).detail || detail; } catch {}
+    try {
+      const body = (await res.json()).detail;
+      // FastAPI 검증 오류는 detail 이 배열이다 — 그대로 넘기면 '[object Object]' 가 뜬다.
+      if (typeof body === 'string') detail = body;
+      else if (Array.isArray(body) && body.length) {
+        detail = body.map(e => `${(e.loc || []).slice(1).join('.')}: ${e.msg}`).join(', ');
+      }
+    } catch {}
     throw new Error(detail);
   }
   return res.status === 204 ? null : res.json();
@@ -469,7 +507,8 @@ async function renderDuesHistory(elId, path) {
     ? '<div class="dues-hist-empty">아직 입금 기록이 없습니다.</div>'
     : rows.map(r => `
         <div class="dues-hist-row">
-          <span class="dh-ym">${escHtml(r.year_month)}</span>
+          <span class="dh-ym">${escHtml(r.year_month)}${
+            r.team_name ? `<span class="dh-team">${escHtml(r.team_name)}</span>` : ''}</span>
           <span class="dh-status ${r.status}">${DUES_LABEL[r.status] || r.status}</span>
           <span class="dh-amt">${r.amount ? r.amount.toLocaleString() + '원' : '—'}</span>
           <span class="dh-date">${r.paid_on ? escHtml(r.paid_on.slice(5)) : ''}</span>

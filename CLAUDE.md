@@ -19,6 +19,7 @@ docker compose up -d --build
 접속:
 - 예약 페이지: `http://localhost:8010/`
 - 관리자: `http://localhost:8010/admin` (예약 페이지에 링크 없음 — URL 직접 입력)
+- 이용안내: `http://localhost:8010/guide` (인쇄하면 A4 PDF)
 - 공개 티켓: `http://localhost:8010/t/{slug}`
 - pgadmin: `http://127.0.0.1:5050` (계정은 `.env`)
 - DB: `127.0.0.1:5433` (loopback 전용, 내부는 5432)
@@ -49,7 +50,9 @@ frontend/
   admin.html                # 관리자 셸 (모든 페이지 마크업)
   admin/                    # 페이지별 JS — core.js 먼저 로드
     core.js reservations.js ops.js teams.js members.js dues.js tickets.js users.js settings.js
-  favicon.svg               # 문 모양 파비콘 (세 페이지 공용)
+  favicon.svg               # 문 모양 파비콘 (네 페이지 공용)
+  guide.html  guide.js      # 이용안내 (/guide) — 화면 + 인쇄용 PDF
+  guide/                    # 이용안내에 넣은 화면 캡처 (UI 바뀌면 다시 찍을 것)
   ticket.html  ticket.js    # 공개 티켓 페이지 (/t/{slug})
   ticket-render.js          # 티켓 렌더 — 에디터·공개 페이지 공용
   style.css                 # 공용 스타일 (모바일 우선, 데스크탑은 phone-frame)
@@ -89,16 +92,29 @@ docker-compose.yml
   | `dues` | 멤버가 각자 월회비 (`dues_fee`) | 즉시 `confirmed` | 멤버별 수납 |
 - 과금 방식을 바꾸면 안 쓰는 금액 컬럼은 비운다(`_apply_billing`) — 되돌렸을 때 옛 금액이 되살아나지 않게
 - 비활성 팀은 예약 드롭다운에서 사라짐. 예약 이력·소속 멤버 있으면 삭제 불가
-- `members.team_id` = 회비를 누가 내는지, `members.is_doors` = 도어즈 멤버십 여부. **둘은 별개다.**
+- **한 멤버가 팀 여러 개에 속할 수 있다.** 소속의 정본은 `member_teams` 조인 테이블이고,
+  `members.team_id` 는 그 중 **대표 팀**(목록 첫 팀)일 뿐 — 회비 주체가 아니다.
+  두 값은 `deps.set_member_teams()` 한 곳에서만 함께 쓴다. `MemberResponse.teams` 가 전체 소속을 싣는다
+- `members.is_doors` = 도어즈 멤버십 여부. **소속과는 별개다.**
   팀 이용료 팀으로 옮겨간 사람도 도어즈 명부에는 남는다
-- 소속 팀이 `monthly` 면 그 멤버는 개인 회비 대상에서 빠진다 (`DuesRow.covered_by_team`)
+- **회비는 소속 팀마다 각각 청구된다** — 두 밴드를 하면 그 달 회비도 두 건이다.
+  그 중 `monthly` 팀 건만 개인 회비에서 빠진다 (`DuesRow.covered_by_team`). 나머지 팀 몫은 그대로 청구된다
+- 팀 하나만 안 받으려면 `member_teams.dues_exempt` (멤버 수정창의 '회비 제외할 팀').
+  `members.dues_exempt` 는 전체 면제라 범위가 다르다
 - 회비 금액: `member.monthly_fee` > `team.dues_fee` > `app_settings.default_monthly_fee` (`deps.resolve_member_fee`)
 - 팀 이용료: `team.monthly_fee` > `app_settings.default_team_fee` (`deps.default_team_fee`). 프론트·백엔드가 같은 순서를 쓴다
-- `parts`는 콤마 문자열(`"기타,보컬"`), 조인 테이블 없음
+- `parts`는 콤마 문자열(`"기타,보컬"`), 조인 테이블 없음. 고정 목록은 `core.js::FIXED_PARTS` 한 곳 —
+  멤버·팀 수정창이 같은 `renderPartPicker` 를 쓰므로 여기만 고치면 양쪽에 다 반영된다
+- 팀 카드·상세의 나이 통계는 `TeamResponse.age_avg` / `age_buckets` (서버 집계, `teams.py::_age_stats`).
+  나이는 한국식 연 나이, 연령대는 10년 단위에 60 이상 한 묶음. **출생년도를 모르는 멤버는 아예 뺀다**
 - 전화번호는 **숫자만 저장**하고 화면에서만 하이픈을 붙인다 (`deps.normalize_phone` / `core.js::formatPhone`).
   번호처럼 안 생긴 값은 손대지 않는다
-- `member_dues` = (member_id, year_month) 유니크. status는 `paid|unpaid|exempt|pending`
-  - `GET /api/admin/dues`는 활성 멤버 전원을 반환하고, 기록 없는 달은 기본값으로 채워 보낸다. **조회로 row를 만들지 않는다** — 생성은 PUT upsert에서만
+- `member_dues` = (member_id, **team_id**, year_month) 유니크. status는 `paid|unpaid|exempt|pending`.
+  무소속이면 `team_id` 가 NULL 이므로 Postgres 15 의 `NULLS NOT DISTINCT` 로 중복을 막는다
+  (`migrate_schema()` 가 인덱스로 건다 — 옛 `uq_member_dues_month` 가 남아 있을 때만 한 번 옮긴다)
+  - `GET /api/admin/dues`는 활성 멤버를 **소속마다 한 건씩** 반환하고, 기록 없는 달은 기본값으로 채워 보낸다. **조회로 row를 만들지 않는다** — 생성은 PUT upsert에서만
+  - 쓰기는 `PUT /api/admin/dues/{member_id}/{year_month}?team_id=` — 생략하면 무소속 건. 남의 팀이면 400
+  - 프론트에서 행을 찾을 땐 `member_id` 만으로 부족하다. **`team_id` 까지 봐야 한다**
 - `team_dues` = (team_id, year_month) 유니크. **`billing_type='monthly'` 팀만** 대상 (다른 과금 방식은 400). `member_dues`와 같은 모양이고 같은 규칙(조회로 row 안 만듦)
   - **회비와 이용료는 절대 합산하지 않는다** — 성격이 다른 수입이다. KPI 카드 · 수납률 막대 · 연간 차트(스택 2계열) 모두 따로 센다
   - 계열 색은 화면 어디서나 같다: 월회비 `--room1`(보라) / 월 이용료 `--room2`(청록)
@@ -147,6 +163,41 @@ docker-compose.yml
 - 크기 제한은 `MAX_UPLOAD_MB` (기본 25, `0`이면 무제한). 조각 단위 스트리밍이라 큰 파일도 메모리를 먹지 않는다.
   실패하면 반쪽 파일을 지운다. 프록시(nginx)에도 자체 본문 크기 제한이 있으니 앱 로그에 요청이 안 찍히면 그쪽을 봐야 한다
 
+### 공개 API 와 관리자 API 는 갈라져 있다
+- `GET /api/reservations` 는 **인증이 없다** — 주소만 알면 누구나 받아간다.
+  그래서 `ReservationPublic` 으로 내보낸다: 연락처·메모·예약자 실명·취소 토큰 없음.
+  타임라인에 실제로 쓰는 것만 (`id room_id date start_time end_time duration team_name members status group_key`)
+- 관리자 화면은 `GET /api/admin/reservations` (`get_current_admin`) 로 전부 본다.
+  두 라우트가 `_reservation_query()` 하나를 공유한다
+- **공개 스키마에 필드를 더할 땐 그게 남에게 보여도 되는지 먼저 본다.**
+  전에는 한 엔드포인트가 둘 다 맡아서 `booker_phone` 이 그대로 새고 있었다
+
+### 본인 취소 (로그인 없음)
+- 예약을 만들 때 `reservations.cancel_token` 을 발급하고 **생성 응답에만** 실어 보낸다
+  (`ReservationCreated`). 목록에 실으면 남의 예약도 지워진다
+- 프론트는 `localStorage['bandroom_my_res']` 에 `{예약id: {token, date, group_key}}` 로 보관.
+  읽을 때 지난 날짜를 털어낸다 (`app.js::loadMyRes`)
+- `POST /api/reservations/{id}/cancel` — 토큰은 `secrets.compare_digest` 로 맞추고,
+  **시작 시각이 지나면 400**. 자정 넘김은 `_group_rows` 로 짝까지 함께 지운다
+- 다른 기기에서는 취소가 안 된다 (그게 설계다). 그 경우는 문의로 받는다
+
+### 관리자 예약 수정
+- `PATCH /api/admin/reservations/{id}` — 보낸 항목만 바뀐다. 슬롯 충돌·차단 검사는
+  생성과 같은 `_assert_slots_free()` 를 쓰되 `exclude_ids` 로 자기 자신을 뺀다
+  (안 빼면 메모만 고쳐도 "이미 예약이 있습니다" 가 난다)
+- **행을 지웠다 다시 만들지 않는다** — id 가 바뀌면 그 id 를 들고 있던 화면이 전부 어긋난다.
+  구간 수만큼 기존 행을 고쳐 쓰고, 남는 행만 지운다. 자정을 넘기면 두 건이 되고 되돌리면 한 건이 된다
+- 상태(`status`) · 무료 여부(`is_free`) · `cancel_token` 은 그대로 물려준다.
+  시간을 옮겼다고 입금이 취소되는 것도 아니고, 이용자 취소 버튼이 죽어서도 안 된다
+
+### 이용안내 페이지 (`/guide`)
+- `frontend/guide.html` + `guide.js` + `style.css` 의 `.guide-*`. 인쇄 CSS 로 A4 PDF 가 바로 나온다
+  (`window.print()`, `@page size: A4`, `print-color-adjust: exact`)
+- 요금·계좌는 `/api/rooms` · `/api/settings` 에서 받아 채운다 — **안내문에 금액을 박지 않는다**
+- 화면 캡처는 `frontend/guide/*.png`. **예약 화면을 바꾸면 다시 찍어야 한다.**
+  계좌 숫자는 캡처에서 가려 뒀다 (계좌가 바뀌면 이미지만 옛값으로 남으므로)
+- `guide.js::OVERNIGHT_END` 는 `app.js` 의 같은 값과 맞춰야 한다
+
 ### SSE 실시간 업데이트
 - 엔드포인트: `GET /api/reservations/stream`
 - 이벤트: `reservation_created`, `reservation_confirmed`, `reservation_deleted`
@@ -182,6 +233,14 @@ docker-compose.yml
 - **항목 많은 수정창은 `.modal.wide` + `.form-grid`/`.form-col`** (멤버·팀). 좁은 화면에선 `display: contents` 로
   그냥 세로로 쌓이고, 900px 이상에서만 2열이 된다. 칼럼에 항목을 넣을 땐 **양쪽 높이를 맞춰야** 스크롤이 안 생긴다
   - 데스크탑 `max-height` 는 `body:has(.admin-dashboard) .modal` 이 88vh 로 잡고 있으니 같은 특이도로 눌러야 먹는다
+- **Pydantic 필드 이름이 타입 이름을 가릴 수 있다**: `date: Optional[date] = None` 은
+  `= None` 이 클래스 안에 `date` 를 묶어버려 타입이 통째로 `None` 이 된다 (422 `Input should be None`).
+  `date: date` 처럼 기본값이 없으면 안 그런다. 기본값을 붙일 땐 `dt.date` / `dt.time` 을 쓴다
+- **FastAPI 검증 오류의 `detail` 은 배열이다**: 그대로 토스트에 넘기면 `[object Object]` 가 뜬다.
+  `core.js::apiJson` 이 배열이면 `필드: 메시지` 로 풀어준다
+- **관리자 JS는 전역 스코프라 함수 이름이 충돌한다**: 나중에 로드되는 파일이 조용히 이긴다.
+  `setTeamDuesStatus`(dues.js, 팀 이용료)와 팀 상세 명단의 회비 칩이 같은 이름이라 후자가 죽어 있었다 —
+  지금은 `setRosterDuesStatus`(teams.js)로 나눠 놓았다. 새 전역 함수는 `grep -rn "function 이름"` 으로 먼저 확인할 것
 - **관리자 JS는 ES 모듈이 아니다**: 인라인 `onclick`이 전역 함수를 부르므로 일반 `<script>` 태그 + 전역 스코프를 유지한다. 새 페이지는 `PAGE_LOADERS.<page> = load<Page>` 로 자기 로더를 등록하고, `admin.html` 맨 아래 script 목록에 추가한다 (core.js가 항상 먼저)
 - **관리자 페이지에는 SSE 미연결**: 목록은 수동 새로고침 또는 액션 후 재호출
 - **대시보드·통계는 매출이 아니라 이용 건수 기준**: 팀 대부분이 선불(`monthly`/`dues`)이라 예약 건당 매출이 0이다. 매출로 재면 그래프가 통째로 비어 "예약이 없다"로 읽힌다. 건수를 주 지표로, 시간·매출은 보조로 표기한다. 방별 비율도 건수 기준. 실제 수입은 정산 화면(회비 + 팀 이용료)에 있다
@@ -189,7 +248,7 @@ docker-compose.yml
   1. HTML 셸과 `/static` 에 `Cache-Control: no-cache` (`main.py` 미들웨어) — ETag 로 304 는 그대로 나간다
   2. `main.py::render_page()` 가 셸의 `/static/*.js|css` 주소에 `?v=<가장 최근 mtime>` 을 붙인다. **이게 핵심** — 이미 캐시된 사본에는 헤더가 소급되지 않으므로 주소를 바꿔야 한다. 프론트만 고쳐도(재빌드 없이) 값이 바뀐다
   3. 새 DOM 요소를 읽을 땐 `core.js::setText()` 처럼 없으면 넘어가게 쓴다
-  세 페이지(`/`, `/admin`, `/t/{slug}`)가 모두 `render_page()` 를 지난다
+  네 페이지(`/`, `/admin`, `/guide`, `/t/{slug}`)가 모두 `render_page()` 를 지난다
 - **포트**: 앱 8010, DB 호스트 5433 (5432는 다른 프로젝트가 점유 가능)
 - **Docker Compose v1 환경** (구형 시놀로지): `docker-compose up --build -d` 써야 함. `--build`만 단독이면 v1은 거부
 - **시놀로지에서 docker.sock 권한**: `sudo` 필요하거나 `docker` 그룹에 사용자 추가

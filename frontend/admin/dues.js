@@ -66,8 +66,9 @@ function renderDues() {
     return;
   }
 
+  // 한 사람이 밴드를 여러 개 하면 행도 여러 개다 — '명' 이 아니라 '건'.
   list.innerHTML = duesSectionHead(
-      '월회비 (도어즈 멤버)', `${d.rows.length}명`, d.total_paid, d.total_expected)
+      '월회비 (도어즈 멤버)', `${d.rows.length}건`, d.total_paid, d.total_expected)
     + '<div class="dues-list">' + d.rows.map(r => `
     <div class="dues-row status-${r.covered_by_team ? 'covered' : r.status}">
       <div class="dues-member">
@@ -86,7 +87,7 @@ function renderDues() {
         : `<div class="dues-chips">
             ${Object.entries(DUES_STATUS).map(([key, meta]) => `
               <button class="dues-chip ${meta.cls}${r.status === key ? ' active' : ''}"
-                      onclick="setDuesStatus(${r.member_id}, '${key}')">${meta.label}</button>
+                      onclick="setDuesStatus(${r.member_id}, ${r.team_id ?? 'null'}, '${key}')">${meta.label}</button>
             `).join('')}
           </div>`}
     </div>
@@ -155,17 +156,23 @@ async function setTeamDuesStatus(teamId, status) {
   }
 }
 
-async function setDuesStatus(memberId, status) {
-  const row = duesData?.rows.find(r => r.member_id === memberId);
+/* 회비는 (멤버, 팀) 단위다 — 같은 사람이라도 팀이 다르면 다른 건이다.
+   teamId 가 null 이면 무소속일 때의 회비. */
+async function setDuesStatus(memberId, teamId, status) {
+  const row = duesData?.rows.find(
+    r => r.member_id === memberId && (r.team_id ?? null) === teamId);
   if (!row || row.status === status) return;
 
+  const q = teamId == null ? '' : `?team_id=${teamId}`;
   try {
-    await apiJson(`/api/admin/dues/${memberId}/${ymStr(duesCursor)}`, {
+    await apiJson(`/api/admin/dues/${memberId}/${ymStr(duesCursor)}${q}`, {
       method: 'PUT',
       body: JSON.stringify({ status }),
     });
     await loadDues();
-    showToast(`${row.name} · ${DUES_STATUS[status].label} 처리`, 'success');
+    showToast(
+      `${row.name}${row.team_name ? ` (${row.team_name})` : ''} · ${DUES_STATUS[status].label} 처리`,
+      'success');
   } catch (e) {
     showToast(e.message, 'error');
   }
