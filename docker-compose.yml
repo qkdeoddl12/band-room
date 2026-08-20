@@ -53,6 +53,30 @@ services:
       - ./backend/logs:/app/logs
       - ./uploads:/app/uploads
 
+  # 매일 DB 를 파일로 떨군다. 새 이미지를 받지 않으려고 db 와 같은 이미지를 쓴다.
+  # 덤프는 ./backups 에 쌓이므로 시놀로지 Hyper Backup 은 이 프로젝트 폴더만
+  # 통째로 백업하면 DB·업로드가 함께 따라간다.
+  db-backup:
+    image: postgres:15-alpine
+    container_name: bandroom_dbbackup
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: ${DB_USER:-bandroom}
+      PGPASSWORD: ${DB_PASSWORD:?.env 에 DB_PASSWORD 를 설정하세요}
+      PGDATABASE: ${DB_NAME:-bandroom}
+      # 몇 시에 뜰지(0~23) · 며칠 보관할지
+      BACKUP_HOUR: ${BACKUP_HOUR:-4}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+      TZ: Asia/Seoul
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./scripts/pg-backup.sh:/backup.sh:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "/backup.sh"]
+
   # DB 를 GUI 로 볼 일이 없으면 이 서비스는 통째로 지워도 된다.
   pgadmin:
     image: dpage/pgadmin4

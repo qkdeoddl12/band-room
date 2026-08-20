@@ -28,6 +28,7 @@ docker compose up -d --build
 앱 포트만 0.0.0.0 바인딩(프록시가 붙어야 함), DB·pgadmin 은 loopback.
 
 코드 변경 후 앱만 재빌드: `docker compose up -d --build app`
+DB 백업 즉시 1회: `docker compose exec db-backup sh /backup.sh once`
 스모크 테스트: `docker exec bandroom_app python test_smoke.py`
 
 ## 디렉토리
@@ -57,6 +58,9 @@ frontend/
   ticket-render.js          # 티켓 렌더 — 에디터·공개 페이지 공용
   style.css                 # 공용 스타일 (모바일 우선, 데스크탑은 phone-frame)
 uploads/            # 티켓 배경 이미지 (볼륨 마운트, git 제외)
+backups/            # DB 덤프 (db-backup 사이드카가 채운다, git 제외)
+scripts/
+  pg-backup.sh      # 매일 pg_dump + 검증 + 보관기간 정리
 docker-compose.yml
 ```
 
@@ -210,6 +214,28 @@ docker-compose.yml
   1. `models.py`에 Column 추가 (fresh DB 대응)
   2. `migrate_schema()`에 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` 추가 (기존 DB 대응)
   3. 기존 row에 유의미한 값이 필요하면 `server_default` 지정하거나 `init_data()`에서 백필
+
+### DB 백업
+- `db-backup` 사이드카가 매일 `BACKUP_HOUR`시 05분에 `./backups/bandroom-YYYY-MM-DD_HHMM.dump` 를 떨군다
+  (`scripts/pg-backup.sh`). 새 이미지를 받지 않으려고 `postgres:15-alpine` 을 db 와 공유한다
+- `pg_dump -Fc` 커스텀 포맷 — 압축돼 있고 `pg_restore` 로 테이블 단위 복구도 된다
+- **반쪽 파일이 멀쩡한 백업인 척 남지 않게** `.part` 로 쓰고 다 되면 `mv` 한다.
+  이어서 `pg_restore --list` 로 열어보고, 못 열면 지우고 실패로 남긴다
+- 옛 덤프 삭제는 **백업이 성공했을 때만** 돈다 (`BACKUP_KEEP_DAYS`, 기본 14일).
+  실패한 날 옛것까지 지워버리면 백업이 통째로 사라진다
+- 즉시 한 번: `docker compose exec db-backup sh /backup.sh once`
+- 복구:
+  ```bash
+  # 통째로 되돌리기 (기존 DB 를 버리고 새로 만든다)
+  docker compose exec db-backup psql -d postgres -c "DROP DATABASE bandroom"
+  docker compose exec db-backup psql -d postgres -c "CREATE DATABASE bandroom"
+  docker compose exec db-backup pg_restore -d bandroom --no-owner /backups/<파일>.dump
+  docker compose restart app
+  ```
+  운영 DB 를 건드리기 전에는 `restore_test` 같은 임시 DB 로 먼저 열어보고 행 수를 비교할 것
+- **시놀로지에서는 `./backups` 를 따로 챙길 필요가 없다** — 프로젝트 폴더를 Hyper Backup 대상으로
+  잡으면 DB 덤프와 `./uploads` 가 함께 따라간다. 덤프는 git 에 올라가지 않는다(`.gitignore`)
+- 로그: `docker logs bandroom_dbbackup`
 
 ### 로깅
 - `app_logging.py`의 `log_event(event, **fields)`가 `event=X key=value` 형식 구조화 로그 출력
