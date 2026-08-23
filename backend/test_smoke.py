@@ -498,12 +498,20 @@ def test_multi_team(h):
     blocked = client.delete(f"/api/admin/teams/{b}", headers=h)
     assert blocked.status_code == 400, f"소속 멤버가 있으면 막아야 한다, got {blocked.status_code}"
 
-    # 7) 팀 카드 나이 통계 — 출생년도를 아는 멤버만 센다
+    # 7) 팀 카드 나이 통계 — 출생년도를 아는 멤버만 센다.
+    #    겸사겸사 도어즈가 아닌 멤버로 만들어 회비 목록에서 빠지는지도 본다.
     res = client.post("/api/admin/members", headers=h, json={
-        "name": f"{MARK} 나이없음", "team_ids": [a],
+        "name": f"{MARK} 나이없음", "team_ids": [a], "is_doors": False,
     })
     assert res.status_code == 200, res.text
     created["member4"] = res.json()["id"]
+
+    # 월회비는 도어즈 회비다 — 도어즈가 아니면 회비 팀 소속이어도 목록에 없어야 한다
+    month = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+    assert not any(r["member_id"] == created["member4"] for r in month["rows"]), \
+        "도어즈가 아닌 멤버가 월회비 목록에 있다"
+    assert any(r["member_id"] == m["id"] for r in month["rows"]), \
+        "도어즈 멤버는 그대로 있어야 한다"
 
     teams = {t["id"]: t for t in client.get("/api/admin/teams", headers=h).json()}
     year = date.today().year

@@ -346,6 +346,7 @@ async function renderTeamDetail() {
             ${escHtml(m.name)}
             ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
             ${others.map(t => `<span class="mt-badge team">${escHtml(t.name)}</span>`).join('')}
+            ${isDues && !m.is_doors ? '<span class="mt-badge off">회비 대상 아님</span>' : ''}
           </div>
           <div class="dues-sub">
             ${m.parts ? escHtml(splitParts(m.parts).join(' · ')) : '포지션 미지정'}

@@ -32,17 +32,20 @@ def get_dues_month(
     admin: models.AdminUser = Depends(get_current_admin),
     db: Session = Depends(get_db),
 ):
-    """활성 멤버의 그 달 회비를 소속 팀마다 한 건씩 반환한다 — 밴드를 두 개 하면
-    회비도 두 건이다. 무소속이면 팀 없는 한 건. 기록이 없는 달은 기본 상태로 채워
+    """활성 **도어즈** 멤버의 그 달 회비를 소속 팀마다 한 건씩 반환한다 — 밴드를 두 개
+    하면 회비도 두 건이다. 무소속이면 팀 없는 한 건. 기록이 없는 달은 기본 상태로 채워
     보낸다 (조회만으로 DB row를 만들지 않는다 — 생성은 PUT upsert에서만).
-    team_id 를 주면 그 팀 소속 건만 추린다."""
+    team_id 를 주면 그 팀 소속 건만 추린다.
+
+    월회비는 도어즈 회비다. 도어즈가 아닌 사람은 낼 것이 없어 목록에 있어봐야
+    '팀 납부' 뱃지만 달고 자리를 차지한다 — 아예 빼서 확인할 줄만 남긴다."""
     _check_year_month(year_month)
     fallback = default_monthly_fee(db)
 
     # 소속 팀을 행마다 건드리므로 미리 조인해 온다 (N+1 방지).
     query = db.query(models.Member).options(
         joinedload(models.Member.memberships).joinedload(models.MemberTeam.team)
-    ).filter(models.Member.is_active == True)
+    ).filter(models.Member.is_active == True, models.Member.is_doors == True)
     if team_id is not None:
         query = query.filter(models.Member.memberships.any(
             models.MemberTeam.team_id == team_id

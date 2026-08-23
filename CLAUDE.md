@@ -99,7 +99,7 @@ docker-compose.yml
 - **한 멤버가 팀 여러 개에 속할 수 있다.** 소속의 정본은 `member_teams` 조인 테이블이고,
   `members.team_id` 는 그 중 **대표 팀**(목록 첫 팀)일 뿐 — 회비 주체가 아니다.
   두 값은 `deps.set_member_teams()` 한 곳에서만 함께 쓴다. `MemberResponse.teams` 가 전체 소속을 싣는다
-- `members.is_doors` = 도어즈 멤버십 여부. **소속과는 별개다.**
+- `members.is_doors` = 도어즈 멤버십 여부. **소속과는 별개다.** 멤버 관리 기본 필터가 도어즈다
   팀 이용료 팀으로 옮겨간 사람도 도어즈 명부에는 남는다
 - **회비는 소속 팀마다 각각 청구된다** — 두 밴드를 하면 그 달 회비도 두 건이다.
   그 중 `monthly` 팀 건만 개인 회비에서 빠진다 (`DuesRow.covered_by_team`). 나머지 팀 몫은 그대로 청구된다
@@ -116,7 +116,10 @@ docker-compose.yml
 - `member_dues` = (member_id, **team_id**, year_month) 유니크. status는 `paid|unpaid|exempt|pending`.
   무소속이면 `team_id` 가 NULL 이므로 Postgres 15 의 `NULLS NOT DISTINCT` 로 중복을 막는다
   (`migrate_schema()` 가 인덱스로 건다 — 옛 `uq_member_dues_month` 가 남아 있을 때만 한 번 옮긴다)
-  - `GET /api/admin/dues`는 활성 멤버를 **소속마다 한 건씩** 반환하고, 기록 없는 달은 기본값으로 채워 보낸다. **조회로 row를 만들지 않는다** — 생성은 PUT upsert에서만
+  - **월회비는 도어즈 회비다** — `GET /api/admin/dues` 는 `is_doors=true` 인 활성 멤버만 센다.
+    도어즈가 아니면 낼 것이 없어 목록에 있어봐야 '팀 납부' 뱃지만 달고 자리를 차지한다.
+    회비 팀에 도어즈 아닌 멤버가 있으면 팀 상세 명단에 '회비 대상 아님' 으로 표시된다
+  - `GET /api/admin/dues`는 활성 **도어즈** 멤버를 **소속마다 한 건씩** 반환하고, 기록 없는 달은 기본값으로 채워 보낸다. **조회로 row를 만들지 않는다** — 생성은 PUT upsert에서만
   - 쓰기는 `PUT /api/admin/dues/{member_id}/{year_month}?team_id=` — 생략하면 무소속 건. 남의 팀이면 400
   - 프론트에서 행을 찾을 땐 `member_id` 만으로 부족하다. **`team_id` 까지 봐야 한다**
 - `team_dues` = (team_id, year_month) 유니크. **`billing_type='monthly'` 팀만** 대상 (다른 과금 방식은 400). `member_dues`와 같은 모양이고 같은 규칙(조회로 row 안 만듦)

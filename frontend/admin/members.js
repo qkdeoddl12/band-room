@@ -6,7 +6,7 @@
 let allMembers    = [];
 let memberSearch  = '';
 let memberTeamFil = '';
-let memberStatus  = 'all';
+let memberStatus  = 'doors';   // 도어즈 명부가 주 화면이다 — 기본으로 걸어둔다
 let editMemberId  = null;
 let returnToTeamId = null;   // 팀 상세에서 넘어온 경우 저장 후 그리로 돌아간다
 let memberExemptIds = [];    // 팀별 회비 제외 — 모달 여는 동안만 들고 있는다
