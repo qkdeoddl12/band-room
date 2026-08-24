@@ -9,6 +9,16 @@ let editTeamId = null;          // null = 신규 등록
 let detailTeamId = null;        // 상세 보고 있는 팀
 let detailCursor = new Date();  // 상세에서 보고 있는 달
 let detailMembers = [];         // 팀에 붙일 수 있는 후보 (활동 중인 전체 멤버)
+let detailTab = 'members';      // 팀 상세 안의 탭: members | songs
+let detailSongs = [];           // 이 팀 레퍼토리
+let openSongId = null;          // 펼쳐서 링크·메모를 고치는 중인 곡
+
+/* 곡 상태. 라벨을 여기 한 곳에만 두면 화면마다 문구가 갈리지 않는다. */
+const SONG_STATUS = {
+  done:       { label: '완곡',   cls: 'paid'    },
+  practicing: { label: '연습중', cls: 'pending' },
+  candidate:  { label: '후보',   cls: 'unpaid'  },
+};
 
 PAGE_LOADERS.teams = loadTeams;
 
@@ -88,7 +98,8 @@ function renderTeams() {
     ].filter(Boolean).join(' · ') || '담당자 미지정';
     // 멤버 수는 과금 방식과 상관없이 늘 보여준다 — 옆에 나이 통계가 붙는데
     // 인원이 없으면 무슨 모수인지 알 수 없다.
-    const counts = `멤버 ${t.member_count}명 · 예약 ${t.reservation_count}건`;
+    const counts = `멤버 ${t.member_count}명 · 예약 ${t.reservation_count}건`
+      + (t.done_song_count ? ` · 완곡 ${t.done_song_count}곡` : '');
     const ages = teamAgeText(t);
 
     return `
@@ -232,6 +243,9 @@ attachPhoneMask(document.getElementById('teamPhone'));
 function openTeamDetail(teamId) {
   detailTeamId = teamId;
   detailCursor = new Date();
+  // 다른 팀을 열면 멤버부터 본다. 곡 편집창이 열린 채 남아 있으면 남의 팀 곡을 고치게 된다.
+  detailTab = 'members';
+  openSongId = null;
   openOverlay('teamDetailOverlay');
   renderTeamDetail();
 }
@@ -285,8 +299,25 @@ async function renderTeamDetail() {
     </div>
     ${teamDuesNote(team)}
     ${team.memo ? `<div class="team-detail-memo">${escHtml(team.memo)}</div>` : ''}
+    <div class="chip-row team-detail-tabs">
+      ${Object.entries({ members: '멤버', songs: '레퍼토리' }).map(([key, label]) => `
+        <button class="chip${detailTab === key ? ' active' : ''}"
+                onclick="setTeamDetailTab('${key}')">${label}</button>
+      `).join('')}
+    </div>
   `;
   body.innerHTML = head + '<div class="spinner"></div>';
+
+  if (detailTab === 'songs') {
+    try {
+      detailSongs = await apiJson(`/api/admin/teams/${team.id}/songs`);
+    } catch (e) {
+      body.innerHTML = head + `<div class="admin-empty"><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
+      return;
+    }
+    body.innerHTML = head + renderSongList() + renderAddSongBox();
+    return;
+  }
 
   const isDues = team.billing_type === 'dues';
   const ym = ymStr(detailCursor);
@@ -371,6 +402,156 @@ async function editTeamMember(memberId) {
   } catch (e) { showToast(e.message, 'error'); return; }
   closeTeamDetail();
   openMemberModal(memberId, teamId);
+}
+
+function setTeamDetailTab(tab) {
+  detailTab = tab;
+  openSongId = null;
+  renderTeamDetail();
+}
+
+/* ============================================================
+   레퍼토리 — 이 팀이 어떤 곡을 할 수 있나 (완곡 먼저 보여준다)
+   ============================================================ */
+function renderSongList() {
+  const counts = Object.keys(SONG_STATUS)
+    .map(k => `${SONG_STATUS[k].label} ${detailSongs.filter(s => s.status === k).length}`)
+    .join(' · ');
+
+  if (!detailSongs.length) {
+    return '<div class="admin-empty"><span class="admin-empty-icon">🎵</span>'
+      + '<div class="admin-empty-text">등록된 곡이 없습니다.<br>아래에서 추가할 수 있습니다.</div></div>';
+  }
+
+  return `<div class="team-roster-label">${escHtml(counts)}</div>`
+    + '<div class="dues-list">' + detailSongs.map(song => {
+    const open = openSongId === song.id;
+    return `
+      <div class="dues-row status-${song.status === 'done' ? 'paid' : song.status === 'practicing' ? 'pending' : 'unpaid'}">
+        <div class="dues-member">
+          <div class="dues-name">
+            <span class="song-title" onclick="toggleSongEdit(${song.id})">${escHtml(song.title)}</span>
+            ${song.link ? `<a class="song-link" href="${escHtml(song.link)}" target="_blank" rel="noopener noreferrer" title="참고 링크">🔗</a>` : ''}
+          </div>
+          <div class="dues-sub">
+            ${song.artist ? escHtml(song.artist) : '아티스트 미지정'}
+            ${song.memo ? ` · ${escHtml(song.memo)}` : ''}
+          </div>
+        </div>
+        <div class="dues-chips">
+          ${Object.entries(SONG_STATUS).map(([key, meta]) => `
+            <button class="dues-chip ${meta.cls}${song.status === key ? ' active' : ''}"
+                    onclick="setSongStatus(${song.id}, '${key}')">${meta.label}</button>
+          `).join('')}
+        </div>
+      </div>
+      ${open ? songEditRow(song) : ''}`;
+  }).join('') + '</div>';
+}
+
+/* 링크·메모는 자주 안 고치니 곡을 눌렀을 때만 펼친다. */
+function songEditRow(song) {
+  return `
+    <div class="song-edit">
+      <input type="text" class="form-input" id="songEditTitle" maxlength="200"
+             value="${escHtml(song.title)}" placeholder="곡 제목">
+      <input type="text" class="form-input" id="songEditArtist" maxlength="100"
+             value="${escHtml(song.artist || '')}" placeholder="아티스트 / 원곡자">
+      <input type="url" class="form-input" id="songEditLink" maxlength="500"
+             value="${escHtml(song.link || '')}" placeholder="참고 링크 (https://...)">
+      <input type="text" class="form-input" id="songEditMemo"
+             value="${escHtml(song.memo || '')}" placeholder="메모 (예: 키 반음 내림)">
+      <div class="song-edit-actions">
+        <button type="button" class="btn-secondary" onclick="toggleSongEdit(${song.id})">닫기</button>
+        <button type="button" class="btn-danger" onclick="deleteSong(${song.id})">삭제</button>
+        <button type="button" class="btn-primary" onclick="saveSong(${song.id})">저장</button>
+      </div>
+    </div>`;
+}
+
+function renderAddSongBox() {
+  return `
+    <div class="team-add-member">
+      <div class="team-add-title">곡 추가</div>
+      <div class="team-add-row">
+        <input type="text" class="form-input" id="newSongTitle" maxlength="200" placeholder="곡 제목">
+        <input type="text" class="form-input" id="newSongArtist" maxlength="100" placeholder="아티스트">
+        <button type="button" class="btn-primary" onclick="addSong()">추가</button>
+      </div>
+      <div class="team-add-empty">추가하면 <b>후보</b>로 들어갑니다. 곡을 눌러 링크·메모를 넣을 수 있습니다.</div>
+    </div>`;
+}
+
+function toggleSongEdit(songId) {
+  openSongId = openSongId === songId ? null : songId;
+  renderTeamDetail();
+}
+
+async function addSong() {
+  const title = document.getElementById('newSongTitle').value.trim();
+  if (!title) { showToast('곡 제목을 입력해주세요.', 'error'); return; }
+  try {
+    await apiJson(`/api/admin/teams/${detailTeamId}/songs`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        artist: document.getElementById('newSongArtist').value.trim() || null,
+      }),
+    });
+    await renderTeamDetail();
+    showToast(`${title} 추가됨`, 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function setSongStatus(songId, status) {
+  const song = detailSongs.find(s => s.id === songId);
+  if (!song || song.status === status) return;
+  try {
+    await apiJson(`/api/admin/songs/${songId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    // 완곡 수가 팀 카드에도 나오므로 목록 캐시를 같이 갱신한다.
+    await loadTeams();
+    await renderTeamDetail();
+    showToast(`${song.title} · ${SONG_STATUS[status].label}`, 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function saveSong(songId) {
+  const body = {
+    title:  document.getElementById('songEditTitle').value.trim(),
+    artist: document.getElementById('songEditArtist').value.trim(),
+    link:   document.getElementById('songEditLink').value.trim(),
+    memo:   document.getElementById('songEditMemo').value.trim(),
+  };
+  if (!body.title) { showToast('곡 제목을 입력해주세요.', 'error'); return; }
+  try {
+    await apiJson(`/api/admin/songs/${songId}`, { method: 'PATCH', body: JSON.stringify(body) });
+    openSongId = null;
+    await renderTeamDetail();
+    showToast('저장되었습니다.', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function deleteSong(songId) {
+  const song = detailSongs.find(s => s.id === songId);
+  if (!confirm(`[${song ? song.title : '이 곡'}] 을 삭제하시겠습니까?`)) return;
+  try {
+    await apiJson(`/api/admin/songs/${songId}`, { method: 'DELETE' });
+    openSongId = null;
+    await loadTeams();
+    await renderTeamDetail();
+    showToast('삭제되었습니다.', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
 }
 
 /* 이미 이 팀 소속인 사람은 후보에서 뺀다. */

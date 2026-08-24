@@ -236,6 +236,40 @@ class TeamResponse(BaseModel):
     # 출생년도를 아는 멤버만 센다. 아무도 없으면 None / 빈 dict.
     age_avg: Optional[float] = None
     age_buckets: Dict[str, int] = {}
+    # 레퍼토리 중 완곡 수. "이 팀이 무대에 올릴 수 있는 곡이 몇 개인가"
+    done_song_count: int = 0
+    model_config = {"from_attributes": True}
+
+
+# ========== Team songs (레퍼토리) ==========
+SONG_STATUS_PATTERN = '^(candidate|practicing|done)$'
+
+
+class SongCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    artist: Optional[str] = Field(None, max_length=100)
+    link: Optional[str] = Field(None, max_length=500)
+    memo: Optional[str] = None
+    status: str = Field('candidate', pattern=SONG_STATUS_PATTERN)
+
+
+class SongUpdate(BaseModel):
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
+    artist: Optional[str] = Field(None, max_length=100)
+    link: Optional[str] = Field(None, max_length=500)
+    memo: Optional[str] = None
+    status: Optional[str] = Field(None, pattern=SONG_STATUS_PATTERN)
+
+
+class SongResponse(BaseModel):
+    id: int
+    team_id: int
+    title: str
+    artist: Optional[str] = None
+    link: Optional[str] = None
+    memo: Optional[str] = None
+    status: str
+    created_at: datetime
     model_config = {"from_attributes": True}
 
 

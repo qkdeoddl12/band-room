@@ -6,7 +6,10 @@ from typing import Dict, List, Optional, Tuple
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, clean_parts, audit, get_or_404
+from deps import (
+    get_current_admin, normalize_phone, clean_parts, audit, get_or_404,
+    clean_http_url,
+)
 import models
 import schemas
 
@@ -14,12 +17,14 @@ router = APIRouter(tags=["teams"])
 
 
 def _team_response(t: models.Team, res_count: int = 0, member_count: int = 0,
-                   ages: Tuple[Optional[float], Dict[str, int]] = (None, {})) -> schemas.TeamResponse:
+                   ages: Tuple[Optional[float], Dict[str, int]] = (None, {}),
+                   done_songs: int = 0) -> schemas.TeamResponse:
     # 컬럼이 늘어도 여기를 고치지 않도록 model_validate 로 받고 파생값만 얹는다.
     out = schemas.TeamResponse.model_validate(t)
     out.reservation_count = res_count
     out.member_count = member_count
     out.age_avg, out.age_buckets = ages
+    out.done_song_count = done_songs
     return out
 
 
@@ -30,6 +35,15 @@ def _member_counts(db: Session) -> dict:
         .join(models.Member, models.Member.id == models.MemberTeam.member_id)
         .filter(models.Member.is_active == True)
         .group_by(models.MemberTeam.team_id).all()
+    )
+
+
+def _done_song_counts(db: Session) -> dict:
+    """팀별 완곡 수. 멤버를 구할 때 "이 팀은 몇 곡을 올릴 수 있나" 가 목록에서 바로 보이게."""
+    return dict(
+        db.query(models.TeamSong.team_id, func.count(models.TeamSong.id))
+        .filter(models.TeamSong.status == 'done')
+        .group_by(models.TeamSong.team_id).all()
     )
 
 
@@ -97,9 +111,10 @@ def list_teams(
     )
     member_counts = _member_counts(db)
     ages = _age_stats(db)
+    songs = _done_song_counts(db)
     return [
         _team_response(t, res_counts.get(t.id, 0), member_counts.get(t.id, 0),
-                       ages.get(t.id, (None, {})))
+                       ages.get(t.id, (None, {})), songs.get(t.id, 0))
         for t in teams
     ]
 
@@ -185,7 +200,108 @@ def update_team(
           "바꾼 항목: " + (", ".join(fields) or "없음"), request)
     res_count = db.query(models.Reservation).filter(models.Reservation.team_id == team.id).count()
     return _team_response(team, res_count, _member_counts(db).get(team.id, 0),
-                          _age_stats(db).get(team.id, (None, {})))
+                          _age_stats(db).get(team.id, (None, {})),
+                          _done_song_counts(db).get(team.id, 0))
+
+
+# ========== 레퍼토리 ==========
+# "이 팀이 어떤 곡을 할 수 있나" 를 보는 목록이라 완곡을 먼저 보여준다.
+_STATUS_RANK = {'done': 0, 'practicing': 1, 'candidate': 2}
+
+
+def _song_sort(songs):
+    return sorted(songs, key=lambda s: (_STATUS_RANK.get(s.status, 9), s.title))
+
+
+def _get_song(db: Session, song_id: int) -> models.TeamSong:
+    return get_or_404(db, models.TeamSong, song_id, "곡을 찾을 수 없습니다.")
+
+
+@router.get("/api/admin/teams/{team_id}/songs", response_model=List[schemas.SongResponse])
+def list_songs(
+    team_id: int,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    get_or_404(db, models.Team, team_id, "팀을 찾을 수 없습니다.")
+    return _song_sort(db.query(models.TeamSong).filter(
+        models.TeamSong.team_id == team_id
+    ).all())
+
+
+@router.post("/api/admin/teams/{team_id}/songs", response_model=schemas.SongResponse)
+def create_song(
+    team_id: int,
+    data: schemas.SongCreate,
+    request: Request,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    team = get_or_404(db, models.Team, team_id, "팀을 찾을 수 없습니다.")
+    song = models.TeamSong(
+        team_id=team_id,
+        title=data.title.strip(),
+        artist=(data.artist or '').strip() or None,
+        link=clean_http_url(data.link, "참고 링크"),
+        memo=(data.memo or '').strip() or None,
+        status=data.status,
+    )
+    db.add(song)
+    db.commit()
+    db.refresh(song)
+    log_event("song_created", id=song.id, team=team.name, title=song.title,
+              status=song.status, by=admin.username)
+    audit(db, admin, "song.create", f"{team.name} · {song.title}",
+          song.artist, request)
+    return song
+
+
+@router.patch("/api/admin/songs/{song_id}", response_model=schemas.SongResponse)
+def update_song(
+    song_id: int,
+    data: schemas.SongUpdate,
+    request: Request,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    song = _get_song(db, song_id)
+    fields = data.model_dump(exclude_unset=True)
+    if not fields:
+        raise HTTPException(400, "바꿀 내용이 없습니다.")
+
+    if fields.get('title'):
+        song.title = fields['title'].strip()
+    for field in ('artist', 'memo'):
+        if field in fields:
+            setattr(song, field, (fields[field] or '').strip() or None)
+    if 'link' in fields:
+        song.link = clean_http_url(fields['link'], "참고 링크")
+    if fields.get('status'):
+        song.status = fields['status']
+
+    db.commit()
+    db.refresh(song)
+    log_event("song_updated", id=song.id, title=song.title, status=song.status,
+              fields=",".join(fields), by=admin.username)
+    audit(db, admin, "song.update", f"{song.team.name} · {song.title}",
+          "바꾼 항목: " + ", ".join(fields), request)
+    return song
+
+
+@router.delete("/api/admin/songs/{song_id}")
+def delete_song(
+    song_id: int,
+    request: Request,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    song = _get_song(db, song_id)
+    label = f"{song.team.name} · {song.title}"
+    db.delete(song)
+    db.commit()
+    log_event("song_deleted", id=song_id, by=admin.username)
+    audit(db, admin, "song.delete", label, request=request)
+    return {"message": "삭제되었습니다."}
 
 
 @router.delete("/api/admin/teams/{team_id}")

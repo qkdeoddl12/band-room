@@ -8,7 +8,7 @@ import secrets
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, audit, get_or_404
+from deps import get_current_admin, audit, get_or_404, clean_http_url
 import models
 import schemas
 
@@ -30,15 +30,8 @@ ALLOWED_IMAGES = {
 
 
 def _clean_map_url(value):
-    """공개 페이지에 href 로 나가는 값이라 스킴을 반드시 제한한다.
-    (javascript: / data: 같은 스킴이 들어오면 티켓 열람자에게 스크립트가 실행된다)"""
-    url = (value or '').strip()
-    if not url:
-        return None
-    parsed = urlparse(url)
-    if parsed.scheme not in ('http', 'https') or not parsed.netloc:
-        raise HTTPException(400, "지도 링크는 http:// 또는 https:// 로 시작하는 주소만 넣을 수 있습니다.")
-    return url
+    """공개 페이지 href 로 나가는 값. 규칙은 deps 에 모아 뒀다 (레퍼토리 링크와 공유)."""
+    return clean_http_url(value, "지도 링크")
 
 
 def _new_slug(db: Session) -> str:

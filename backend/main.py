@@ -62,6 +62,17 @@ def migrate_schema():
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS is_free BOOLEAN NOT NULL DEFAULT FALSE",
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS group_key VARCHAR(32)",
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancel_token VARCHAR(32)",
+        # 팀 레퍼토리. 팀을 지우면 곡도 함께 지워진다.
+        "CREATE TABLE IF NOT EXISTS team_songs ("
+        " id SERIAL PRIMARY KEY,"
+        " team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,"
+        " title VARCHAR(200) NOT NULL,"
+        " artist VARCHAR(100),"
+        " link VARCHAR(500),"
+        " memo TEXT,"
+        " status VARCHAR(20) NOT NULL DEFAULT 'candidate',"
+        " created_at TIMESTAMP DEFAULT NOW())",
+        "CREATE INDEX IF NOT EXISTS ix_team_songs_team_id ON team_songs (team_id)",
         # 한 사람이 밴드를 여러 개 하는 경우. members.team_id 는 대표 팀으로만 남는다.
         "CREATE TABLE IF NOT EXISTS member_teams ("
         " member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,"

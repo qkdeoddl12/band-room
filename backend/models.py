@@ -40,10 +40,31 @@ class Team(Base):
 
     members = relationship("Member", back_populates="team")
     dues = relationship("TeamDues", back_populates="team", cascade="all, delete-orphan")
+    songs = relationship("TeamSong", back_populates="team", cascade="all, delete-orphan")
 
     @property
     def is_hourly(self) -> bool:
         return self.billing_type == 'hourly'
+
+
+class TeamSong(Base):
+    """팀 레퍼토리. '이 팀이 어떤 곡을 할 수 있나' 를 보는 목록이라
+    목록은 완곡 → 연습중 → 후보 순으로 보여준다 (routers/teams.py::_song_sort)."""
+    __tablename__ = "team_songs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    artist = Column(String(100))
+    # 화면에서 href 로 나가므로 http/https 만 통과시킨다 (deps.clean_http_url)
+    link = Column(String(500))
+    memo = Column(Text)
+    # 'candidate' 후보 | 'practicing' 연습중 | 'done' 완곡
+    status = Column(String(20), nullable=False, server_default='candidate')
+    created_at = Column(DateTime, server_default=func.now())
+
+    team = relationship("Team", back_populates="songs")
 
 
 class Reservation(Base):

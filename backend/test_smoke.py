@@ -320,6 +320,69 @@ def test_team_dues(h, team, member_id):
     assert jan["paid"] < 200000, f"팀 이용료가 회비에 섞이면 안 된다: {jan}"
 
 
+def test_songs(h, team):
+    """팀 레퍼토리. 목록은 완곡부터, 링크는 http/https 만, 팀을 지우면 곡도 사라진다."""
+    tid = team["id"]
+
+    def add(title, artist=None, status=None):
+        body = {"title": title}
+        if artist: body["artist"] = artist
+        if status: body["status"] = status
+        r = client.post(f"/api/admin/teams/{tid}/songs", headers=h, json=body)
+        assert r.status_code == 200, r.text
+        return r.json()
+
+    a = add(f"{MARK} Zebra", "Queen")
+    b = add(f"{MARK} Apple", "Beatles")
+    assert a["status"] == "candidate", "새 곡은 후보로 들어간다"
+    assert a["artist"] == "Queen"
+
+    # 목록은 완곡 → 연습중 → 후보, 같은 상태 안에서는 제목순
+    client.patch(f"/api/admin/songs/{a['id']}", headers=h, json={"status": "done"})
+    client.patch(f"/api/admin/songs/{b['id']}", headers=h, json={"status": "practicing"})
+    rows = client.get(f"/api/admin/teams/{tid}/songs", headers=h).json()
+    order = [r["id"] for r in rows if r["id"] in (a["id"], b["id"])]
+    assert order == [a["id"], b["id"]], f"완곡이 먼저 와야 한다: {rows}"
+
+    c = add(f"{MARK} Banana")
+    rows = client.get(f"/api/admin/teams/{tid}/songs", headers=h).json()
+    mine = [r["title"] for r in rows if r["title"].startswith(MARK)]
+    assert mine == [f"{MARK} Zebra", f"{MARK} Apple", f"{MARK} Banana"], mine
+
+    # 완곡 수가 팀 목록에 나온다 (멤버 구할 때 참고하는 값)
+    t = next(x for x in client.get("/api/admin/teams", headers=h).json() if x["id"] == tid)
+    assert t["done_song_count"] == 1, t
+
+    # 링크는 스킴을 제한한다 — 화면에서 href 로 나가는 값이다
+    bad = client.patch(f"/api/admin/songs/{a['id']}", headers=h,
+                       json={"link": "javascript:alert(1)"})
+    assert bad.status_code == 400, f"javascript: 링크가 통과됐다, got {bad.status_code}"
+    ok = client.patch(f"/api/admin/songs/{a['id']}", headers=h,
+                      json={"link": "https://youtu.be/abc"})
+    assert ok.status_code == 200 and ok.json()["link"] == "https://youtu.be/abc", ok.text
+
+    # 없는 상태는 거부
+    assert client.patch(f"/api/admin/songs/{a['id']}", headers=h,
+                        json={"status": "kinda"}).status_code == 422
+    # 인증 필요
+    assert client.get(f"/api/admin/teams/{tid}/songs").status_code == 401
+
+    # 삭제
+    assert client.delete(f"/api/admin/songs/{c['id']}", headers=h).status_code == 200
+    left = client.get(f"/api/admin/teams/{tid}/songs", headers=h).json()
+    assert not any(r["id"] == c["id"] for r in left), "삭제했는데 남아 있다"
+
+    # 팀을 지우면 곡도 함께 사라진다 (곡이 있다고 팀 삭제를 막지는 않는다)
+    tmp = client.post("/api/admin/teams", headers=h, json={"name": f"{MARK} 곡삭제팀"}).json()
+    s1 = client.post(f"/api/admin/teams/{tmp['id']}/songs", headers=h,
+                     json={"title": f"{MARK} 사라질곡"}).json()
+    assert client.delete(f"/api/admin/teams/{tmp['id']}", headers=h).status_code == 200, \
+        "곡이 있다고 팀 삭제를 막으면 안 된다"
+    assert client.get(f"/api/admin/songs/{s1['id']}", headers=h).status_code in (404, 405)
+    assert client.delete(f"/api/admin/songs/{s1['id']}", headers=h).status_code == 404, \
+        "팀과 함께 곡도 지워져야 한다"
+
+
 def test_self_cancel(h):
     """예약한 본인이 취소한다. 로그인이 없어 생성 때 받은 토큰이 신분증이다.
     같은 김에 공개 목록이 개인정보를 흘리지 않는지도 본다."""
@@ -555,6 +618,7 @@ def main():
         member_id = test_members_and_dues(h);   steps.append("members + dues")
         test_team_dues(h, team, member_id);     steps.append("team dues")
         test_multi_team(h);                     steps.append("multi team")
+        test_songs(h, team);                    steps.append("songs")
         test_self_cancel(h);                    steps.append("self cancel")
         test_admin_edit(h, team);               steps.append("admin edit")
         test_tickets(h);                       steps.append("tickets")

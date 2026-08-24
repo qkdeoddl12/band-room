@@ -2276,8 +2276,9 @@ body:has(.admin-dashboard) .modal-actions {
   letter-spacing: .06em; text-transform: uppercase;
   margin-bottom: 10px;
 }
-.team-add-row { display: flex; gap: 8px; align-items: center; }
-.team-add-row .form-select { flex: 1; min-width: 0; }
+.team-add-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.team-add-row .form-select,
+.team-add-row .form-input { flex: 1; min-width: 120px; }
 .team-add-row .btn-primary { flex: none; width: auto; padding: 0 18px; }
 .team-add-empty { font-size: 13px; color: var(--text-light); }
 
@@ -2508,6 +2509,25 @@ body:has(.admin-dashboard) .modal-actions {
   margin: 14px 0 8px;
   font-size: 12px; font-weight: 800; color: var(--text-light);
   letter-spacing: .05em;
+}
+
+/* --- 팀 상세 탭 (멤버 | 레퍼토리) --- */
+.team-detail-tabs { margin: 14px 0 4px; }
+
+/* --- 레퍼토리 --- */
+.song-title { cursor: pointer; }
+.song-title:hover { color: var(--primary); }
+.song-link { margin-left: 6px; text-decoration: none; font-size: 12px; }
+/* 곡을 눌렀을 때만 펼치는 상세 편집 줄 */
+.song-edit {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: -4px 0 10px; padding: 12px 14px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.song-edit-actions { display: flex; gap: 8px; }
+.song-edit-actions button {
+  flex: 1; height: 40px; border-radius: var(--radius-sm); font-size: 13px;
 }
 .dues-sub a { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
 

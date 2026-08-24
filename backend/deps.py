@@ -6,6 +6,7 @@ from fastapi import Depends, HTTPException, Header
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import urlparse
 import re
 import secrets
 import bcrypt
@@ -154,6 +155,20 @@ def normalize_phone(value):
         return None
     # 국제번호의 '+' 는 지우면 복원할 수 없으므로 남긴다.
     return ('+' + digits) if text.startswith('+') else digits
+
+
+# ========== URL ==========
+def clean_http_url(value, label: str = "링크"):
+    """화면에서 href 로 나가는 값이라 스킴을 반드시 제한한다.
+    (javascript: / data: 같은 스킴이 들어오면 링크를 누른 사람에게 스크립트가 실행된다)
+    티켓 지도 링크와 레퍼토리 참고 링크가 같은 규칙을 써야 하므로 여기 한 곳에 둔다."""
+    url = (value or '').strip()
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme not in ('http', 'https') or not parsed.netloc:
+        raise HTTPException(400, f"{label}는 http:// 또는 https:// 로 시작하는 주소만 넣을 수 있습니다.")
+    return url
 
 
 # ========== Audit log ==========

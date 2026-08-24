@@ -107,6 +107,15 @@ docker-compose.yml
   `members.dues_exempt` 는 전체 면제라 범위가 다르다
 - 회비 금액: `member.monthly_fee` > `team.dues_fee` > `app_settings.default_monthly_fee` (`deps.resolve_member_fee`)
 - 팀 이용료: `team.monthly_fee` > `app_settings.default_team_fee` (`deps.default_team_fee`). 프론트·백엔드가 같은 순서를 쓴다
+- **팀 레퍼토리**(`team_songs`): 곡마다 `status` = `candidate` 후보 / `practicing` 연습중 / `done` 완곡.
+  목적이 "이 팀이 어떤 곡을 할 수 있나" 라서 목록은 **완곡 → 연습중 → 후보** 순, 같은 상태 안에서는 제목순
+  (`teams.py::_song_sort`). 팀을 지우면 곡도 함께 지워지고, 곡이 있다고 팀 삭제를 막지는 않는다
+  - `TeamResponse.done_song_count` = 완곡 수. 팀 목록 카드에 `완곡 N곡` 으로 나온다 (멤버 구할 때 참고)
+  - 곡 `link` 는 화면에서 href 로 나가므로 **http/https 만** 통과한다. 티켓 `map_url` 과 같은 규칙이라
+    `deps.clean_http_url()` 한 곳에 모아 두고 둘이 공유한다 — 복사해두면 규칙이 갈린다
+  - 상태 라벨은 `teams.js::SONG_STATUS` 한 곳에만 둔다. 상태 칩은 정산 회비 칩(`.dues-chip`)과 같은 패턴
+- 팀 상세 모달은 `멤버 | 레퍼토리` 탭으로 나뉜다 (`teams.js::detailTab`). 팀을 새로 열면 멤버 탭으로 돌아가고
+  펼쳐둔 곡 편집창도 닫힌다 — 안 닫으면 남의 팀 곡을 고치게 된다
 - `parts`는 콤마 문자열(`"기타,보컬"`), 조인 테이블 없음. 고정 목록은 `core.js::FIXED_PARTS` 한 곳 —
   멤버·팀 수정창이 같은 `renderPartPicker` 를 쓰므로 여기만 고치면 양쪽에 다 반영된다
 - 팀 카드·상세의 나이 통계는 `TeamResponse.age_avg` / `age_buckets` (서버 집계, `teams.py::_age_stats`).
