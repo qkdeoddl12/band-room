@@ -336,6 +336,17 @@ a { text-decoration: none; }
   color: #fff;
 }
 
+/* 대관·정모는 방과 무관한 일정이라 방 색(보라·청록)을 쓰지 않는다.
+   팀 합주 옆에 놓였을 때 한눈에 갈라져야 한다. */
+.reservation-block.rental {
+  background: linear-gradient(135deg, #B45309 0%, #F59E0B 100%);
+  color: #fff;
+}
+.reservation-block.meetup {
+  background: linear-gradient(135deg, #334155 0%, #64748B 100%);
+  color: #fff;
+}
+
 .res-team { font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .res-time { font-size: 11px; opacity: .85; margin-top: 2px; }
 .res-members { font-size: 11px; opacity: .75; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -564,6 +575,9 @@ a { text-decoration: none; }
 /* 내가 이 브라우저로 신청한 예약. 남의 예약과 한눈에 갈라져야 취소를 헷갈리지 않는다. */
 .res-status-badge.mine {
   background: #fff; color: #111827;
+}
+.res-status-badge.kind {
+  background: rgba(255,255,255,.9); color: #111827;
 }
 .reservation-block.mine {
   outline: 2px solid #fff;
@@ -2596,6 +2610,24 @@ body:has(.admin-dashboard) .modal-actions {
 .mt-badge.off   { background: var(--bg); color: var(--text-light); }
 /* 다른 밴드에도 속한 사람 표시 (팀 상세 명단) */
 .mt-badge.team  { background: var(--primary-light); color: var(--primary); }
+/* 도어즈 소속이 아닌 외부 밴드 */
+.mt-badge.out   { background: #FEF3C7; color: #92400E; }
+
+/* 예약 목록의 종류 꼬리표 (대관·정모) */
+.kind-tag {
+  margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 800; vertical-align: middle;
+}
+.kind-tag.rental { background: #FEF3C7; color: #92400E; }
+.kind-tag.meetup { background: #E2E8F0; color: #334155; }
+
+/* 목록 화면 위의 동작 줄 (예약 추가 등) */
+.page-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.btn-page-action { width: auto; padding: 0 18px; height: 40px; font-size: 13px; }
+.page-head-hint { font-size: 12.5px; color: var(--text-light); }
 
 /* 예약 목록의 수정 버튼 — 삭제(🗑) 옆이라 눈에 덜 띄어야 한다 */
 .btn-edit-res {

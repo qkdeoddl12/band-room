@@ -222,6 +222,11 @@
         <!-- ===== RESERVATIONS PAGE ===== -->
         <div class="admin-page" id="reservationsPage" style="display:none;">
 
+          <div class="page-head">
+            <button class="btn-primary btn-page-action" onclick="openAdminResModal()">＋ 예약 추가</button>
+            <span class="page-head-hint">장소 대관 · 도어즈 정모를 관리자가 직접 잡습니다.</span>
+          </div>
+
           <div class="filter-panel">
             <div class="chip-row" role="tablist" aria-label="기간">
               <button class="chip" data-period="today" onclick="setPeriod('today')">오늘</button>
@@ -817,6 +822,81 @@
     </div>
   </div>
 
+  <!-- Admin Reservation Modal (장소 대관 · 도어즈 정모) -->
+  <div class="modal-overlay" id="adminResOverlay" style="z-index:300;">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">예약 추가</h3>
+        <button class="modal-close" onclick="closeAdminResModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="adminResForm" autocomplete="off">
+
+          <div class="form-group">
+            <label class="form-label">종류</label>
+            <div class="chip-row" id="adminResKind">
+              <button type="button" class="chip active" data-kind="meetup"
+                      onclick="setAdminResKind('meetup')">도어즈 정모</button>
+              <button type="button" class="chip" data-kind="rental"
+                      onclick="setAdminResKind('rental')">장소 대관</button>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adminResTitle">이름 <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="adminResTitle" maxlength="200"
+                   placeholder="예: 도어즈 8월 정모">
+            <div class="field-hint">예약 페이지 시간표에 이대로 보입니다.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adminResRoom">공간</label>
+            <select class="form-select" id="adminResRoom"></select>
+          </div>
+
+          <div class="tk-panel-row">
+            <div class="form-group">
+              <label class="form-label" for="adminResDate">날짜</label>
+              <input type="date" class="form-input" id="adminResDate">
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="adminResStart">시작 시간</label>
+              <select class="form-select" id="adminResStart"></select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adminResDuration">이용 시간 (시간)</label>
+            <input type="number" class="form-input" id="adminResDuration"
+                   min="1" max="24" step="1" value="3">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adminResPhone">
+              담당 연락처 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
+            </label>
+            <input type="tel" class="form-input" id="adminResPhone" maxlength="30"
+                   placeholder="010-0000-0000">
+            <div class="field-hint">관리자 화면에만 보입니다. 예약 페이지에는 나가지 않습니다.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="adminResNote">메모</label>
+            <textarea class="form-input memo-box" id="adminResNote" rows="3"></textarea>
+          </div>
+
+          <div class="field-hint">바로 확정 상태로 들어갑니다. 요금·입금 확인 단계가 없습니다.</div>
+
+          <div class="modal-actions">
+            <button type="button" onclick="closeAdminResModal()" class="btn-secondary">닫기</button>
+            <button type="submit" class="btn-submit" id="adminResSaveBtn">예약 추가</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Reservation Edit Modal (수정 요청 처리용) -->
   <div class="modal-overlay" id="resEditOverlay" style="z-index:300;">
     <div class="modal">
@@ -860,11 +940,11 @@
           <div id="resEditPersonalRow" style="display:none;">
             <div class="tk-panel-row">
               <div class="form-group">
-                <label class="form-label" for="resEditBooker">이용자 이름</label>
+                <label class="form-label" for="resEditBooker" id="resEditBookerLabel">이용자 이름</label>
                 <input type="text" class="form-input" id="resEditBooker" maxlength="50">
               </div>
               <div class="form-group">
-                <label class="form-label" for="resEditPhone">연락처</label>
+                <label class="form-label" for="resEditPhone" id="resEditPhoneLabel">연락처</label>
                 <input type="tel" class="form-input" id="resEditPhone" maxlength="30"
                        placeholder="010-0000-0000">
               </div>
@@ -1271,6 +1351,16 @@
           </div>
 
           <div id="teamHistory"></div>
+
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-title">도어즈 밴드</span>
+                <span class="toggle-desc">끄면 외부 밴드로 표시됩니다. 과금 방식과는 별개입니다.</span>
+              </span>
+              <input type="checkbox" class="toggle-switch" id="teamDoors" checked>
+            </label>
+          </div>
 
           <div class="form-group">
             <label class="toggle-row">

@@ -73,6 +73,9 @@ def migrate_schema():
         " status VARCHAR(20) NOT NULL DEFAULT 'candidate',"
         " created_at TIMESTAMP DEFAULT NOW())",
         "CREATE INDEX IF NOT EXISTS ix_team_songs_team_id ON team_songs (team_id)",
+        "ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_doors BOOLEAN NOT NULL DEFAULT TRUE",
+        "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'team'",
+        "CREATE INDEX IF NOT EXISTS ix_reservations_kind ON reservations (kind)",
         # 한 사람이 밴드를 여러 개 하는 경우. members.team_id 는 대표 팀으로만 남는다.
         "CREATE TABLE IF NOT EXISTS member_teams ("
         " member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,"
@@ -99,6 +102,12 @@ def migrate_schema():
         conn.execute(text(
             "UPDATE reservations r SET is_free = TRUE FROM teams t "
             "WHERE r.team_id = t.id AND t.billing_type <> 'hourly' AND r.is_free = FALSE"
+        ))
+        # kind 도입 전 예약은 팀 유무로 되짚어 채운다. 기본값이 'team' 이라
+        # 팀 없이 만들어졌던 개인연습실 예약만 고쳐주면 된다.
+        conn.execute(text(
+            "UPDATE reservations SET kind = 'personal' "
+            "WHERE team_id IS NULL AND kind = 'team'"
         ))
         # 개인연습실은 팀이 아니라 개인이 쓴다. 아직 개인용 방이 하나도 없을 때만
         # 한 번 지정한다 (관리자가 나중에 바꾼 설정을 되돌리지 않도록).

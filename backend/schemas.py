@@ -33,6 +33,22 @@ class ReservationCreate(BaseModel):
     note: Optional[str] = None
 
 
+# 관리자가 직접 만드는 예약 종류. 팀·개인은 이용자 쪽에서만 생긴다.
+ADMIN_KIND_PATTERN = '^(rental|meetup)$'
+
+
+class AdminReservationCreate(BaseModel):
+    """장소 대관 · 도어즈 정모. 팀이 아니라 이름만 적는다."""
+    kind: str = Field(..., pattern=ADMIN_KIND_PATTERN)
+    room_id: int
+    title: str = Field(..., min_length=1, max_length=200)
+    date: dt.date
+    start_time: dt.time
+    duration: int = Field(..., ge=1, le=24)
+    contact_phone: Optional[str] = Field(None, max_length=30)
+    note: Optional[str] = None
+
+
 class ReservationPublic(BaseModel):
     """로그인 없이 보는 타임라인용. **개인정보를 싣지 않는다** —
     이 엔드포인트는 인증이 없어서 주소만 알면 누구나 받아간다.
@@ -43,8 +59,10 @@ class ReservationPublic(BaseModel):
     start_time: time
     end_time: time
     duration: int
-    team_name: Optional[str] = None   # 개인연습실은 예약 시점 이름 스냅샷
+    team_name: Optional[str] = None   # 개인연습실·대관·정모는 예약 시점 이름 스냅샷
     members: Optional[str] = None     # 타임라인에 '누가 쓰는지' 로 이미 보여주던 값
+    # 팀 합주와 대관·정모를 화면에서 갈라 보여주기 위해 종류는 공개한다 (개인정보 아님)
+    kind: str = 'team'
     status: str = 'pending'
     group_key: Optional[str] = None   # 자정 넘김 예약을 한 건으로 묶어 보기 위해
     model_config = {"from_attributes": True}
@@ -64,6 +82,7 @@ class ReservationResponse(BaseModel):
     booker_phone: Optional[str] = None
     members: Optional[str] = None
     note: Optional[str] = None
+    kind: str = 'team'
     status: str = 'pending'
     is_free: bool = False
     group_key: Optional[str] = None
@@ -89,6 +108,8 @@ class ReservationAdminUpdate(BaseModel):
     team_id: Optional[int] = None
     booker_name: Optional[str] = Field(None, max_length=50)
     booker_phone: Optional[str] = Field(None, max_length=30)
+    # 대관·정모의 표시 이름 (팀 예약에는 쓰지 않는다)
+    title: Optional[str] = Field(None, min_length=1, max_length=200)
     members: Optional[str] = None
     note: Optional[str] = None
 
@@ -197,6 +218,7 @@ class TeamCreate(BaseModel):
     billing_type: str = Field('hourly', pattern=BILLING_PATTERN)
     monthly_fee: Optional[int] = Field(None, ge=0)
     dues_fee: Optional[int] = Field(None, ge=0)
+    is_doors: bool = True
     is_active: bool = True
 
 
@@ -209,6 +231,7 @@ class TeamUpdate(BaseModel):
     billing_type: Optional[str] = Field(None, pattern=BILLING_PATTERN)
     monthly_fee: Optional[int] = Field(None, ge=0)
     dues_fee: Optional[int] = Field(None, ge=0)
+    is_doors: Optional[bool] = None
     is_active: Optional[bool] = None
 
 
@@ -229,6 +252,7 @@ class TeamResponse(BaseModel):
     billing_type: str = 'hourly'
     monthly_fee: Optional[int] = None
     dues_fee: Optional[int] = None
+    is_doors: bool = True
     is_active: bool
     created_at: datetime
     reservation_count: int = 0

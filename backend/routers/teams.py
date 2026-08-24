@@ -135,6 +135,7 @@ def create_team(
         phone=normalize_phone(data.phone),
         parts=clean_parts(data.parts),
         memo=(data.memo or '').strip() or None,
+        is_doors=data.is_doors,
         is_active=data.is_active,
     )
     _apply_billing(team, data.billing_type, data.monthly_fee, data.dues_fee,
@@ -176,8 +177,9 @@ def update_team(
         team.phone = normalize_phone(fields['phone'])
     if 'parts' in fields:
         team.parts = clean_parts(fields['parts'])
-    if fields.get('is_active') is not None:
-        team.is_active = fields['is_active']
+    for flag in ('is_active', 'is_doors'):
+        if fields.get(flag) is not None:
+            setattr(team, flag, fields[flag])
 
     if 'billing_type' in fields and fields['billing_type']:
         _apply_billing(

@@ -201,7 +201,9 @@ function renderReservations() {
     const block = document.createElement('div');
     const isPending = r.status === 'pending';
     const mine = myResFor(r);
-    block.className = `reservation-block ${roomCls(currentRoomId)}`
+    // 대관·정모는 방 색이 아니라 자기 색으로 나온다 — 팀 합주와 헷갈리면 안 된다.
+    const special = r.kind === 'rental' || r.kind === 'meetup';
+    block.className = `reservation-block ${special ? r.kind : roomCls(currentRoomId)}`
       + (isPending ? ' pending' : '') + (mine ? ' mine' : '');
     block.style.top    = `${top + 4}px`;
     block.style.height = `${height - 8}px`;
@@ -209,9 +211,11 @@ function renderReservations() {
     block.innerHTML = `
       <div class="res-team">
         ${escHtml(r.team_name || '(이름 없음)')}
-        ${isPending
-          ? '<span class="res-status-badge pending">입금 대기</span>'
-          : '<span class="res-status-badge confirmed">확정</span>'}
+        ${special
+          ? `<span class="res-status-badge kind">${r.kind === 'rental' ? '대관' : '정모'}</span>`
+          : isPending
+            ? '<span class="res-status-badge pending">입금 대기</span>'
+            : '<span class="res-status-badge confirmed">확정</span>'}
         ${mine ? '<span class="res-status-badge mine">내 예약</span>' : ''}
       </div>
       <div class="res-time">${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)}</div>

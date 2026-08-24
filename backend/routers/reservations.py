@@ -309,6 +309,7 @@ def create_reservation(
             members=reservation.members,
             note=reservation.note,
             # 낼 것이 없는 예약(선불 팀 · 회비 낸 멤버)은 입금 확인 단계를 건너뛴다.
+            kind='personal' if room.booking_mode == 'personal' else 'team',
             is_free=free,
             status='confirmed' if free else 'pending',
             group_key=group_key,
@@ -369,6 +370,64 @@ def confirm_reservation(
     return res
 
 
+ADMIN_KIND_KO = {'rental': '장소 대관', 'meetup': '도어즈 정모'}
+
+
+@router.post("/api/admin/reservations", response_model=schemas.ReservationResponse)
+def create_admin_reservation(
+    data: schemas.AdminReservationCreate,
+    request: Request,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """장소 대관 · 도어즈 정모. 팀이 아니라 이름만 적는다.
+
+    이용자 예약과 같은 표(reservations)에 담아 자정 넘김 분할 · 겹침 검사 ·
+    수정 · 취소 · 실시간 갱신을 그대로 쓴다. 표시 이름은 team_name 에 넣는다 —
+    화면들이 이미 그 칸을 읽고 있어서 목록·타임라인·캘린더를 안 고쳐도 이름이 나온다."""
+    room = db.query(models.Room).filter(models.Room.id == data.room_id).first()
+    if not room:
+        raise HTTPException(400, "존재하지 않는 공간입니다.")
+
+    title = data.title.strip()
+    segments = _split_segments(data.date, data.start_time, data.duration)
+    _assert_slots_free(db, data.room_id, segments, request, who=title)
+
+    group_key = secrets.token_hex(8) if len(segments) > 1 else None
+    created = []
+    for seg in segments:
+        row = models.Reservation(
+            room_id=data.room_id,
+            date=seg["date"],
+            start_time=seg["start"],
+            end_time=seg["end"],
+            duration=seg["hours"],
+            team_name=title,
+            booker_phone=normalize_phone(data.contact_phone),
+            note=data.note,
+            kind=data.kind,
+            # 관리자가 직접 만든 예약이라 입금 확인 단계가 없다.
+            is_free=True,
+            status='confirmed',
+            group_key=group_key,
+        )
+        db.add(row)
+        created.append(row)
+    db.commit()
+    for row in created:
+        db.refresh(row)
+        broadcaster.publish("reservation_created", _sse_payload(row))
+
+    first = created[0]
+    log_event("admin_reservation_created", id=first.id, kind=data.kind,
+              room_id=data.room_id, date=str(first.date), title=title,
+              segments=len(created), by=admin.username)
+    audit(db, admin, "reservation.admin_create", title,
+          f"{ADMIN_KIND_KO.get(data.kind, data.kind)} · {first.date} "
+          f"{first.start_time}~{created[-1].end_time}", request)
+    return first
+
+
 @router.patch("/api/admin/reservations/{reservation_id}",
               response_model=schemas.ReservationResponse)
 def update_reservation(
@@ -407,7 +466,13 @@ def update_reservation(
     booker_phone = normalize_phone(fields['booker_phone']) if 'booker_phone' in fields \
         else first.booker_phone
 
-    if room.booking_mode == 'personal':
+    # 종류는 만들 때 정해지고 바뀌지 않는다. 대관·정모는 팀도 이용자도 없이 이름만 갖는다.
+    if first.kind in ADMIN_KIND_KO:
+        display = (fields.get('title') or first.team_name or '').strip()
+        if not display:
+            raise HTTPException(400, "이름을 입력해주세요.")
+        team, member, booker_name = None, None, None
+    elif room.booking_mode == 'personal':
         booker_name = (booker_name or '').strip()
         if not booker_name:
             raise HTTPException(400, "이용자 이름을 입력해주세요.")
@@ -441,6 +506,7 @@ def update_reservation(
     members = fields.get('members', first.members)
     note = fields.get('note', first.note)
     old_room_id = first.room_id
+    kind = first.kind
     # 자정을 넘기느냐에 따라 한 건이 되기도 두 건이 되기도 한다.
     group_key = secrets.token_hex(8) if len(segments) > 1 else None
 
@@ -450,7 +516,7 @@ def update_reservation(
     for i, seg in enumerate(segments):
         row = rows[i] if i < len(rows) else models.Reservation(
             is_free=first.is_free, status=first.status,
-            cancel_token=first.cancel_token,
+            cancel_token=first.cancel_token, kind=kind,
         )
         row.room_id = room_id
         row.team_id = team.id if team else None
@@ -465,6 +531,7 @@ def update_reservation(
         row.members = members
         row.note = note
         row.group_key = group_key
+        row.kind = kind
         if i >= len(rows):
             db.add(row)
         kept.append(row)

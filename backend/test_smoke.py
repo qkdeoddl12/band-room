@@ -21,6 +21,7 @@ MARK = "[smoke]"
 client = httpx.Client(base_url=BASE, timeout=20.0)
 created = {"team": None, "team2": None, "team3": None,
            "cancel": None, "past": None, "edit": None, "edit2": None,
+           "admin_res": None, "team4": None, "team5": None,
            "member": None, "member2": None, "member3": None,
            "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
@@ -320,6 +321,81 @@ def test_team_dues(h, team, member_id):
     assert jan["paid"] < 200000, f"팀 이용료가 회비에 섞이면 안 된다: {jan}"
 
 
+def test_admin_booking(h):
+    """장소 대관 · 도어즈 정모 — 관리자가 팀 없이 직접 잡는 예약."""
+    day = date.today() + timedelta(days=160)
+    rooms = client.get("/api/rooms").json()
+    room = next(r for r in rooms if r["booking_mode"] == "team")
+    base = {"room_id": room["id"], "date": str(day), "duration": 2}
+
+    res = client.post("/api/admin/reservations", headers=h, json={
+        **base, "kind": "meetup", "title": f"{MARK} 8월 정모",
+        "start_time": "18:00:00", "contact_phone": "010-1111-2222", "note": "전체 모임"})
+    assert res.status_code == 200, res.text
+    made = res.json()
+    created["admin_res"] = made["id"]
+    assert made["kind"] == "meetup", made
+    assert made["team_id"] is None and made["team_name"] == f"{MARK} 8월 정모", made
+    assert made["status"] == "confirmed" and made["is_free"], "관리자 예약은 바로 확정된다"
+    assert made["booker_phone"] == "01011112222", "연락처는 숫자만 저장"
+
+    # 공개 목록에는 종류가 나가되 연락처는 안 나간다
+    pub = client.get(f"/api/reservations?date={day}").json()
+    row = next(r for r in pub if r["id"] == made["id"])
+    assert row["kind"] == "meetup" and row["team_name"] == f"{MARK} 8월 정모", row
+    assert "booker_phone" not in row, f"공개 목록에 연락처가 실렸다: {row}"
+
+    # 팀 예약과 같은 겹침 검사를 받는다
+    clash = client.post("/api/admin/reservations", headers=h, json={
+        **base, "kind": "rental", "title": f"{MARK} 대관", "start_time": "19:00:00"})
+    assert clash.status_code == 400, f"겹치는 시간은 막아야 한다, got {clash.status_code}"
+
+    # 종류는 rental|meetup 만
+    assert client.post("/api/admin/reservations", headers=h, json={
+        **base, "kind": "team", "title": "x", "start_time": "08:00:00"}).status_code == 422
+    assert client.post("/api/admin/reservations", json={
+        **base, "kind": "meetup", "title": "x", "start_time": "08:00:00"}).status_code == 401
+
+    # 수정하면 이름이 바뀌고 종류는 그대로
+    upd = client.patch(f"/api/admin/reservations/{made['id']}", headers=h,
+                       json={"title": f"{MARK} 9월 정모", "start_time": "20:00:00"})
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["team_name"] == f"{MARK} 9월 정모", upd.text
+    assert upd.json()["kind"] == "meetup", "고쳤다고 종류가 바뀌면 안 된다"
+    assert upd.json()["id"] == made["id"], "id 는 그대로여야 한다"
+
+    # 자정을 넘기면 두 건으로 쪼개지고 종류가 양쪽에 남는다
+    split = client.patch(f"/api/admin/reservations/{made['id']}", headers=h,
+                         json={"start_time": "23:00:00", "duration": 3})
+    assert split.status_code == 200, split.text
+    nxt = client.get(f"/api/reservations?date={day + timedelta(days=1)}").json()
+    tail = next(r for r in nxt if r["group_key"] == split.json()["group_key"])
+    assert tail["kind"] == "meetup", tail
+
+
+def test_team_doors(h):
+    """팀도 도어즈 밴드 / 외부 밴드로 갈린다. 과금 방식과는 별개다."""
+    res = client.post("/api/admin/teams", headers=h,
+                      json={"name": f"{MARK} 외부밴드", "is_doors": False})
+    assert res.status_code == 200, res.text
+    created["team4"] = res.json()["id"]
+    assert res.json()["is_doors"] is False, res.text
+
+    # 기본은 도어즈
+    d = client.post("/api/admin/teams", headers=h, json={"name": f"{MARK} 기본밴드"}).json()
+    created["team5"] = d["id"]
+    assert d["is_doors"] is True, d
+
+    # 켜고 끌 수 있고, 과금 방식은 건드리지 않는다
+    upd = client.patch(f"/api/admin/teams/{created['team4']}", headers=h,
+                       json={"is_doors": True, "billing_type": "monthly", "monthly_fee": 50000})
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["is_doors"] is True and upd.json()["billing_type"] == "monthly", upd.text
+    off = client.patch(f"/api/admin/teams/{created['team4']}", headers=h, json={"is_doors": False})
+    assert off.json()["is_doors"] is False and off.json()["monthly_fee"] == 50000, \
+        "도어즈 여부를 바꿨다고 과금 설정이 날아가면 안 된다"
+
+
 def test_songs(h, team):
     """팀 레퍼토리. 목록은 완곡부터, 링크는 http/https 만, 팀을 지우면 곡도 사라진다."""
     tid = team["id"]
@@ -586,7 +662,7 @@ def test_multi_team(h):
 
 def cleanup(h):
     for key in ("reservation", "reservation2", "reservation3", "reservation4",
-                "overnight", "cancel", "past", "edit", "edit2"):
+                "overnight", "cancel", "past", "edit", "edit2", "admin_res"):
         if created[key]:
             client.delete(f"/api/reservations/{created[key]}", headers=h)
     if created["ticket"]:
@@ -594,7 +670,7 @@ def cleanup(h):
     for key in ("member", "member2", "member3", "member4"):
         if created[key]:
             client.delete(f"/api/admin/members/{created[key]}?force=true", headers=h)
-    for key in ("team", "team2", "team3"):
+    for key in ("team", "team2", "team3", "team4", "team5"):
         if created[key]:
             client.delete(f"/api/admin/teams/{created[key]}", headers=h)
 
@@ -619,6 +695,8 @@ def main():
         test_team_dues(h, team, member_id);     steps.append("team dues")
         test_multi_team(h);                     steps.append("multi team")
         test_songs(h, team);                    steps.append("songs")
+        test_admin_booking(h);                  steps.append("admin booking")
+        test_team_doors(h);                     steps.append("team doors")
         test_self_cancel(h);                    steps.append("self cancel")
         test_admin_edit(h, team);               steps.append("admin edit")
         test_tickets(h);                       steps.append("tickets")

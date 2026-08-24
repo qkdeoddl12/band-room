@@ -265,6 +265,7 @@ function renderList(items) {
             <div class="res-date-label">${fmtDateKo(r.date)} ${statusBadge}</div>
             <div class="res-name">
               ${escHtml(r.team_name || r.booker_name || '(이름 없음)')}
+              ${RES_KIND[r.kind] ? `<span class="kind-tag ${RES_KIND[r.kind].cls}">${RES_KIND[r.kind].label}</span>` : ''}
               ${r.member_id ? '<span class="booker-tag member">멤버</span>' : ''}
               ${r.booker_name && !r.member_id ? '<span class="booker-tag guest">게스트</span>' : ''}
             </div>
@@ -293,6 +294,13 @@ function renderList(items) {
    서버가 슬롯을 다시 검사하고, 자정을 넘기면 다시 두 건으로 쪼갠다.
    ============================================================ */
 let editResId = null;
+
+/* 예약 종류. 팀·개인은 이용자가 만들고 대관·정모는 관리자가 만든다.
+   라벨을 여기 한 곳에만 둔다. */
+const RES_KIND = {
+  rental: { label: '대관', cls: 'rental' },
+  meetup: { label: '정모', cls: 'meetup' },
+};
 
 function openResEditModal(id) {
   const r = allReservations.find(x => x.id === id);
@@ -328,7 +336,8 @@ function openResEditModal(id) {
 
   document.getElementById('resEditDate').value     = head.date;
   document.getElementById('resEditDuration').value = total;
-  document.getElementById('resEditBooker').value   = head.booker_name || '';
+  document.getElementById('resEditBooker').value   =
+    RES_KIND[head.kind] ? (head.team_name || '') : (head.booker_name || '');
   document.getElementById('resEditPhone').value    = formatPhone(head.booker_phone);
   document.getElementById('resEditMembers').value  = head.members || '';
   document.getElementById('resEditNote').value     = head.note || '';
@@ -341,10 +350,21 @@ function openResEditModal(id) {
 
 /* 공간 종류에 따라 팀을 고르거나 이용자 이름을 적는다 (예약 페이지와 같은 규칙). */
 function syncResEditMode() {
+  const r = allReservations.find(x => x.id === editResId);
+  // 대관·정모는 팀도 이용자도 없다 — 이름 한 칸만 고친다.
+  if (r && RES_KIND[r.kind]) {
+    document.getElementById('resEditTeamRow').style.display     = 'none';
+    document.getElementById('resEditPersonalRow').style.display = '';
+    document.getElementById('resEditPhoneLabel').textContent    = '담당 연락처';
+    document.getElementById('resEditBookerLabel').textContent   = '이름';
+    return;
+  }
   const roomId = Number(document.getElementById('resEditRoom').value);
   const personal = roomsById[roomId]?.booking_mode === 'personal';
   document.getElementById('resEditTeamRow').style.display     = personal ? 'none' : '';
   document.getElementById('resEditPersonalRow').style.display = personal ? '' : 'none';
+  document.getElementById('resEditPhoneLabel').textContent    = '연락처';
+  document.getElementById('resEditBookerLabel').textContent   = '이용자 이름';
 }
 
 function closeResEditModal() {
@@ -374,7 +394,12 @@ document.getElementById('resEditForm').addEventListener('submit', async e => {
     members:    document.getElementById('resEditMembers').value.trim() || null,
     note:       document.getElementById('resEditNote').value.trim() || null,
   };
-  if (personal) {
+  const editing = allReservations.find(x => x.id === editResId);
+  if (editing && RES_KIND[editing.kind]) {
+    body.title        = document.getElementById('resEditBooker').value.trim();
+    body.booker_phone = document.getElementById('resEditPhone').value.trim() || null;
+    if (!body.title) { showToast('이름을 입력해주세요.', 'error'); return; }
+  } else if (personal) {
     body.booker_name  = document.getElementById('resEditBooker').value.trim();
     body.booker_phone = document.getElementById('resEditPhone').value.trim() || null;
     if (!body.booker_name) { showToast('이용자 이름을 입력해주세요.', 'error'); return; }
@@ -401,6 +426,78 @@ document.getElementById('resEditForm').addEventListener('submit', async e => {
 });
 
 attachPhoneMask(document.getElementById('resEditPhone'));
+
+/* ============================================================
+   장소 대관 · 도어즈 정모 — 관리자가 직접 잡는 예약
+   ============================================================ */
+let adminResKind = 'meetup';
+
+function setAdminResKind(kind) {
+  adminResKind = kind;
+  document.querySelectorAll('#adminResKind .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.kind === kind);
+  });
+  const title = document.getElementById('adminResTitle');
+  title.placeholder = kind === 'rental' ? '예: ○○교회 대관' : '예: 도어즈 8월 정모';
+}
+
+function openAdminResModal() {
+  document.getElementById('adminResRoom').innerHTML = Object.values(roomsById)
+    .sort((a, b) => a.id - b.id)
+    .map(r => `<option value="${r.id}">${escHtml(r.name)}</option>`).join('');
+  document.getElementById('adminResStart').innerHTML = Array.from({ length: 24 }, (_, h) => {
+    const v = `${String(h).padStart(2, '0')}:00`;
+    return `<option value="${v}"${h === 19 ? ' selected' : ''}>${v}</option>`;
+  }).join('');
+  document.getElementById('adminResTitle').value = '';
+  document.getElementById('adminResDate').value  = toDateStr(new Date());
+  document.getElementById('adminResDuration').value = 3;
+  document.getElementById('adminResPhone').value = '';
+  document.getElementById('adminResNote').value  = '';
+  setAdminResKind('meetup');
+  openOverlay('adminResOverlay');
+}
+
+function closeAdminResModal() { closeOverlay('adminResOverlay'); }
+bindOverlayClose('adminResOverlay', closeAdminResModal);
+
+document.getElementById('adminResForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const title = document.getElementById('adminResTitle').value.trim();
+  if (!title) { showToast('이름을 입력해주세요.', 'error'); return; }
+  const duration = Number(document.getElementById('adminResDuration').value);
+  if (!duration || duration < 1 || duration > 24) {
+    showToast('이용 시간은 1~24 사이여야 합니다.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('adminResSaveBtn');
+  btn.disabled = true; btn.textContent = '추가 중...';
+  try {
+    await apiJson('/api/admin/reservations', {
+      method: 'POST',
+      body: JSON.stringify({
+        kind: adminResKind,
+        room_id: Number(document.getElementById('adminResRoom').value),
+        title,
+        date: document.getElementById('adminResDate').value,
+        start_time: document.getElementById('adminResStart').value + ':00',
+        duration,
+        contact_phone: document.getElementById('adminResPhone').value.trim() || null,
+        note: document.getElementById('adminResNote').value.trim() || null,
+      }),
+    });
+    closeAdminResModal();
+    await loadAllReservations();
+    showToast(`${title} 추가됨`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '예약 추가';
+  }
+});
+
+attachPhoneMask(document.getElementById('adminResPhone'));
 
 /* ============================================================
    Reservation Delete Modal

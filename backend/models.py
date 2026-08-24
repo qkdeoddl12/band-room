@@ -35,6 +35,9 @@ class Team(Base):
     billing_type = Column(String(20), nullable=False, server_default='hourly')
     monthly_fee = Column(Integer)   # billing_type='monthly' 일 때 팀 월 이용료
     dues_fee = Column(Integer)      # billing_type='dues' 일 때 이 팀의 1인 기본 회비
+    # 도어즈 소속 밴드인가, 외부 밴드인가. 멤버의 is_doors 와 같은 뜻이고
+    # 과금 방식(billing_type)과는 별개다 — 외부 밴드도 월 이용료를 낼 수 있다.
+    is_doors = Column(Boolean, nullable=False, server_default='true')
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
@@ -88,6 +91,9 @@ class Reservation(Base):
     # 자정을 넘기는 예약은 날짜별 두 건으로 나눠 저장하고 같은 group_key 로 묶는다.
     # 확정·취소는 짝을 함께 처리한다.
     group_key = Column(String(32), index=True)
+    # 무엇을 위한 예약인가. 팀·개인은 이용자가 만들고, 대관·정모는 관리자가 만든다.
+    # 'team' 팀 합주 | 'personal' 개인연습실 | 'rental' 장소 대관 | 'meetup' 도어즈 정모
+    kind = Column(String(20), nullable=False, server_default='team', index=True)
     # 본인 취소용. 로그인이 없으므로 '이 예약을 신청한 브라우저' 를 이 토큰으로 가린다.
     # 절대 공개 목록에 실으면 안 된다 — 생성 응답에서만 한 번 내보낸다.
     # 자정을 넘겨 나뉜 예약은 group_key 처럼 같은 토큰을 공유한다.

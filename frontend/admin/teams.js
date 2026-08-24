@@ -106,6 +106,7 @@ function renderTeams() {
       <div class="ecard${t.is_active ? '' : ' inactive'}" onclick="openTeamDetail(${t.id})">
         <div class="ecard-top">
           <span class="ecard-name">${escHtml(t.name)}</span>
+          ${t.is_doors ? '' : '<span class="mt-badge out">외부</span>'}
           ${t.is_active ? '' : '<span class="mt-badge off">비활성</span>'}
           <span class="ecard-fee">${teamBillingBadge(t)}</span>
         </div>
@@ -134,6 +135,7 @@ function openTeamModal(teamId = null) {
   document.getElementById('teamPhone').value      = formatPhone(t?.phone);
   document.getElementById('teamMemo').value       = t?.memo || '';
   renderPartPicker('teamParts', 'teamPartsOther', t?.parts);
+  document.getElementById('teamDoors').checked    = t ? t.is_doors : true;
   document.getElementById('teamActive').checked   = t ? t.is_active : true;
 
   const billing = t?.billing_type || 'hourly';
@@ -193,6 +195,7 @@ document.getElementById('teamForm').addEventListener('submit', async e => {
     billing_type: billing,
     monthly_fee:  billing === 'monthly' ? Number(feeRaw || 0)  : null,
     dues_fee:     null,   // 팀별 회비는 쓰지 않는다 — 환경 설정 기본값 + 멤버별 금액으로 충분
+    is_doors:     document.getElementById('teamDoors').checked,
     is_active:    document.getElementById('teamActive').checked,
   };
   if (!body.name) { showToast('팀 이름을 입력해주세요.', 'error'); return; }
