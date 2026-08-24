@@ -262,13 +262,15 @@ docker-compose.yml
 - **항목 많은 수정창은 `.modal.wide` + `.form-grid`/`.form-col`** (멤버·팀). 좁은 화면에선 `display: contents` 로
   그냥 세로로 쌓이고, 900px 이상에서만 2열이 된다. 칼럼에 항목을 넣을 땐 **양쪽 높이를 맞춰야** 스크롤이 안 생긴다
   - 데스크탑 `max-height` 는 `body:has(.admin-dashboard) .modal` 이 88vh 로 잡고 있으니 같은 특이도로 눌러야 먹는다
-  - **데스크탑 모달은 본문만 스크롤한다** (`.modal` 은 flex column + `overflow:hidden`,
+  - **관리자 모달은 본문만 스크롤한다 (폰·PC 공통)** (`.modal` 은 flex column + `overflow:hidden`,
     `.modal-body` 가 `overflow-y:auto` + `min-height:0`). 전에는 모달 전체가 스크롤 컨테이너라
     조금만 넘쳐도(팀 수정창 26px) 아래 버튼이 잘린 채 보이고 스크롤바도 눈에 안 띄었다
   - `.modal-actions` 는 `position: sticky; bottom: 0` — 내용이 길어도 저장·삭제가 항상 보인다.
     이때 본문 아래 여백은 액션 줄이 갖는다(`.modal-body:has(.modal-actions) { padding-bottom: 0 }`).
     **액션 줄이 없는 모달**(문의 상세·차단 등록 등)은 `:has()` 로 걸러 원래 여백을 지킨다
-  - 이 규칙들은 `@media (min-width: 769px)` 안이라 좁은 화면은 예전처럼 모달 전체가 스크롤된다
+  - 액션 줄 아래 여백은 `calc(24px + env(safe-area-inset-bottom))` — 폰은 시트가 화면 바닥에
+    붙으므로(`.modal-overlay { align-items: flex-end }`) 홈 인디케이터를 피해야 한다. PC 는 env() 가 0
+  - 선택자가 전부 `body:has(.admin-dashboard)` 라 예약 페이지 모달은 예전 그대로다
 - **Pydantic 필드 이름이 타입 이름을 가릴 수 있다**: `date: Optional[date] = None` 은
   `= None` 이 클래스 안에 `date` 를 묶어버려 타입이 통째로 `None` 이 된다 (422 `Input should be None`).
   `date: date` 처럼 기본값이 없으면 안 그런다. 기본값을 붙일 땐 `dt.date` / `dt.time` 을 쓴다

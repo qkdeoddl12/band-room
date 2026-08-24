@@ -1811,6 +1811,40 @@ a { text-decoration: none; }
   .user-created { display: none; }
 }
 
+/* ------------------------------------------------------------
+   관리자 모달: 본문만 스크롤 · 버튼은 바닥 고정 (폰·PC 공통)
+
+   전에는 .modal 이 max-height 와 overflow-y:auto 를 함께 갖고 있어서
+   모달 전체가 스크롤 컨테이너였다. 그래서 조금만 넘쳐도(팀 수정창은 26px)
+   아래 버튼이 잘린 채 보이고 스크롤바도 눈에 안 띄었다.
+   ------------------------------------------------------------ */
+body:has(.admin-dashboard) .modal {
+  display: flex; flex-direction: column;
+  overflow: hidden;              /* 스크롤은 아래 .modal-body 가 맡는다 */
+}
+/* 손잡이·헤더는 flex 아래서 찌그러지면 안 된다 */
+body:has(.admin-dashboard) .modal-handle,
+body:has(.admin-dashboard) .modal-header { flex: none; }
+
+body:has(.admin-dashboard) .modal-body {
+  overflow-y: auto;
+  /* flex 자식은 min-height 를 0 으로 풀어주지 않으면 안 줄어들어 스크롤이 안 생긴다 */
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 저장·삭제는 스크롤 위치와 무관하게 항상 보인다 — 버튼을 찾으러 내려갈 일이 없다.
+   액션 줄이 없는 모달(문의 상세·차단 등록 등)은 :has() 로 걸러 원래 여백을 지킨다. */
+body:has(.admin-dashboard) .modal-body:has(.modal-actions) { padding-bottom: 0; }
+body:has(.admin-dashboard) .modal-actions {
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--card);
+  /* 폰에서는 시트가 화면 바닥에 붙으므로(.modal-overlay 가 flex-end)
+     홈 인디케이터를 피해야 한다. PC 에서는 env() 가 0 이라 그냥 24px 이다. */
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
 @media (min-width: 769px) {
   .mobile-admin-nav { display: none; }
   .admin-sidebar { display: block; }
@@ -1832,29 +1866,6 @@ a { text-decoration: none; }
   body:has(.admin-dashboard) .modal-header { padding-top: 20px; }
   body:has(.admin-dashboard) .modal-body   { padding-bottom: 24px; }
 
-  /* 내용이 max-height 를 넘길 때 **모달 전체가 아니라 본문만** 스크롤한다.
-     전에는 모달 자체가 스크롤 컨테이너라, 조금만 넘쳐도(팀 수정창은 26px)
-     아래 버튼이 잘린 채로 보이고 스크롤바도 눈에 안 띄었다. */
-  body:has(.admin-dashboard) .modal {
-    display: flex; flex-direction: column;
-    overflow: hidden;   /* 스크롤은 아래 .modal-body 가 맡는다 */
-  }
-  body:has(.admin-dashboard) .modal-header { flex: none; }
-  body:has(.admin-dashboard) .modal-body {
-    overflow-y: auto;
-    /* flex 자식은 min-height 를 0 으로 풀어주지 않으면 안 줄어들어 스크롤이 안 생긴다 */
-    min-height: 0;
-    overscroll-behavior: contain;
-  }
-
-  /* 저장·삭제는 스크롤 위치와 무관하게 항상 보인다 — 버튼을 찾으러 내려갈 일이 없다.
-     액션 줄이 없는 모달(문의 상세 등)은 :has() 로 걸러 원래 여백을 지킨다. */
-  body:has(.admin-dashboard) .modal-body:has(.modal-actions) { padding-bottom: 0; }
-  body:has(.admin-dashboard) .modal-actions {
-    position: sticky; bottom: 0; z-index: 2;
-    padding-bottom: 24px;
-    background: var(--card);
-  }
 }
 
 
