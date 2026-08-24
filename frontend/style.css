@@ -1831,6 +1831,30 @@ a { text-decoration: none; }
   body:has(.admin-dashboard) .modal-handle { display: none; }
   body:has(.admin-dashboard) .modal-header { padding-top: 20px; }
   body:has(.admin-dashboard) .modal-body   { padding-bottom: 24px; }
+
+  /* 내용이 max-height 를 넘길 때 **모달 전체가 아니라 본문만** 스크롤한다.
+     전에는 모달 자체가 스크롤 컨테이너라, 조금만 넘쳐도(팀 수정창은 26px)
+     아래 버튼이 잘린 채로 보이고 스크롤바도 눈에 안 띄었다. */
+  body:has(.admin-dashboard) .modal {
+    display: flex; flex-direction: column;
+    overflow: hidden;   /* 스크롤은 아래 .modal-body 가 맡는다 */
+  }
+  body:has(.admin-dashboard) .modal-header { flex: none; }
+  body:has(.admin-dashboard) .modal-body {
+    overflow-y: auto;
+    /* flex 자식은 min-height 를 0 으로 풀어주지 않으면 안 줄어들어 스크롤이 안 생긴다 */
+    min-height: 0;
+    overscroll-behavior: contain;
+  }
+
+  /* 저장·삭제는 스크롤 위치와 무관하게 항상 보인다 — 버튼을 찾으러 내려갈 일이 없다.
+     액션 줄이 없는 모달(문의 상세 등)은 :has() 로 걸러 원래 여백을 지킨다. */
+  body:has(.admin-dashboard) .modal-body:has(.modal-actions) { padding-bottom: 0; }
+  body:has(.admin-dashboard) .modal-actions {
+    position: sticky; bottom: 0; z-index: 2;
+    padding-bottom: 24px;
+    background: var(--card);
+  }
 }
 
 
