@@ -163,22 +163,31 @@ def release_slot(
     return {"message": "지원을 취소했습니다."}
 
 
-@router.post("/api/openjams/{jam_id}/close", response_model=schemas.OpenJamPublic)
-def close_openjam(
+@router.post("/api/openjams/{jam_id}/status", response_model=schemas.OpenJamPublic)
+def set_openjam_status(
     jam_id: int,
-    data: schemas.OpenJamToken,
+    data: schemas.OpenJamStatusChange,
     db: Session = Depends(get_db),
 ):
-    """발제자가 인원을 픽스한다. 마감해야 예약을 잡을 수 있다."""
+    """발제자가 진행 상태를 옮긴다.
+
+      recruiting  모집중 — 자리를 더 받는다
+      closed      모집완료 — 인원 확정. 이 상태여야 합주실을 예약할 수 있다
+      done        종료 — 합주가 끝났다. **목록에서 내려간다**
+
+    하차가 생기면 closed → recruiting 으로 되돌려 다시 받을 수 있어야 한다
+    (기획서도 하차를 전제한다). 되살리기(done → 그 외)는 관리자 몫이다."""
     jam = _jam_query(db).filter(models.OpenJam.id == jam_id).first()
     if not jam:
         raise HTTPException(404, "그런 오픈 잼이 없습니다.")
-    _check_token(jam.manage_token, data.token, "이 오픈 잼을 마감할 권한이 없습니다.")
+    _check_token(jam.manage_token, data.token, "이 오픈 잼을 바꿀 권한이 없습니다.")
+    if jam.status == 'done':
+        raise HTTPException(400, "이미 종료된 오픈 잼입니다. 되살리려면 문의해주세요.")
 
-    jam.status = 'closed'
+    jam.status = data.status
     db.commit()
     db.refresh(jam)
-    log_event("openjam_closed", id=jam.id, title=jam.title)
+    log_event("openjam_status", id=jam.id, title=jam.title, status=jam.status)
     return _sorted(jam)
 
 

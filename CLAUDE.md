@@ -197,6 +197,11 @@ docker-compose.yml
 - **토큰은 생성 응답에만 싣는다.** `manage_token`(발제자) / `claim_token`(지원자) 이
   목록에 실리면 남의 잼을 마감·삭제하거나 남의 자리를 뺄 수 있다.
   공개 스키마(`OpenJamPublic`)를 따로 두고 연락처도 뺀다. 관리자 응답에만 연락처가 있다
+- 상태는 **발제자가** `POST /api/openjams/{id}/status` 로 옮긴다 (manage_token).
+  `recruiting` 모집중 → `closed` 모집완료 → `done` 종료.
+  **`done` 이면 공개 목록에서 내려간다** (`GET /api/openjams` 는 recruiting·closed 만 준다).
+  하차가 생기면 `closed → recruiting` 으로 되돌릴 수 있다 — 기획서가 하차를 전제한다.
+  `done` 에서 되살리는 건 발제자가 못 하고 관리자만 한다 (`PATCH /api/admin/openjams/{id}`)
 - 모집이 `closed` 인 잼만 예약할 수 있다. `POST /api/reservations` 에 `jam_id` 를 주면
   `kind='openjam'`, 이름은 `[오픈잼] {title}`, **무료 + 즉시 확정**
   (참여자 전원이 이미 월회비를 내는 회원이다)

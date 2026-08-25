@@ -368,8 +368,8 @@ def test_open_jam(h):
     # 4) 토큰 없이는 취소·마감 못 한다
     assert client.post(f"/api/openjam-slots/{sid}/release",
                        json={"token": "0" * 32}).status_code == 403
-    assert client.post(f"/api/openjams/{jam['id']}/close",
-                       json={"token": "0" * 32}).status_code == 403
+    assert client.post(f"/api/openjams/{jam['id']}/status",
+                       json={"token": "0" * 32, "status": "closed"}).status_code == 403
     # 지원자가 있으면 발제자도 못 지운다
     assert client.delete(f"/api/openjams/{jam['id']}?token={token}").status_code == 400
 
@@ -388,8 +388,15 @@ def test_open_jam(h):
     early = client.post("/api/reservations", json=resv)
     assert early.status_code == 400, "모집중인 잼으로는 예약할 수 없다"
 
-    closed = client.post(f"/api/openjams/{jam['id']}/close", json={"token": token})
+    closed = client.post(f"/api/openjams/{jam['id']}/status",
+                         json={"token": token, "status": "closed"})
     assert closed.status_code == 200 and closed.json()["status"] == "closed", closed.text
+
+    # 하차가 생기면 되돌려 다시 모집할 수 있어야 한다
+    back = client.post(f"/api/openjams/{jam['id']}/status",
+                       json={"token": token, "status": "recruiting"})
+    assert back.status_code == 200 and back.json()["status"] == "recruiting", back.text
+    client.post(f"/api/openjams/{jam['id']}/status", json={"token": token, "status": "closed"})
 
     # 6) 그 잼으로 예약 — 팀 없이, 즉시 확정·무료
     res = client.post("/api/reservations", json=resv)
@@ -404,13 +411,23 @@ def test_open_jam(h):
     clash = client.post("/api/reservations", json={**resv, "start_time": "20:00:00"})
     assert clash.status_code == 400, f"겹치는 시간은 막아야 한다, got {clash.status_code}"
 
-    # 8) 관리자 목록에는 연락처가 보인다
+    # 8) 발제자가 종료하면 공개 목록에서 내려간다 (되돌릴 수 없다)
+    fin = client.post(f"/api/openjams/{jam['id']}/status",
+                      json={"token": token, "status": "done"})
+    assert fin.status_code == 200 and fin.json()["status"] == "done", fin.text
+    assert not any(j["id"] == jam["id"] for j in client.get("/api/openjams").json()), \
+        "종료한 잼이 목록에 남아 있다"
+    assert client.post(f"/api/openjams/{jam['id']}/status",
+                       json={"token": token, "status": "recruiting"}).status_code == 400, \
+        "종료된 잼을 발제자가 되살리면 안 된다"
+
+    # 9) 관리자 목록에는 연락처가 보인다 (종료된 것도 관리자에겐 보인다)
     adm = next(j for j in client.get("/api/admin/openjams", headers=h).json()
                if j["id"] == jam["id"])
     assert adm["leader_name"] == f"{MARK}잼리더" and "leader_phone" in adm, adm
     assert client.get("/api/admin/openjams").status_code == 401
 
-    # 9) 잼을 지우면 슬롯도 함께 사라진다
+    # 10) 잼을 지우면 슬롯도 함께 사라진다
     assert client.delete(f"/api/admin/openjams/{jam['id']}", headers=h).status_code == 200
     created["jam"] = None
     assert client.post(f"/api/openjam-slots/{sid}/claim",

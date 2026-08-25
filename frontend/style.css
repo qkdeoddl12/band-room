@@ -2916,6 +2916,7 @@ body:has(.admin-dashboard) .modal-actions {
   font-size: 13px; font-weight: 700; color: var(--text); cursor: pointer;
 }
 .jam-owner-btn.danger { color: var(--danger); border-color: var(--danger); }
+.jam-owner-btn.done   { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
 .jam-hint { margin-top: 8px; font-size: 12px; color: var(--text-light); }
 
 .jam-claim-target {

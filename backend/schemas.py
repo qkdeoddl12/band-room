@@ -292,6 +292,11 @@ class OpenJamToken(BaseModel):
     token: str = Field(..., min_length=8, max_length=64)
 
 
+class OpenJamStatusChange(BaseModel):
+    token: str = Field(..., min_length=8, max_length=64)
+    status: str = Field(..., pattern=JAM_STATUS_PATTERN)
+
+
 class OpenJamSlotPublic(BaseModel):
     """공개 목록용. 연락처는 싣지 않는다 — 이름과 포지션만."""
     id: int

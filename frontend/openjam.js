@@ -128,10 +128,15 @@ function renderJams() {
         <div class="jam-slots">${slots}</div>
         ${isMine ? `
           <div class="jam-owner-actions">
-            ${closed ? '' : `<button class="jam-owner-btn" onclick="closeJam(${jam.id})">모집 마감</button>`}
+            ${closed
+              ? `<button class="jam-owner-btn" onclick="setJamStatus(${jam.id}, 'recruiting')">다시 모집</button>
+                 <button class="jam-owner-btn done" onclick="setJamStatus(${jam.id}, 'done')">합주 끝 · 종료</button>`
+              : `<button class="jam-owner-btn" onclick="setJamStatus(${jam.id}, 'closed')">모집 마감</button>`}
             ${filled === 0 ? `<button class="jam-owner-btn danger" onclick="deleteJam(${jam.id})">삭제</button>` : ''}
           </div>
-          ${closed ? '<div class="jam-hint">예약 페이지에서 이 오픈 잼으로 합주실을 잡을 수 있습니다.</div>' : ''}
+          ${closed
+            ? '<div class="jam-hint">예약 페이지에서 이 오픈 잼으로 합주실을 잡을 수 있습니다.<br>합주가 끝나면 <b>종료</b>를 눌러주세요 — 목록에서 내려갑니다.</div>'
+            : ''}
         ` : ''}
       </div>`;
   }).join('');
@@ -283,17 +288,29 @@ document.getElementById('jamCreateForm').addEventListener('submit', async e => {
   }
 });
 
-async function closeJam(jamId) {
+/* 발제자가 진행 상태를 옮긴다. 종료하면 목록에서 내려간다. */
+const JAM_STATUS_ASK = {
+  closed:     ['모집을 마감할까요? 더 지원받지 않고 합주실을 예약할 수 있습니다.',
+               '모집을 마감했습니다. 예약 페이지에서 합주실을 잡으세요.'],
+  recruiting: ['다시 모집할까요? 남은 자리에 지원받습니다.',
+               '다시 모집합니다.'],
+  done:       ['합주가 끝났나요? 종료하면 목록에서 내려가고 되돌릴 수 없습니다.',
+               '수고하셨습니다. 목록에서 내렸습니다 🎸'],
+};
+
+async function setJamStatus(jamId, status) {
   const token = loadStore(JAM_KEY)[jamId];
   if (!token) return;
-  if (!confirm('모집을 마감할까요? 마감하면 더 지원받지 않고 합주실을 예약할 수 있습니다.')) return;
+  const [ask, done] = JAM_STATUS_ASK[status];
+  if (!confirm(ask)) return;
   try {
-    await api(`/api/openjams/${jamId}/close`, {
+    await api(`/api/openjams/${jamId}/status`, {
       method: 'POST',
-      body: JSON.stringify({ token }),
+      body: JSON.stringify({ token, status }),
     });
+    if (status === 'done') forget(JAM_KEY, jamId);
     await loadJams();
-    showToast('모집을 마감했습니다. 예약 페이지에서 합주실을 잡으세요.', 'success');
+    showToast(done, 'success');
   } catch (e) {
     showToast(e.message, 'error');
   }
