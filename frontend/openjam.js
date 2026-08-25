@@ -10,9 +10,6 @@
 const JAM_KEY  = 'bandroom_my_jams';    // { jamId: manage_token }
 const SLOT_KEY = 'bandroom_my_slots';   // { slotId: claim_token }
 
-/* 예약 페이지와 같은 어휘를 쓴다 (core.js 는 관리자 전용이라 여기 한 벌 둔다). */
-const JAM_PARTS = ['보컬', '여보컬', '남보컬', '기타', '리드기타', '세컨기타', '베이스', '드럼', '키보드'];
-
 let jams = [];
 let claimTarget = null;   // 지원하려고 고른 자리
 
@@ -211,7 +208,7 @@ function openJamCreate() {
   document.getElementById('jamPeriod').value = '';
   document.getElementById('jamMemo').value   = '';
   document.getElementById('jamPartsOther').value = '';
-  document.getElementById('jamParts').innerHTML = JAM_PARTS.map(p => `
+  document.getElementById('jamParts').innerHTML = FIXED_PARTS.map(p => `
     <label class="part-check">
       <input type="checkbox" value="${escHtml(p)}" onchange="syncJamParts(this)">
       <span>${escHtml(p)}</span>

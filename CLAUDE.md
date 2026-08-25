@@ -51,7 +51,8 @@ frontend/
   admin.html                # 관리자 셸 (모든 페이지 마크업)
   admin/                    # 페이지별 JS — core.js 먼저 로드
     core.js reservations.js ops.js teams.js members.js dues.js tickets.js users.js settings.js
-  favicon.svg               # 문 모양 파비콘 (네 페이지 공용)
+  favicon.svg               # 문 모양 파비콘 (다섯 페이지 공용)
+  parts.js                  # 포지션 고정 목록 — 관리자·오픈잼 공용 (여기 한 곳)
   guide.html  guide.js      # 이용안내 (/guide) — 화면 + 인쇄용 PDF
   openjam.html  openjam.js  # 오픈 잼 (/openjam) — 회원이 곡을 발제하고 자리를 잡는다
   guide/                    # 이용안내에 넣은 화면 캡처 (UI 바뀌면 다시 찍을 것)
@@ -120,8 +121,9 @@ docker-compose.yml
   - 상태 라벨은 `teams.js::SONG_STATUS` 한 곳에만 둔다. 상태 칩은 정산 회비 칩(`.dues-chip`)과 같은 패턴
 - 팀 상세 모달은 `멤버 | 레퍼토리` 탭으로 나뉜다 (`teams.js::detailTab`). 팀을 새로 열면 멤버 탭으로 돌아가고
   펼쳐둔 곡 편집창도 닫힌다 — 안 닫으면 남의 팀 곡을 고치게 된다
-- `parts`는 콤마 문자열(`"기타,보컬"`), 조인 테이블 없음. 고정 목록은 `core.js::FIXED_PARTS` 한 곳 —
-  멤버·팀 수정창이 같은 `renderPartPicker` 를 쓰므로 여기만 고치면 양쪽에 다 반영된다
+- `parts`는 콤마 문자열(`"기타,보컬"`), 조인 테이블 없음. 고정 목록은 **`frontend/parts.js` 한 곳** —
+  관리자(멤버·팀 수정창)와 공개 오픈 잼이 같은 어휘를 써야 한다. 전에는 `core.js` 와 `openjam.js` 가
+  각자 복사본을 갖고 있었다. `admin.html` · `openjam.html` 이 다른 스크립트보다 **먼저** 이 파일을 읽는다
 - 팀 카드·상세의 나이 통계는 `TeamResponse.age_avg` / `age_buckets` (서버 집계, `teams.py::_age_stats`).
   나이는 한국식 연 나이, 연령대는 10년 단위에 60 이상 한 묶음. **출생년도를 모르는 멤버는 아예 뺀다**
 - 전화번호는 **숫자만 저장**하고 화면에서만 하이픈을 붙인다 (`deps.normalize_phone` / `core.js::formatPhone`).
