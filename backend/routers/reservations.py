@@ -257,6 +257,7 @@ def create_reservation(
 
     team = None
     member = None
+    open_jam = None
     booker_name = None
     booker_phone = None
     free = False   # 요금 없이 바로 확정할지
@@ -277,6 +278,17 @@ def create_reservation(
         elif not booker_phone:
             # 게스트는 연락이 닿아야 입금 확인을 할 수 있다.
             raise HTTPException(400, "게스트 예약은 연락처가 필요합니다.")
+    elif reservation.jam_id is not None:
+        # 오픈 잼으로 잡는 예약. 팀이 아니므로 대관·정모와 같은 길을 탄다 —
+        # 표시 이름만 갖고 회비·정산과는 무관하다.
+        jam = db.query(models.OpenJam).filter(
+            models.OpenJam.id == reservation.jam_id
+        ).first()
+        if not jam or jam.status != 'closed':
+            raise HTTPException(400, "모집이 마감된 오픈 잼만 예약할 수 있습니다.")
+        open_jam = jam
+        # 참여자 전원이 이미 월회비를 내는 도어즈 회원이라 건별 요금이 없다.
+        free = True
     else:
         team = db.query(models.Team).filter(models.Team.id == reservation.team_id).first()
         if not team or not team.is_active:
@@ -286,8 +298,9 @@ def create_reservation(
     # 자정을 넘기면 거부하지 않고 날짜별로 쪼갠다 (23시~새벽 2시 같은 예약).
     segments = _split_segments(reservation.date, reservation.start_time, reservation.duration)
 
-    _assert_slots_free(db, reservation.room_id, segments, request,
-                       who=team.name if team else booker_name)
+    display = team.name if team else (
+        f"[오픈잼] {open_jam.title}" if open_jam else booker_name)
+    _assert_slots_free(db, reservation.room_id, segments, request, who=display)
 
     # 나뉜 예약도 사용자에겐 한 건이다 — group_key 로 묶어 함께 확정·취소한다.
     group_key = secrets.token_hex(8) if len(segments) > 1 else None
@@ -305,11 +318,12 @@ def create_reservation(
             start_time=seg["start"],
             end_time=seg["end"],
             duration=seg["hours"],
-            team_name=team.name if team else booker_name,
+            team_name=display,
             members=reservation.members,
             note=reservation.note,
             # 낼 것이 없는 예약(선불 팀 · 회비 낸 멤버)은 입금 확인 단계를 건너뛴다.
-            kind='personal' if room.booking_mode == 'personal' else 'team',
+            kind=('personal' if room.booking_mode == 'personal'
+                  else 'openjam' if open_jam else 'team'),
             is_free=free,
             status='confirmed' if free else 'pending',
             group_key=group_key,

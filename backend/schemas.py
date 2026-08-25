@@ -20,6 +20,8 @@ class Room(RoomBase):
 # ========== Reservation ==========
 class ReservationCreate(BaseModel):
     room_id: int
+    # 오픈 잼으로 잡는 예약. 주면 team_id 대신 이걸 본다.
+    jam_id: Optional[int] = None
     # 방의 booking_mode 에 따라 무엇이 필요한지 갈린다 (서버에서 검증).
     #   team     → team_id 필수
     #   personal → booker_name 필수, 멤버가 아니면 booker_phone 도 필수
@@ -263,6 +265,91 @@ class TeamResponse(BaseModel):
     # 레퍼토리 중 완곡 수. "이 팀이 무대에 올릴 수 있는 곡이 몇 개인가"
     done_song_count: int = 0
     model_config = {"from_attributes": True}
+
+
+# ========== Open Jam (오픈 잼) ==========
+JAM_STATUS_PATTERN = '^(recruiting|closed|done)$'
+
+
+class OpenJamSlotCreate(BaseModel):
+    part: str = Field(..., min_length=1, max_length=50)
+    count: int = Field(1, ge=1, le=10)   # "기타 2" 를 슬롯 2개로 펼친다
+
+
+class OpenJamCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    leader_name: str = Field(..., min_length=1, max_length=50)   # 이름으로 멤버를 찾는다
+    target_period: Optional[str] = Field(None, max_length=100)
+    memo: Optional[str] = None
+    slots: List[OpenJamSlotCreate] = Field(..., min_length=1, max_length=12)
+
+
+class OpenJamClaim(BaseModel):
+    name: str = Field(..., min_length=1, max_length=50)
+
+
+class OpenJamToken(BaseModel):
+    token: str = Field(..., min_length=8, max_length=64)
+
+
+class OpenJamSlotPublic(BaseModel):
+    """공개 목록용. 연락처는 싣지 않는다 — 이름과 포지션만."""
+    id: int
+    part: str
+    sort_order: int = 0
+    member_name: Optional[str] = None     # 비어 있으면 아직 빈 자리
+    model_config = {"from_attributes": True}
+
+
+class OpenJamPublic(BaseModel):
+    """공개 목록용. **manage_token / claim_token 을 절대 싣지 않는다** —
+    실으면 남의 잼을 마감·삭제하거나 남의 자리를 뺄 수 있다."""
+    id: int
+    title: str
+    leader_name: Optional[str] = None
+    target_period: Optional[str] = None
+    memo: Optional[str] = None
+    status: str
+    slots: List[OpenJamSlotPublic] = []
+    created_at: datetime
+    model_config = {"from_attributes": True}
+
+
+class OpenJamCreated(OpenJamPublic):
+    """발제한 본인에게만 돌려주는 응답. 관리 열쇠가 여기에만 실린다."""
+    manage_token: Optional[str] = None
+
+
+class OpenJamClaimed(BaseModel):
+    """자리를 잡은 본인에게만. 취소 열쇠가 여기에만 실린다."""
+    slot_id: int
+    jam_id: int
+    part: str
+    member_name: str
+    claim_token: str
+
+
+class OpenJamAdminSlot(OpenJamSlotPublic):
+    member_id: Optional[int] = None
+    member_phone: Optional[str] = None
+    claimed_at: Optional[datetime] = None
+
+
+class OpenJamAdmin(BaseModel):
+    """관리자 화면. 연락처까지 본다."""
+    id: int
+    title: str
+    leader_name: Optional[str] = None
+    leader_phone: Optional[str] = None
+    target_period: Optional[str] = None
+    memo: Optional[str] = None
+    status: str
+    slots: List[OpenJamAdminSlot] = []
+    created_at: datetime
+
+
+class OpenJamAdminUpdate(BaseModel):
+    status: Optional[str] = Field(None, pattern=JAM_STATUS_PATTERN)
 
 
 # ========== Team songs (레퍼토리) ==========

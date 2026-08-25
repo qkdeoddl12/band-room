@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>오픈 잼 — Band Room</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="header">
+    <div class="logo">
+      <span class="logo-icon">🎸</span>
+      <span class="logo-text">오픈 잼</span>
+    </div>
+    <div class="header-actions">
+      <a class="header-link" href="/">‹ 예약</a>
+      <button class="header-link" onclick="openJamCreate()">＋ 곡 제안</button>
+    </div>
+  </header>
+
+  <main class="main jam-main">
+    <div class="jam-intro">
+      한 곡만 정해서 같이 할 사람을 모으는 자리입니다. 팀에 들어가지 않아도 됩니다.<br>
+      원하는 포지션의 <b>빈 자리를 잡으면</b> 끝. 발제자가 인원을 마감하면 합주실을 예약합니다.
+    </div>
+    <div id="jamList"><div class="spinner"></div></div>
+  </main>
+
+  <!-- 곡 제안 -->
+  <div class="modal-overlay" id="jamCreateOverlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">곡 제안</h3>
+        <button class="modal-close" onclick="closeJamCreate()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="jamCreateForm" autocomplete="off">
+
+          <div class="form-group">
+            <label class="form-label" for="jamTitle">곡 <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="jamTitle" maxlength="200"
+                   placeholder="예: 아이유 - 밤편지">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="jamLeader">발제자 이름 <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="jamLeader" maxlength="50" placeholder="본인 이름">
+            <div class="field-hint">도어즈 멤버 명단으로 확인합니다.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">모집 포지션 <span style="color:var(--danger)">*</span></label>
+            <div class="part-checks" id="jamParts"></div>
+            <input type="text" class="form-input part-other" id="jamPartsOther"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
+            <div class="field-hint">고른 포지션마다 자리 1개가 생깁니다. 같은 포지션 2명이 필요하면 아래에서 늘리세요.</div>
+            <div id="jamPartCounts"></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="jamPeriod">목표 합주 시기</label>
+            <input type="text" class="form-input" id="jamPeriod" maxlength="100"
+                   placeholder="예: 10월 셋째 주">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="jamMemo">설명</label>
+            <textarea class="form-textarea" id="jamMemo" placeholder="원곡 링크, 난이도, 하고 싶은 이유 등"></textarea>
+          </div>
+
+          <button type="submit" class="btn-submit" id="jamCreateBtn">제안 올리기</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 자리 지원 -->
+  <div class="modal-overlay" id="jamClaimOverlay">
+    <div class="modal">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <h3 class="modal-title">자리 지원</h3>
+        <button class="modal-close" onclick="closeJamClaim()" aria-label="닫기">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="jamClaimForm" autocomplete="off">
+          <div class="jam-claim-target" id="jamClaimTarget"></div>
+          <div class="form-group">
+            <label class="form-label" for="jamClaimName">이름 <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="jamClaimName" maxlength="50" placeholder="본인 이름">
+            <div class="field-hint">도어즈 멤버 명단으로 확인합니다. 선착순입니다.</div>
+          </div>
+          <button type="submit" class="btn-submit" id="jamClaimBtn">이 자리 잡기</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/static/openjam.js"></script>
+</body>
+</html>

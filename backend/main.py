@@ -17,7 +17,7 @@ import models
 
 from routers import (
     auth, reservations, admin_users, inquiries, blocked,
-    teams, members, dues, tickets, settings, audit,
+    teams, members, dues, tickets, settings, audit, openjams,
 )
 
 models.Base.metadata.create_all(bind=engine)
@@ -76,6 +76,28 @@ def migrate_schema():
         "ALTER TABLE teams ADD COLUMN IF NOT EXISTS is_doors BOOLEAN NOT NULL DEFAULT TRUE",
         "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS kind VARCHAR(20) NOT NULL DEFAULT 'team'",
         "CREATE INDEX IF NOT EXISTS ix_reservations_kind ON reservations (kind)",
+        # 오픈 잼 — 1곡 단위 자율 합주 매칭. 잼을 지우면 슬롯도 함께 사라진다.
+        "CREATE TABLE IF NOT EXISTS open_jams ("
+        " id SERIAL PRIMARY KEY,"
+        " title VARCHAR(200) NOT NULL,"
+        " leader_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,"
+        " leader_name VARCHAR(50),"
+        " target_period VARCHAR(100),"
+        " memo TEXT,"
+        " status VARCHAR(20) NOT NULL DEFAULT 'recruiting',"
+        " manage_token VARCHAR(32),"
+        " created_at TIMESTAMP DEFAULT NOW())",
+        "CREATE INDEX IF NOT EXISTS ix_open_jams_status ON open_jams (status)",
+        "CREATE TABLE IF NOT EXISTS open_jam_slots ("
+        " id SERIAL PRIMARY KEY,"
+        " jam_id INTEGER NOT NULL REFERENCES open_jams(id) ON DELETE CASCADE,"
+        " part VARCHAR(50) NOT NULL,"
+        " sort_order INTEGER NOT NULL DEFAULT 0,"
+        " member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,"
+        " member_name VARCHAR(50),"
+        " claim_token VARCHAR(32),"
+        " claimed_at TIMESTAMP)",
+        "CREATE INDEX IF NOT EXISTS ix_open_jam_slots_jam_id ON open_jam_slots (jam_id)",
         # 한 사람이 밴드를 여러 개 하는 경우. members.team_id 는 대표 팀으로만 남는다.
         "CREATE TABLE IF NOT EXISTS member_teams ("
         " member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,"
@@ -230,7 +252,7 @@ async def access_log_middleware(request: Request, call_next):
 # ========== Routers ==========
 for module in (
     auth, reservations, admin_users, inquiries, blocked,
-    teams, members, dues, tickets, settings, audit,
+    teams, members, dues, tickets, settings, audit, openjams,
 ):
     app.include_router(module.router)
 
@@ -268,6 +290,12 @@ def render_page(filename: str) -> str:
 @app.get("/", response_class=HTMLResponse)
 async def root():
     return HTMLResponse(render_page("index.html"))
+
+
+@app.get("/openjam", response_class=HTMLResponse)
+async def openjam_page():
+    """오픈 잼 — 회원이 곡을 발제하고 포지션별로 지원한다."""
+    return HTMLResponse(render_page("openjam.html"))
 
 
 @app.get("/guide", response_class=HTMLResponse)

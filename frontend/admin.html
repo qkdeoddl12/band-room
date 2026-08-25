@@ -145,6 +145,9 @@
           </li>
 
           <li class="sidebar-group">운영</li>
+          <li class="sidebar-item" data-page="openjams" onclick="switchPage('openjams')">
+            <span class="sidebar-icon">🎸</span> 오픈 잼
+          </li>
           <li class="sidebar-item" data-page="inquiries" onclick="switchPage('inquiries')">
             <span class="sidebar-icon">📩</span> 문의/민원
             <span class="nav-badge" id="navInquiryBadge" style="display:none;"></span>
@@ -688,6 +691,17 @@
         </div>
 
         <!-- ===== AUDIT LOG PAGE (system admin only) ===== -->
+        <div class="admin-page" id="openjamsPage" style="display:none;">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">오픈 잼</h2>
+              <p class="page-subtitle" id="openjamCount">회원이 직접 올린 곡과 지원 현황입니다.</p>
+            </div>
+            <button class="btn-secondary tk-back" onclick="loadOpenjams()">새로고침</button>
+          </div>
+          <div id="openjamList"></div>
+        </div>
+
         <div class="admin-page" id="auditPage" style="display:none;">
           <div class="page-header">
             <div>
@@ -1584,6 +1598,7 @@
   <script src="/static/admin/contacts.js"></script>
   <script src="/static/admin/tickets.js"></script>
   <script src="/static/admin/users.js"></script>
+  <script src="/static/admin/openjams.js"></script>
   <script src="/static/admin/audit.js"></script>
   <script src="/static/admin/settings.js"></script>
   <script>init();</script>

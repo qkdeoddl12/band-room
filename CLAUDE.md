@@ -53,6 +53,7 @@ frontend/
     core.js reservations.js ops.js teams.js members.js dues.js tickets.js users.js settings.js
   favicon.svg               # 문 모양 파비콘 (네 페이지 공용)
   guide.html  guide.js      # 이용안내 (/guide) — 화면 + 인쇄용 PDF
+  openjam.html  openjam.js  # 오픈 잼 (/openjam) — 회원이 곡을 발제하고 자리를 잡는다
   guide/                    # 이용안내에 넣은 화면 캡처 (UI 바뀌면 다시 찍을 것)
   ticket.html  ticket.js    # 공개 티켓 페이지 (/t/{slug})
   ticket-render.js          # 티켓 렌더 — 에디터·공개 페이지 공용
@@ -182,9 +183,26 @@ docker-compose.yml
 - 크기 제한은 `MAX_UPLOAD_MB` (기본 25, `0`이면 무제한). 조각 단위 스트리밍이라 큰 파일도 메모리를 먹지 않는다.
   실패하면 반쪽 파일을 지운다. 프록시(nginx)에도 자체 본문 크기 제한이 있으니 앱 로그에 요청이 안 찍히면 그쪽을 봐야 한다
 
+### 오픈 잼 (`open_jams` / `open_jam_slots`)
+1곡 단위로 발제해 포지션별 선착순으로 사람을 모으는 단기 프로젝트 (`doors_open_jam_system.pdf`).
+**팀이 아니다** — `teams` 에 만들지 않는다. 회비가 소속 팀마다 청구되므로(위 참조)
+팀으로 만들면 참여자에게 회비가 한 건 더 붙는다
+- `"보컬1, 기타2"` 는 **슬롯 3개**다. 자리 단위로 두어야 선착순이 그대로 "빈 자리 잡기"가 된다
+- **선착순 경합은 조건부 UPDATE 로 막는다** — `WHERE id = ? AND member_id IS NULL`.
+  영향 행이 0이면 그 사이 누가 채운 것이므로 400. 두 명이 동시에 눌러도 한 명만 들어간다
+- 신원은 로그인 없이 **이름 → 활동 멤버 조회** (`reservations.find_member_by_name` 재사용).
+  명부에 없으면 거부한다 — 사실상 유일하면서 30명 명부에는 충분한 방어다
+- **토큰은 생성 응답에만 싣는다.** `manage_token`(발제자) / `claim_token`(지원자) 이
+  목록에 실리면 남의 잼을 마감·삭제하거나 남의 자리를 뺄 수 있다.
+  공개 스키마(`OpenJamPublic`)를 따로 두고 연락처도 뺀다. 관리자 응답에만 연락처가 있다
+- 모집이 `closed` 인 잼만 예약할 수 있다. `POST /api/reservations` 에 `jam_id` 를 주면
+  `kind='openjam'`, 이름은 `[오픈잼] {title}`, **무료 + 즉시 확정**
+  (참여자 전원이 이미 월회비를 내는 회원이다)
+
 ### 예약 종류 (`reservations.kind`)
 - `team` 팀 합주 · `personal` 개인연습실 — **이용자**가 만든다
 - `rental` 장소 대관 · `meetup` 도어즈 정모 — **관리자**가 `POST /api/admin/reservations` 로 만든다
+- `openjam` 오픈 잼 — 회원이 `POST /api/reservations` 에 `jam_id` 를 주면 만들어진다
 - 대관·정모는 팀도 이용자도 없다. 표시 이름은 **`team_name` 에 넣는다** — 목록·타임라인·캘린더가
   이미 그 칸을 읽고 있어서 화면을 안 고쳐도 이름이 나온다 (예약 시점 스냅샷이라는 뜻도 그대로 맞다)
 - 바로 `confirmed` + `is_free=True` 로 들어간다. 요금·입금 확인 단계가 없다.
@@ -311,7 +329,7 @@ docker-compose.yml
   1. HTML 셸과 `/static` 에 `Cache-Control: no-cache` (`main.py` 미들웨어) — ETag 로 304 는 그대로 나간다
   2. `main.py::render_page()` 가 셸의 `/static/*.js|css` 주소에 `?v=<가장 최근 mtime>` 을 붙인다. **이게 핵심** — 이미 캐시된 사본에는 헤더가 소급되지 않으므로 주소를 바꿔야 한다. 프론트만 고쳐도(재빌드 없이) 값이 바뀐다
   3. 새 DOM 요소를 읽을 땐 `core.js::setText()` 처럼 없으면 넘어가게 쓴다
-  네 페이지(`/`, `/admin`, `/guide`, `/t/{slug}`)가 모두 `render_page()` 를 지난다
+  다섯 페이지(`/`, `/admin`, `/guide`, `/openjam`, `/t/{slug}`)가 모두 `render_page()` 를 지난다
 - **포트**: 앱 8010, DB 호스트 5433 (5432는 다른 프로젝트가 점유 가능)
 - **Docker Compose v1 환경** (구형 시놀로지): `docker-compose up --build -d` 써야 함. `--build`만 단독이면 v1은 거부
 - **시놀로지에서 docker.sock 권한**: `sudo` 필요하거나 `docker` 그룹에 사용자 추가

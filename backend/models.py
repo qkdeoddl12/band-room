@@ -108,6 +108,48 @@ class Reservation(Base):
     member = relationship("Member")
 
 
+class OpenJam(Base):
+    """오픈 잼 — 1곡 단위로 발제해 포지션별 선착순으로 사람을 모으는 단기 프로젝트.
+    팀이 아니다 (teams 에 만들지 않는다) — 회비가 소속 팀마다 청구되므로
+    팀으로 만들면 참여자에게 회비가 한 건 더 붙는다."""
+    __tablename__ = "open_jams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)          # "아이유 - 밤편지"
+    leader_member_id = Column(Integer, ForeignKey("members.id", ondelete="SET NULL"))
+    leader_name = Column(String(50))                     # 멤버가 지워져도 남는 스냅샷
+    target_period = Column(String(100))                  # "10월 셋째 주" — 날짜가 아니다
+    memo = Column(Text)
+    # 'recruiting' 모집중 | 'closed' 모집완료 | 'done' 종료
+    status = Column(String(20), nullable=False, server_default='recruiting', index=True)
+    # 발제자용. 목록에 절대 싣지 않는다 — 실으면 남의 잼을 마감·삭제할 수 있다.
+    manage_token = Column(String(32))
+    created_at = Column(DateTime, server_default=func.now())
+
+    leader = relationship("Member")
+    slots = relationship("OpenJamSlot", back_populates="jam",
+                         cascade="all, delete-orphan")
+
+
+class OpenJamSlot(Base):
+    """모집 포지션 한 자리. '보컬1, 통기타1, 건반1' 은 슬롯 세 개다 —
+    자리 단위로 두면 선착순이 그대로 '빈 자리 잡기'가 된다."""
+    __tablename__ = "open_jam_slots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    jam_id = Column(Integer, ForeignKey("open_jams.id", ondelete="CASCADE"),
+                    nullable=False, index=True)
+    part = Column(String(50), nullable=False)
+    sort_order = Column(Integer, nullable=False, server_default='0')
+    member_id = Column(Integer, ForeignKey("members.id", ondelete="SET NULL"))
+    member_name = Column(String(50))
+    claim_token = Column(String(32))
+    claimed_at = Column(DateTime)
+
+    jam = relationship("OpenJam", back_populates="slots")
+    member = relationship("Member")
+
+
 class AdminUser(Base):
     __tablename__ = "admin_users"
 

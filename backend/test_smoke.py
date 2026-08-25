@@ -22,6 +22,7 @@ client = httpx.Client(base_url=BASE, timeout=20.0)
 created = {"team": None, "team2": None, "team3": None,
            "cancel": None, "past": None, "edit": None, "edit2": None,
            "admin_res": None, "team4": None, "team5": None,
+           "member5": None, "member6": None, "jam": None, "jam_res": None,
            "member": None, "member2": None, "member3": None,
            "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
@@ -319,6 +320,101 @@ def test_team_dues(h, team, member_id):
     jan = next(r for r in summary if r["year_month"] == ym)
     assert jan["team_paid"] == 200000, jan
     assert jan["paid"] < 200000, f"팀 이용료가 회비에 섞이면 안 된다: {jan}"
+
+
+def test_open_jam(h):
+    """오픈 잼 — 발제 · 선착순 지원 · 마감 · 그 잼으로 예약.
+    로그인이 없으므로 이름은 멤버 명부로 확인하고, 본인 확인은 토큰으로 한다."""
+    # 이 테스트에서 쓸 멤버 둘을 만든다 (이름이 명부에 있어야 발제·지원이 된다)
+    a = client.post("/api/admin/members", headers=h, json={"name": f"{MARK}잼리더"}).json()
+    b = client.post("/api/admin/members", headers=h, json={"name": f"{MARK}잼지원"}).json()
+    created["member5"], created["member6"] = a["id"], b["id"]
+
+    body = {"title": f"{MARK} 밤편지", "leader_name": f"{MARK}잼리더",
+            "target_period": "10월 셋째 주",
+            "slots": [{"part": "보컬", "count": 1}, {"part": "기타", "count": 2}]}
+
+    # 1) 명부에 없는 이름은 거부
+    assert client.post("/api/openjams", json={**body, "leader_name": "없는사람"}).status_code == 400
+
+    made = client.post("/api/openjams", json=body)
+    assert made.status_code == 200, made.text
+    jam = made.json()
+    created["jam"] = jam["id"]
+    assert len(jam["slots"]) == 3, "count 2 는 자리 두 개로 펼쳐져야 한다"
+    token = jam["manage_token"]
+    assert token, "발제 응답에는 관리 열쇠가 있어야 한다"
+
+    # 2) 공개 목록에는 토큰이 없다 — 있으면 남의 잼을 마감·삭제할 수 있다
+    pub = next(j for j in client.get("/api/openjams").json() if j["id"] == jam["id"])
+    assert "manage_token" not in pub, f"목록에 관리 열쇠가 실렸다: {pub}"
+    for slot in pub["slots"]:
+        assert "claim_token" not in slot, f"목록에 취소 열쇠가 실렸다: {slot}"
+        assert "member_phone" not in slot, f"목록에 연락처가 실렸다: {slot}"
+
+    # 3) 선착순 — 이미 찬 자리는 못 잡는다
+    sid = jam["slots"][0]["id"]
+    got = client.post(f"/api/openjam-slots/{sid}/claim", json={"name": f"{MARK}잼지원"})
+    assert got.status_code == 200, got.text
+    claim = got.json()["claim_token"]
+    again = client.post(f"/api/openjam-slots/{sid}/claim", json={"name": f"{MARK}잼리더"})
+    assert again.status_code == 400, f"찬 자리에 또 들어갔다, got {again.status_code}"
+
+    # 같은 잼에 두 자리를 잡을 수는 없다
+    dup = client.post(f"/api/openjam-slots/{jam['slots'][1]['id']}/claim",
+                      json={"name": f"{MARK}잼지원"})
+    assert dup.status_code == 400, "한 잼에 두 자리를 잡으면 안 된다"
+
+    # 4) 토큰 없이는 취소·마감 못 한다
+    assert client.post(f"/api/openjam-slots/{sid}/release",
+                       json={"token": "0" * 32}).status_code == 403
+    assert client.post(f"/api/openjams/{jam['id']}/close",
+                       json={"token": "0" * 32}).status_code == 403
+    # 지원자가 있으면 발제자도 못 지운다
+    assert client.delete(f"/api/openjams/{jam['id']}?token={token}").status_code == 400
+
+    # 맞는 토큰이면 자리가 다시 빈다
+    assert client.post(f"/api/openjam-slots/{sid}/release",
+                       json={"token": claim}).status_code == 200
+    pub = next(j for j in client.get("/api/openjams").json() if j["id"] == jam["id"])
+    assert next(s for s in pub["slots"] if s["id"] == sid)["member_name"] is None
+
+    # 5) 모집 마감
+    day = date.today() + timedelta(days=175)
+    rooms = client.get("/api/rooms").json()
+    room = next(r for r in rooms if r["booking_mode"] == "team")
+    resv = {"room_id": room["id"], "jam_id": jam["id"], "date": str(day),
+            "start_time": "19:00:00", "duration": 2}
+    early = client.post("/api/reservations", json=resv)
+    assert early.status_code == 400, "모집중인 잼으로는 예약할 수 없다"
+
+    closed = client.post(f"/api/openjams/{jam['id']}/close", json={"token": token})
+    assert closed.status_code == 200 and closed.json()["status"] == "closed", closed.text
+
+    # 6) 그 잼으로 예약 — 팀 없이, 즉시 확정·무료
+    res = client.post("/api/reservations", json=resv)
+    assert res.status_code == 200, res.text
+    made_res = res.json()
+    created["jam_res"] = made_res["id"]
+    assert made_res["kind"] == "openjam" and made_res["team_id"] is None, made_res
+    assert made_res["team_name"] == f"[오픈잼] {MARK} 밤편지", made_res
+    assert made_res["status"] == "confirmed" and made_res["is_free"], made_res
+
+    # 7) 팀 예약과 같은 겹침 검사를 받는다
+    clash = client.post("/api/reservations", json={**resv, "start_time": "20:00:00"})
+    assert clash.status_code == 400, f"겹치는 시간은 막아야 한다, got {clash.status_code}"
+
+    # 8) 관리자 목록에는 연락처가 보인다
+    adm = next(j for j in client.get("/api/admin/openjams", headers=h).json()
+               if j["id"] == jam["id"])
+    assert adm["leader_name"] == f"{MARK}잼리더" and "leader_phone" in adm, adm
+    assert client.get("/api/admin/openjams").status_code == 401
+
+    # 9) 잼을 지우면 슬롯도 함께 사라진다
+    assert client.delete(f"/api/admin/openjams/{jam['id']}", headers=h).status_code == 200
+    created["jam"] = None
+    assert client.post(f"/api/openjam-slots/{sid}/claim",
+                       json={"name": f"{MARK}잼지원"}).status_code == 404
 
 
 def test_admin_booking(h):
@@ -662,12 +758,15 @@ def test_multi_team(h):
 
 def cleanup(h):
     for key in ("reservation", "reservation2", "reservation3", "reservation4",
-                "overnight", "cancel", "past", "edit", "edit2", "admin_res"):
+                "overnight", "cancel", "past", "edit", "edit2", "admin_res",
+                "jam_res"):
         if created[key]:
             client.delete(f"/api/reservations/{created[key]}", headers=h)
     if created["ticket"]:
         client.delete(f"/api/admin/tickets/{created['ticket']}", headers=h)
-    for key in ("member", "member2", "member3", "member4"):
+    if created["jam"]:
+        client.delete(f"/api/admin/openjams/{created['jam']}", headers=h)
+    for key in ("member", "member2", "member3", "member4", "member5", "member6"):
         if created[key]:
             client.delete(f"/api/admin/members/{created[key]}?force=true", headers=h)
     for key in ("team", "team2", "team3", "team4", "team5"):
@@ -695,6 +794,7 @@ def main():
         test_team_dues(h, team, member_id);     steps.append("team dues")
         test_multi_team(h);                     steps.append("multi team")
         test_songs(h, team);                    steps.append("songs")
+        test_open_jam(h);                       steps.append("open jam")
         test_admin_booking(h);                  steps.append("admin booking")
         test_team_doors(h);                     steps.append("team doors")
         test_self_cancel(h);                    steps.append("self cancel")

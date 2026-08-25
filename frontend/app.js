@@ -23,6 +23,7 @@ let nextReservations = [];
 let nextBlocked      = [];
 let rooms          = [];
 let teams          = [];
+let openJams       = [];   // 모집 마감된 오픈 잼 (예약 주체가 될 수 있다)
 let settings       = { deposit_bank: '', deposit_account: '', deposit_holder: '' };
 
 function roomById(id)  { return rooms.find(r => r.id === id) || null; }
@@ -202,7 +203,7 @@ function renderReservations() {
     const isPending = r.status === 'pending';
     const mine = myResFor(r);
     // 대관·정모는 방 색이 아니라 자기 색으로 나온다 — 팀 합주와 헷갈리면 안 된다.
-    const special = r.kind === 'rental' || r.kind === 'meetup';
+    const special = ['rental', 'meetup', 'openjam'].includes(r.kind);
     block.className = `reservation-block ${special ? r.kind : roomCls(currentRoomId)}`
       + (isPending ? ' pending' : '') + (mine ? ' mine' : '');
     block.style.top    = `${top + 4}px`;
@@ -212,7 +213,8 @@ function renderReservations() {
       <div class="res-team">
         ${escHtml(r.team_name || '(이름 없음)')}
         ${special
-          ? `<span class="res-status-badge kind">${r.kind === 'rental' ? '대관' : '정모'}</span>`
+          ? `<span class="res-status-badge kind">${
+              { rental: '대관', meetup: '정모', openjam: '오픈잼' }[r.kind]}</span>`
           : isPending
             ? '<span class="res-status-badge pending">입금 대기</span>'
             : '<span class="res-status-badge confirmed">확정</span>'}
@@ -531,8 +533,9 @@ function updateTimeSummary() {
 }
 
 function selectedTeam() {
-  const id = Number(document.getElementById('teamSelect').value);
-  return teams.find(t => t.id === id) || null;
+  const picked = selectedBooker();
+  if (!picked || !picked.teamId) return null;
+  return teams.find(t => t.id === picked.teamId) || null;
 }
 
 /* 개인 단위 공간이면 팀 선택 대신 이름·연락처를 받는다. */
@@ -561,6 +564,8 @@ function isPrepaidTeam(team) {
 /* 요금이 붙지 않는 예약인지 — 선불 팀이거나, 회비를 낸 멤버 */
 function isFreeBooking() {
   if (isPersonalRoom(currentRoomId)) return !!(memberCheck?.is_member && memberCheck?.dues_ok);
+  // 오픈 잼은 참여자 전원이 이미 월회비를 내는 회원이라 건별 요금이 없다.
+  if (selectedBooker()?.jamId) return true;
   return isPrepaidTeam(selectedTeam());
 }
 
@@ -575,7 +580,9 @@ function updateFeeBox(dur) {
     prepaid.style.display = '';
     const label = isPersonalRoom(currentRoomId)
       ? '회비 납부 멤버'
-      : (PREPAID_LABEL[team?.billing_type] || '선불 팀');
+      : selectedBooker()?.jamId
+        ? '오픈 잼'
+        : (PREPAID_LABEL[team?.billing_type] || '선불 팀');
     prepaid.innerHTML = `<b>${escHtml(label)}</b>` +
       '<span>이용 요금이 따로 청구되지 않습니다. 신청 즉시 예약이 확정됩니다.</span>';
     return;
@@ -668,7 +675,7 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
   e.preventDefault();
 
   const personal = isPersonalRoom(currentRoomId);
-  const teamId = Number(document.getElementById('teamSelect').value);
+  const picked = selectedBooker();
   const bookerName = document.getElementById('bookerName').value.trim();
   const bookerPhone = document.getElementById('bookerPhone').value.trim();
 
@@ -679,8 +686,8 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
       showToast('게스트 예약은 연락처가 필요합니다.', 'error');
       return;
     }
-  } else if (!teamId) {
-    showToast('예약할 팀을 선택해주세요.', 'error');
+  } else if (!picked) {
+    showToast('예약할 팀 또는 오픈 잼을 선택해주세요.', 'error');
     return;
   }
 
@@ -708,7 +715,8 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         room_id:   currentRoomId,
-        team_id:   personal ? null : teamId,
+        team_id:   personal ? null : (picked?.teamId ?? null),
+        jam_id:    personal ? null : (picked?.jamId ?? null),
         booker_name:  personal ? bookerName : null,
         booker_phone: personal ? (bookerPhone || null) : null,
         date:      toDateStr(currentDate),
@@ -917,12 +925,34 @@ async function loadTeams() {
     teams = res.ok ? await res.json() : [];
   } catch { teams = []; }
 
-  if (teams.length === 0) {
+  // 모집이 마감된 오픈 잼도 예약 주체가 된다. 팀은 아니지만 같은 자리에서 고른다.
+  try {
+    const res = await fetch('/api/openjams');
+    openJams = res.ok ? (await res.json()).filter(j => j.status === 'closed') : [];
+  } catch { openJams = []; }
+
+  if (teams.length === 0 && openJams.length === 0) {
     select.innerHTML = '<option value="">등록된 팀이 없습니다</option>';
     return;
   }
-  select.innerHTML = '<option value="">팀을 선택하세요</option>' +
-    teams.map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('');
+  select.innerHTML = '<option value="">팀을 선택하세요</option>'
+    + (teams.length ? `<optgroup label="팀">${
+        teams.map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('')
+      }</optgroup>` : '')
+    + (openJams.length ? `<optgroup label="오픈 잼">${
+        openJams.map(j => `<option value="jam:${j.id}">${escHtml(j.title)}</option>`).join('')
+      }</optgroup>` : '');
+}
+
+/* 드롭다운 값은 팀이면 숫자, 오픈 잼이면 "jam:3" 이다. */
+function selectedBooker() {
+  const raw = document.getElementById('teamSelect').value;
+  if (!raw) return null;
+  if (raw.startsWith('jam:')) {
+    const id = Number(raw.slice(4));
+    return { jamId: id, jam: openJams.find(j => j.id === id) || null };
+  }
+  return { teamId: Number(raw) };
 }
 
 function renderDepositInfo() {
