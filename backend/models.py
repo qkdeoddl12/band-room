@@ -122,6 +122,9 @@ class OpenJam(Base):
     memo = Column(Text)
     # 'recruiting' 모집중 | 'closed' 모집완료 | 'done' 종료
     status = Column(String(20), nullable=False, server_default='recruiting', index=True)
+    # 모집을 마감한 시각. "합주 끝났는데 아무도 종료를 안 눌렀다"를 세는 기준이다
+    # (발제일이 아니라 마감일부터 세야 모집 기간이 안 섞인다).
+    closed_at = Column(DateTime)
     # 발제자용. 목록에 절대 싣지 않는다 — 실으면 남의 잼을 마감·삭제할 수 있다.
     manage_token = Column(String(32))
     created_at = Column(DateTime, server_default=func.now())

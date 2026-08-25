@@ -30,8 +30,10 @@ async function loadOpenjams() {
 function renderOpenjams() {
   const list = document.getElementById('openjamList');
   const open = allJams.filter(j => j.status === 'recruiting').length;
+  const stale = allJams.filter(j => j.is_stale).length;
   setText('openjamCount',
-    `전체 ${allJams.length}건 · 모집중 ${open}건 — 회원이 직접 올립니다.`);
+    `전체 ${allJams.length}건 · 모집중 ${open}건 — 회원이 직접 올립니다.`
+    + (stale ? ` · ⚠️ 오래 방치 ${stale}건` : ''));
 
   if (!allJams.length) {
     list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">🎸</span><div class="admin-empty-text">아직 올라온 오픈 잼이 없습니다.</div></div>';
@@ -50,6 +52,7 @@ function renderOpenjams() {
       <div class="ecard">
         <div class="ecard-top">
           <span class="ecard-name">${escHtml(jam.title)}</span>
+          ${jam.is_stale ? `<span class="mt-badge check">마감 ${jam.closed_days}일 지남</span>` : ''}
           <span class="fee-badge ${meta.cls} ecard-fee">${meta.label} ${filled}/${jam.slots.length}</span>
         </div>
         <div class="ecard-sub">

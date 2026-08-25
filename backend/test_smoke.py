@@ -411,7 +411,36 @@ def test_open_jam(h):
     clash = client.post("/api/reservations", json={**resv, "start_time": "20:00:00"})
     assert clash.status_code == 400, f"겹치는 시간은 막아야 한다, got {clash.status_code}"
 
-    # 8) 발제자가 종료하면 공개 목록에서 내려간다 (되돌릴 수 없다)
+    # 8) 마감 후 오래 방치되면 표시가 붙는다 (자동으로 닫지는 않는다)
+    fresh = next(j for j in client.get("/api/openjams").json() if j["id"] == jam["id"])
+    assert fresh["closed_days"] == 0 and fresh["is_stale"] is False, fresh
+    # 마감 시각을 과거로 밀어 확인한다 (관리자 API 로는 못 바꾸는 값이라 직접 넣는다)
+    import os, sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from database import SessionLocal
+    import models as _m
+    from datetime import datetime as _dt
+    _db = SessionLocal()
+    try:
+        row = _db.query(_m.OpenJam).filter(_m.OpenJam.id == jam["id"]).first()
+        row.closed_at = _dt.now() - timedelta(days=30)
+        _db.commit()
+    finally:
+        _db.close()
+    stale = next(j for j in client.get("/api/openjams").json() if j["id"] == jam["id"])
+    assert stale["closed_days"] == 30 and stale["is_stale"] is True, stale
+    adm_stale = next(j for j in client.get("/api/admin/openjams", headers=h).json()
+                     if j["id"] == jam["id"])
+    assert adm_stale["is_stale"] is True, adm_stale
+
+    # 다시 모집으로 되돌리면 마감 시각도 지워진다 — 다시 마감하면 그때부터 센다
+    client.post(f"/api/openjams/{jam['id']}/status",
+                json={"token": token, "status": "recruiting"})
+    back = next(j for j in client.get("/api/openjams").json() if j["id"] == jam["id"])
+    assert back["closed_days"] is None and back["is_stale"] is False, back
+    client.post(f"/api/openjams/{jam['id']}/status", json={"token": token, "status": "closed"})
+
+    # 9) 발제자가 종료하면 공개 목록에서 내려간다 (되돌릴 수 없다)
     fin = client.post(f"/api/openjams/{jam['id']}/status",
                       json={"token": token, "status": "done"})
     assert fin.status_code == 200 and fin.json()["status"] == "done", fin.text
@@ -421,13 +450,13 @@ def test_open_jam(h):
                        json={"token": token, "status": "recruiting"}).status_code == 400, \
         "종료된 잼을 발제자가 되살리면 안 된다"
 
-    # 9) 관리자 목록에는 연락처가 보인다 (종료된 것도 관리자에겐 보인다)
+    # 10) 관리자 목록에는 연락처가 보인다 (종료된 것도 관리자에겐 보인다)
     adm = next(j for j in client.get("/api/admin/openjams", headers=h).json()
                if j["id"] == jam["id"])
     assert adm["leader_name"] == f"{MARK}잼리더" and "leader_phone" in adm, adm
     assert client.get("/api/admin/openjams").status_code == 401
 
-    # 10) 잼을 지우면 슬롯도 함께 사라진다
+    # 11) 잼을 지우면 슬롯도 함께 사라진다
     assert client.delete(f"/api/admin/openjams/{jam['id']}", headers=h).status_code == 200
     created["jam"] = None
     assert client.post(f"/api/openjam-slots/{sid}/claim",

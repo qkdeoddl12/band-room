@@ -88,6 +88,10 @@ def migrate_schema():
         " manage_token VARCHAR(32),"
         " created_at TIMESTAMP DEFAULT NOW())",
         "CREATE INDEX IF NOT EXISTS ix_open_jams_status ON open_jams (status)",
+        "ALTER TABLE open_jams ADD COLUMN IF NOT EXISTS closed_at TIMESTAMP",
+        # closed_at 도입 전에 마감된 잼은 발제 시각으로 되짚는다 (한 번만).
+        "UPDATE open_jams SET closed_at = created_at"
+        " WHERE status = 'closed' AND closed_at IS NULL",
         "CREATE TABLE IF NOT EXISTS open_jam_slots ("
         " id SERIAL PRIMARY KEY,"
         " jam_id INTEGER NOT NULL REFERENCES open_jams(id) ON DELETE CASCADE,"

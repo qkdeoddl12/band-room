@@ -118,6 +118,7 @@ function renderJams() {
             ${closed ? '모집 완료' : `모집중 ${filled}/${total}`}
           </span>
           ${isMine ? '<span class="jam-status mine">내 제안</span>' : ''}
+          ${jam.is_stale ? `<span class="jam-status stale">마감 ${jam.closed_days}일 지남</span>` : ''}
         </div>
         <div class="jam-title">${escHtml(jam.title)}</div>
         <div class="jam-meta">
@@ -135,7 +136,9 @@ function renderJams() {
             ${filled === 0 ? `<button class="jam-owner-btn danger" onclick="deleteJam(${jam.id})">삭제</button>` : ''}
           </div>
           ${closed
-            ? '<div class="jam-hint">예약 페이지에서 이 오픈 잼으로 합주실을 잡을 수 있습니다.<br>합주가 끝나면 <b>종료</b>를 눌러주세요 — 목록에서 내려갑니다.</div>'
+            ? `<div class="jam-hint${jam.is_stale ? ' warn' : ''}">${jam.is_stale
+                ? `마감한 지 <b>${jam.closed_days}일</b> 지났습니다. 합주가 끝났다면 <b>종료</b>를 눌러 목록에서 내려주세요.`
+                : '예약 페이지에서 이 오픈 잼으로 합주실을 잡을 수 있습니다.<br>합주가 끝나면 <b>종료</b>를 눌러주세요 — 목록에서 내려갑니다.'}</div>`
             : ''}
         ` : ''}
       </div>`;

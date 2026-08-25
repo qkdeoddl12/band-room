@@ -40,9 +40,28 @@ def _jam_query(db: Session):
     )
 
 
+# 기획서의 "첫 합주 후 3주~1개월 이내 종료 권장" 중 하한.
+# 넘으면 화면에 표시만 한다 — 자동으로 종료시키지는 않는다.
+STALE_DAYS = 21
+
+
 def _sorted(jam: models.OpenJam) -> models.OpenJam:
     jam.slots.sort(key=lambda s: (s.sort_order, s.id))
     return jam
+
+
+def _closed_days(jam: models.OpenJam):
+    """모집 마감 후 며칠 지났나. 마감 상태가 아니거나 시각을 모르면 None."""
+    if jam.status != 'closed' or not jam.closed_at:
+        return None
+    return max(0, (datetime.now() - jam.closed_at).days)
+
+
+def _public(jam: models.OpenJam) -> schemas.OpenJamPublic:
+    out = schemas.OpenJamPublic.model_validate(_sorted(jam))
+    out.closed_days = _closed_days(jam)
+    out.is_stale = out.closed_days is not None and out.closed_days >= STALE_DAYS
+    return out
 
 
 def _check_token(stored, given, message="권한이 없습니다."):
@@ -58,7 +77,7 @@ def list_openjams(db: Session = Depends(get_db)):
     jams = _jam_query(db).filter(
         models.OpenJam.status.in_(('recruiting', 'closed'))
     ).order_by(models.OpenJam.created_at.desc()).all()
-    return [_sorted(j) for j in jams]
+    return [_public(j) for j in jams]
 
 
 @router.post("/api/openjams", response_model=schemas.OpenJamCreated)
@@ -96,7 +115,9 @@ def create_openjam(
     db.refresh(jam)
     log_event("openjam_created", id=jam.id, title=jam.title, leader=jam.leader_name,
               slots=order, client=request.client.host if request.client else None)
-    return _sorted(jam)
+    out = schemas.OpenJamCreated.model_validate(_sorted(jam))
+    out.manage_token = jam.manage_token
+    return out
 
 
 @router.post("/api/openjam-slots/{slot_id}/claim", response_model=schemas.OpenJamClaimed)
@@ -185,10 +206,13 @@ def set_openjam_status(
         raise HTTPException(400, "이미 종료된 오픈 잼입니다. 되살리려면 문의해주세요.")
 
     jam.status = data.status
+    # 마감 시각은 마감할 때만 찍고, 모집으로 되돌리면 지운다 —
+    # 다시 모집했다가 마감하면 그 시점부터 다시 세어야 한다.
+    jam.closed_at = datetime.now() if data.status == 'closed' else None
     db.commit()
     db.refresh(jam)
     log_event("openjam_status", id=jam.id, title=jam.title, status=jam.status)
-    return _sorted(jam)
+    return _public(jam)
 
 
 @router.delete("/api/openjams/{jam_id}")
@@ -220,6 +244,8 @@ def _admin_view(jam: models.OpenJam) -> schemas.OpenJamAdmin:
         leader_phone=jam.leader.phone if jam.leader else None,
         target_period=jam.target_period, memo=jam.memo,
         status=jam.status, created_at=jam.created_at,
+        closed_days=_closed_days(jam),
+        is_stale=(_closed_days(jam) or 0) >= STALE_DAYS and jam.status == 'closed',
         slots=[
             schemas.OpenJamAdminSlot(
                 id=s.id, part=s.part, sort_order=s.sort_order,

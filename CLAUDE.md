@@ -202,6 +202,10 @@ docker-compose.yml
   **`done` 이면 공개 목록에서 내려간다** (`GET /api/openjams` 는 recruiting·closed 만 준다).
   하차가 생기면 `closed → recruiting` 으로 되돌릴 수 있다 — 기획서가 하차를 전제한다.
   `done` 에서 되살리는 건 발제자가 못 하고 관리자만 한다 (`PATCH /api/admin/openjams/{id}`)
+- **마감만 하고 방치된 잼은 표시만 한다** — `closed_at` 부터 `openjams.py::STALE_DAYS`(21일,
+  기획서 "3주~1개월" 의 하한)가 지나면 `is_stale`·`closed_days` 가 붙어 공개 화면과 관리자
+  화면에 `마감 N일 지남` 이 뜬다. **자동으로 종료시키지 않는다** — 합주가 정말 끝났는지는
+  사람만 안다. `closed → recruiting` 으로 되돌리면 `closed_at` 도 지워 다시 마감할 때부터 센다
 - 모집이 `closed` 인 잼만 예약할 수 있다. `POST /api/reservations` 에 `jam_id` 를 주면
   `kind='openjam'`, 이름은 `[오픈잼] {title}`, **무료 + 즉시 확정**
   (참여자 전원이 이미 월회비를 내는 회원이다)

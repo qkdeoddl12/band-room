@@ -317,6 +317,10 @@ class OpenJamPublic(BaseModel):
     status: str
     slots: List[OpenJamSlotPublic] = []
     created_at: datetime
+    # 모집 마감 후 며칠 지났나. 아무도 종료를 안 누르면 목록에 계속 남으므로
+    # "오래됐다"를 화면에 보여준다 (자동으로 종료시키지는 않는다).
+    closed_days: Optional[int] = None
+    is_stale: bool = False
     model_config = {"from_attributes": True}
 
 
@@ -351,6 +355,8 @@ class OpenJamAdmin(BaseModel):
     status: str
     slots: List[OpenJamAdminSlot] = []
     created_at: datetime
+    closed_days: Optional[int] = None
+    is_stale: bool = False
 
 
 class OpenJamAdminUpdate(BaseModel):
