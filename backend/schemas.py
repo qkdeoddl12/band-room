@@ -267,6 +267,82 @@ class TeamResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ========== Meetup record (정모 기록) ==========
+# 'dues' 월회비로 참석 | 'walk_in' 당일 참가비 | 'free' 무료 참관
+PAY_TYPE_PATTERN = '^(dues|walk_in|free)$'
+
+
+class MeetupAttendeeIn(BaseModel):
+    member_id: Optional[int] = None            # 도어즈 멤버면 지정, 외부 게스트면 없음
+    name: str = Field(..., min_length=1, max_length=50)
+    pay_type: str = Field('dues', pattern=PAY_TYPE_PATTERN)
+    fee: int = Field(0, ge=0)                  # walk_in 일 때만 의미가 있다
+    memo: Optional[str] = Field(None, max_length=200)
+
+
+class MeetupSongIn(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
+    lineup: Optional[str] = Field(None, max_length=500)
+
+
+class MeetupRecordUpsert(BaseModel):
+    """기록 전체를 통째로 저장한다. 참석자·곡은 한 화면에서 함께 고치므로
+    항목별 API 를 두는 것보다 한 번에 갈아끼우는 편이 단순하다."""
+    memo: Optional[str] = None
+    photos: List[str] = Field(default_factory=list, max_length=30)
+    attendees: List[MeetupAttendeeIn] = Field(default_factory=list, max_length=100)
+    songs: List[MeetupSongIn] = Field(default_factory=list, max_length=40)
+
+
+class MeetupAttendeeOut(BaseModel):
+    id: int
+    member_id: Optional[int] = None
+    name: str
+    pay_type: str
+    fee: int
+    memo: Optional[str] = None
+    model_config = {"from_attributes": True}
+
+
+class MeetupSongOut(BaseModel):
+    id: int
+    title: str
+    lineup: Optional[str] = None
+    sort_order: int = 0
+    model_config = {"from_attributes": True}
+
+
+class MeetupRecordOut(BaseModel):
+    id: int
+    reservation_id: int
+    # 예약이 갖고 있는 값 — 기록에 다시 적지 않고 끌어온다
+    title: Optional[str] = None
+    date: Optional[dt.date] = None
+    start_time: Optional[dt.time] = None
+    end_time: Optional[dt.time] = None
+    room_name: Optional[str] = None
+    memo: Optional[str] = None
+    photos: List[str] = []
+    attendees: List[MeetupAttendeeOut] = []
+    songs: List[MeetupSongOut] = []
+    # 화면에서 매번 세지 않도록 서버가 미리 센다
+    attend_count: int = 0
+    walk_in_count: int = 0
+    free_count: int = 0
+    walk_in_total: int = 0
+    updated_at: Optional[datetime] = None
+
+
+class MeetupSlot(BaseModel):
+    """아직 기록이 없는 정모 예약. '기록 만들기' 목록에 쓴다."""
+    reservation_id: int
+    title: Optional[str] = None
+    date: dt.date
+    start_time: dt.time
+    end_time: dt.time
+    room_name: Optional[str] = None
+
+
 # ========== Open Jam (오픈 잼) ==========
 JAM_STATUS_PATTERN = '^(recruiting|closed|done)$'
 
@@ -518,6 +594,10 @@ class DuesMonthResponse(BaseModel):
     team_rows: List[TeamDuesRow] = []
     team_total_expected: int = 0
     team_total_paid: int = 0
+    # 정모 당일 참가비 — 세 번째 수입. 회비·이용료와 절대 합치지 않는다.
+    walk_in_total: int = 0
+    walk_in_count: int = 0
+    walk_in_meetups: int = 0
 
 
 class DuesHistoryRow(BaseModel):
@@ -535,6 +615,7 @@ class DuesSummaryRow(BaseModel):
     year_month: str
     paid: int            # 멤버 월회비
     team_paid: int = 0   # 팀 월 이용료 — 성격이 달라 합치지 않는다
+    walk_in_paid: int = 0  # 정모 당일 참가비 — 세 번째 계열
     unpaid_count: int
 
 

@@ -23,6 +23,7 @@ created = {"team": None, "team2": None, "team3": None,
            "cancel": None, "past": None, "edit": None, "edit2": None,
            "admin_res": None, "team4": None, "team5": None,
            "member5": None, "member6": None, "jam": None, "jam_res": None,
+           "member7": None, "meetup_res": None, "meetup_res2": None, "meetup_rec": None,
            "member": None, "member2": None, "member3": None,
            "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
@@ -320,6 +321,97 @@ def test_team_dues(h, team, member_id):
     jan = next(r for r in summary if r["year_month"] == ym)
     assert jan["team_paid"] == 200000, jan
     assert jan["paid"] < 200000, f"팀 이용료가 회비에 섞이면 안 된다: {jan}"
+
+
+def test_meetup_record(h):
+    """정모 기록 — 참석자 · 곡 · 사진. 당일 참가비는 정산의 세 번째 수입이다."""
+    day = date.today() + timedelta(days=190)
+    ym = day.strftime("%Y-%m")
+    rooms = client.get("/api/rooms").json()
+    room = next(r for r in rooms if r["booking_mode"] == "team")
+
+    made = client.post("/api/admin/reservations", headers=h, json={
+        "room_id": room["id"], "kind": "meetup", "title": f"{MARK} 기록정모",
+        "date": str(day), "start_time": "18:00:00", "duration": 3}).json()
+    created["meetup_res"] = made["id"]
+
+    # 정모가 아닌 예약에는 기록을 못 남긴다
+    other = client.post("/api/admin/reservations", headers=h, json={
+        "room_id": room["id"], "kind": "rental", "title": f"{MARK} 대관기록",
+        "date": str(day), "start_time": "10:00:00", "duration": 1}).json()
+    created["meetup_res2"] = other["id"]
+    assert client.post(f"/api/admin/meetups/{other['id']}", headers=h).status_code == 400
+
+    # 기록 없는 정모가 '할 일' 목록에 뜬다
+    slots = client.get("/api/admin/meetups/slots", headers=h).json()
+    assert any(s["reservation_id"] == made["id"] for s in slots), slots
+
+    rec = client.post(f"/api/admin/meetups/{made['id']}", headers=h)
+    assert rec.status_code == 200, rec.text
+    rid = rec.json()["id"]
+    created["meetup_rec"] = rid
+    # 날짜·장소는 예약에서 끌어온다 (기록에 다시 안 적는다)
+    assert rec.json()["date"] == str(day) and rec.json()["title"] == f"{MARK} 기록정모", rec.text
+    # 한 예약에 기록은 하나
+    assert client.post(f"/api/admin/meetups/{made['id']}", headers=h).status_code == 400
+    # 만들고 나면 할 일 목록에서 빠진다
+    slots = client.get("/api/admin/meetups/slots", headers=h).json()
+    assert not any(s["reservation_id"] == made["id"] for s in slots)
+
+    member = client.post("/api/admin/members", headers=h,
+                         json={"name": f"{MARK}정모참석"}).json()
+    created["member7"] = member["id"]
+
+    saved = client.put(f"/api/admin/meetups/{rid}", headers=h, json={
+        "memo": "즐거웠음",
+        "photos": ["/uploads/aaa.jpg", "/uploads/bbb.png"],
+        "attendees": [
+            {"member_id": member["id"], "name": f"{MARK}정모참석", "pay_type": "dues", "fee": 0},
+            {"name": f"{MARK}게스트A", "pay_type": "walk_in", "fee": 10000},
+            {"name": f"{MARK}게스트B", "pay_type": "walk_in", "fee": 5000},
+            {"name": f"{MARK}구경꾼", "pay_type": "free", "fee": 9999},
+        ],
+        "songs": [
+            {"title": f"{MARK} 밤편지", "lineup": "보컬 A / 기타 B"},
+            {"title": f"{MARK} 여행"},
+        ],
+    })
+    assert saved.status_code == 200, saved.text
+    out = saved.json()
+    assert out["attend_count"] == 4 and out["walk_in_count"] == 2 and out["free_count"] == 1, out
+    assert out["walk_in_total"] == 15000, out
+    # 참가비가 아닌 사람의 금액은 0 으로 눌러야 정산에 엉뚱한 돈이 안 섞인다
+    watcher = next(a for a in out["attendees"] if a["pay_type"] == "free")
+    assert watcher["fee"] == 0, f"무료 참관에 금액이 남았다: {watcher}"
+    assert len(out["songs"]) == 2 and out["songs"][0]["sort_order"] == 0, out
+
+    # 업로드된 파일만 사진으로 받는다
+    bad = client.put(f"/api/admin/meetups/{rid}", headers=h,
+                     json={"photos": ["https://evil.example/x.jpg"], "attendees": [], "songs": []})
+    assert bad.status_code == 400, f"외부 주소가 사진으로 들어갔다, got {bad.status_code}"
+
+    # 통째로 갈아끼운다 — 지운 줄이 남지 않는다
+    again = client.put(f"/api/admin/meetups/{rid}", headers=h, json={
+        "photos": [], "songs": [],
+        "attendees": [{"name": f"{MARK}게스트A", "pay_type": "walk_in", "fee": 7000}],
+    }).json()
+    assert again["attend_count"] == 1 and again["walk_in_total"] == 7000, again
+    assert again["songs"] == [] and again["photos"] == [], again
+
+    # 정산에 세 번째 수입으로 잡힌다 (회비·이용료와 합쳐지지 않는다)
+    month = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+    assert month["walk_in_total"] == 7000 and month["walk_in_count"] == 1, month
+    assert month["walk_in_meetups"] == 1, month
+    summary = client.get(f"/api/admin/dues/summary?year={day.year}", headers=h).json()
+    row = next(r for r in summary if r["year_month"] == ym)
+    assert row["walk_in_paid"] == 7000, row
+    assert row["paid"] != 7000 or row["team_paid"] != 7000, "참가비가 다른 계열에 섞였다"
+
+    assert client.get("/api/admin/meetups").status_code == 401
+
+    assert client.delete(f"/api/admin/meetups/{rid}", headers=h).status_code == 200
+    created["meetup_rec"] = None
+    assert not any(m["id"] == rid for m in client.get("/api/admin/meetups", headers=h).json())
 
 
 def test_open_jam(h):
@@ -805,14 +897,14 @@ def test_multi_team(h):
 def cleanup(h):
     for key in ("reservation", "reservation2", "reservation3", "reservation4",
                 "overnight", "cancel", "past", "edit", "edit2", "admin_res",
-                "jam_res"):
+                "jam_res", "meetup_res", "meetup_res2"):
         if created[key]:
             client.delete(f"/api/reservations/{created[key]}", headers=h)
     if created["ticket"]:
         client.delete(f"/api/admin/tickets/{created['ticket']}", headers=h)
     if created["jam"]:
         client.delete(f"/api/admin/openjams/{created['jam']}", headers=h)
-    for key in ("member", "member2", "member3", "member4", "member5", "member6"):
+    for key in ("member", "member2", "member3", "member4", "member5", "member6", "member7"):
         if created[key]:
             client.delete(f"/api/admin/members/{created[key]}?force=true", headers=h)
     for key in ("team", "team2", "team3", "team4", "team5"):
@@ -841,6 +933,7 @@ def main():
         test_multi_team(h);                     steps.append("multi team")
         test_songs(h, team);                    steps.append("songs")
         test_open_jam(h);                       steps.append("open jam")
+        test_meetup_record(h);                  steps.append("meetup record")
         test_admin_booking(h);                  steps.append("admin booking")
         test_team_doors(h);                     steps.append("team doors")
         test_self_cancel(h);                    steps.append("self cancel")

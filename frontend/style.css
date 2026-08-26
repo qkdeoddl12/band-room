@@ -866,6 +866,7 @@ a { text-decoration: none; }
 }
 /* 카드가 4장이면 좁은 화면에서 3+1 로 갈라진다 — 2×2 로 묶는다 */
 .kpi-grid.four { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.kpi-grid.five { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 
 .kpi-card {
   background: var(--card);
@@ -880,6 +881,8 @@ a { text-decoration: none; }
 .kpi-card { border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
 .kpi-card.revenue .kpi-value { color: var(--primary-dark); }
 .kpi-card.team-fee .kpi-value { color: var(--room2); }
+/* 정모 당일 참가비 — 세 번째 수입. 회비·이용료와 합치지 않으므로 색도 따로 쓴다 */
+.kpi-card.walk-in .kpi-value { color: #B45309; }
 .kpi-period {
   font-size: 11px; font-weight: 700;
   color: var(--text-sub);
@@ -1027,6 +1030,15 @@ a { text-decoration: none; }
   background: var(--room1);
   border-radius: 4px 4px 0 0;
   box-shadow: 0 2px 0 var(--card);
+  transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 세 번째 계열: 정모 당일 참가비 */
+.stack-r3 {
+  width: 100%;
+  background: #D97706;
+  box-shadow: 0 -2px 0 var(--card);
+  margin-top: auto;
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -1792,6 +1804,7 @@ a { text-decoration: none; }
 
   .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
   .kpi-grid.four { grid-template-columns: repeat(2, 1fr); }
+  .kpi-grid.five { grid-template-columns: repeat(2, 1fr); }
   .kpi-card { padding: 14px 12px; }
   .kpi-value { font-size: 20px; }
   .kpi-unit { font-size: 12px; }
@@ -2947,3 +2960,54 @@ body:has(.admin-dashboard) .modal-actions {
   background: var(--primary-light); color: var(--primary);
 }
 .jam-adm-actions { display: flex; gap: 6px; }
+
+
+/* ============================================================
+   ADMIN: 정모 기록
+   ============================================================ */
+.meetup-todo {
+  margin-bottom: 16px; padding: 14px 16px;
+  background: var(--warning-light); border-radius: var(--radius);
+}
+.meetup-todo-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 6px 0;
+  font-size: 13px; color: var(--text);
+}
+
+/* 목록 카드의 사진 미리보기 */
+.meetup-thumbs { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+.meetup-thumbs img {
+  width: 44px; height: 44px; object-fit: cover;
+  border-radius: 6px; border: 1px solid var(--border);
+}
+
+/* 참석 명단 — 이름 · 구분 · 금액 · 빼기 */
+.meetup-att-list, .meetup-song-list { display: flex; flex-direction: column; gap: 6px; }
+.meetup-att-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg);
+}
+.meetup-att-name { flex: 1; min-width: 80px; font-size: 13px; font-weight: 700; }
+.meetup-att-pay  { flex: none; width: 128px; height: 34px; font-size: 12.5px; }
+.meetup-att-fee  { flex: none; width: 96px;  height: 34px; font-size: 12.5px; }
+.meetup-att-fee:disabled { opacity: .4; }
+
+/* 곡 — 제목 + 라인업 한 줄 (자유 입력이라 집계는 하지 않는다) */
+.meetup-song-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.meetup-song-title  { flex: 1; min-width: 120px; height: 38px; }
+.meetup-song-lineup { flex: 2; min-width: 160px; height: 38px; }
+
+.meetup-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.meetup-photo { position: relative; }
+.meetup-photo img {
+  width: 76px; height: 76px; object-fit: cover;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+}
+.meetup-photo-x {
+  position: absolute; top: -6px; right: -6px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 11px; cursor: pointer; line-height: 1;
+}

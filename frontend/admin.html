@@ -148,6 +148,9 @@
           <li class="sidebar-item" data-page="openjams" onclick="switchPage('openjams')">
             <span class="sidebar-icon">🎸</span> 오픈 잼
           </li>
+          <li class="sidebar-item" data-page="meetups" onclick="switchPage('meetups')">
+            <span class="sidebar-icon">📸</span> 정모 기록
+          </li>
           <li class="sidebar-item" data-page="inquiries" onclick="switchPage('inquiries')">
             <span class="sidebar-icon">📩</span> 문의/민원
             <span class="nav-badge" id="navInquiryBadge" style="display:none;"></span>
@@ -492,7 +495,7 @@
           </div>
 
           <!-- 월회비와 월 이용료는 성격이 다른 수입이라 KPI부터 갈라 보여준다 -->
-          <div class="kpi-grid four">
+          <div class="kpi-grid five">
             <div class="kpi-card revenue">
               <div class="kpi-period">월회비 수납</div>
               <div class="kpi-main"><span class="kpi-value" id="duesPaid">—</span><span class="kpi-unit">원</span></div>
@@ -502,6 +505,11 @@
               <div class="kpi-period">월 이용료 수납</div>
               <div class="kpi-main"><span class="kpi-value" id="duesTeamPaid">—</span><span class="kpi-unit">원</span></div>
               <div class="kpi-sub">예상 <span id="duesTeamExpected">0</span>원</div>
+            </div>
+            <div class="kpi-card walk-in">
+              <div class="kpi-period">정모 참가비</div>
+              <div class="kpi-main"><span class="kpi-value" id="duesWalkIn">—</span><span class="kpi-unit">원</span></div>
+              <div class="kpi-sub" id="duesWalkInSub">당일 참가</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-period">미납</div>
@@ -691,6 +699,17 @@
         </div>
 
         <!-- ===== AUDIT LOG PAGE (system admin only) ===== -->
+        <div class="admin-page" id="meetupsPage" style="display:none;">
+          <div class="page-header">
+            <div>
+              <h2 class="page-title">정모 기록</h2>
+              <p class="page-subtitle" id="meetupCount">참석자 · 그날 한 곡 · 사진을 남깁니다.</p>
+            </div>
+            <button class="btn-secondary tk-back" onclick="loadMeetups()">새로고침</button>
+          </div>
+          <div id="meetupList"></div>
+        </div>
+
         <div class="admin-page" id="openjamsPage" style="display:none;">
           <div class="page-header">
             <div>
@@ -832,6 +851,81 @@
           <button onclick="closeDeleteModal()" class="btn-secondary">취소</button>
           <button id="confirmDeleteBtn" class="btn-danger">예약 취소 확정</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Meetup Record Modal -->
+  <div class="modal-overlay" id="meetupOverlay" style="z-index:300;">
+    <div class="modal wide">
+      <div class="modal-handle"></div>
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="meetupModalTitle">정모 기록</h3>
+          <p class="modal-target-sub" id="meetupModalWhen"></p>
+        </div>
+        <button class="modal-close" onclick="closeMeetupModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="meetupForm" autocomplete="off">
+        <div class="form-grid">
+          <div class="form-col">
+
+          <div class="form-group">
+            <label class="form-label">참석 멤버</label>
+            <div class="part-checks" id="meetupMembers"></div>
+            <div class="field-hint">체크하면 아래에 줄이 생깁니다. 기본은 월회비 참석입니다.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="meetupGuestName">외부 게스트</label>
+            <div class="team-add-row">
+              <input type="text" class="form-input" id="meetupGuestName" maxlength="50"
+                     placeholder="명단에 없는 분 이름">
+              <button type="button" class="btn-primary" onclick="addMeetupGuest()">추가</button>
+            </div>
+            <div class="field-hint">게스트는 당일 참가비로 들어갑니다.</div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">참석 명단</label>
+            <div id="meetupAttendees" class="meetup-att-list"></div>
+          </div>
+
+          </div><!-- /form-col -->
+
+          <div class="form-col">
+
+          <div class="form-group">
+            <label class="form-label">그날 한 곡</label>
+            <div id="meetupSongs" class="meetup-song-list"></div>
+            <button type="button" class="link-inline" onclick="addMeetupSong()">+ 곡 추가 →</button>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">사진</label>
+            <div id="meetupPhotos" class="meetup-photos"></div>
+            <input type="file" id="meetupPhotoInput" accept="image/jpeg,image/png,image/webp"
+                   multiple style="display:none;" onchange="uploadMeetupPhotos(this)">
+            <button type="button" class="btn-secondary"
+                    onclick="document.getElementById('meetupPhotoInput').click()">사진 올리기</button>
+            <span class="field-hint" id="meetupPhotoStatus"></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="meetupMemo">메모</label>
+            <textarea class="form-input memo-box" id="meetupMemo" rows="4"
+                      placeholder="분위기 · 특이사항 등"></textarea>
+          </div>
+
+          </div><!-- /form-col -->
+        </div><!-- /form-grid -->
+
+          <div class="modal-actions">
+            <button type="button" onclick="deleteMeetupRecord()" class="btn-danger">삭제</button>
+            <button type="submit" class="btn-submit" id="meetupSaveBtn">저장</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
@@ -1600,6 +1694,7 @@
   <script src="/static/admin/tickets.js"></script>
   <script src="/static/admin/users.js"></script>
   <script src="/static/admin/openjams.js"></script>
+  <script src="/static/admin/meetups.js"></script>
   <script src="/static/admin/audit.js"></script>
   <script src="/static/admin/settings.js"></script>
   <script>init();</script>

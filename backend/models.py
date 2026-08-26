@@ -153,6 +153,61 @@ class OpenJamSlot(Base):
     member = relationship("Member")
 
 
+class MeetupRecord(Base):
+    """정모 기록. 예약(kind='meetup') 한 건에 하나 붙는다 —
+    날짜·장소는 예약이 이미 갖고 있어서 다시 적지 않는다."""
+    __tablename__ = "meetup_records"
+
+    id = Column(Integer, primary_key=True, index=True)
+    reservation_id = Column(Integer, ForeignKey("reservations.id", ondelete="CASCADE"),
+                            nullable=False, unique=True, index=True)
+    memo = Column(Text)
+    # 업로드된 사진 주소 배열. 파일 자체는 uploads/ 에 있고 여기엔 경로만 담는다.
+    photos = Column(JSON, nullable=False, server_default='[]')
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    reservation = relationship("Reservation")
+    attendees = relationship("MeetupAttendee", back_populates="record",
+                             cascade="all, delete-orphan")
+    songs = relationship("MeetupSong", back_populates="record",
+                         cascade="all, delete-orphan")
+
+
+class MeetupAttendee(Base):
+    """정모 참석자. 도어즈 멤버면 member_id 가 있고, 외부 게스트는 이름만 있다."""
+    __tablename__ = "meetup_attendees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey("meetup_records.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    member_id = Column(Integer, ForeignKey("members.id", ondelete="SET NULL"))
+    name = Column(String(50), nullable=False)   # 멤버가 지워져도 남는 스냅샷
+    # 'dues' 월회비로 참석 | 'walk_in' 당일 참가비 | 'free' 무료 참관
+    pay_type = Column(String(20), nullable=False, server_default='dues')
+    # walk_in 일 때만 의미가 있다. 정산의 세 번째 수입으로 합산된다.
+    fee = Column(Integer, nullable=False, server_default='0')
+    memo = Column(String(200))
+
+    record = relationship("MeetupRecord", back_populates="attendees")
+    member = relationship("Member")
+
+
+class MeetupSong(Base):
+    """그날 합주한 곡. 라인업은 자유 문자열이다 —
+    '보컬 철용 / 기타 서현정·김원' 처럼 적고, 집계는 하지 않는다."""
+    __tablename__ = "meetup_songs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    record_id = Column(Integer, ForeignKey("meetup_records.id", ondelete="CASCADE"),
+                       nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    lineup = Column(String(500))
+    sort_order = Column(Integer, nullable=False, server_default='0')
+
+    record = relationship("MeetupRecord", back_populates="songs")
+
+
 class AdminUser(Base):
     __tablename__ = "admin_users"
 

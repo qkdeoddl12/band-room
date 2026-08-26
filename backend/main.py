@@ -17,7 +17,7 @@ import models
 
 from routers import (
     auth, reservations, admin_users, inquiries, blocked,
-    teams, members, dues, tickets, settings, audit, openjams,
+    teams, members, dues, tickets, settings, audit, openjams, meetups,
 )
 
 models.Base.metadata.create_all(bind=engine)
@@ -102,6 +102,30 @@ def migrate_schema():
         " claim_token VARCHAR(32),"
         " claimed_at TIMESTAMP)",
         "CREATE INDEX IF NOT EXISTS ix_open_jam_slots_jam_id ON open_jam_slots (jam_id)",
+        # 정모 기록 — 예약(kind='meetup') 한 건에 하나. 예약을 지우면 기록도 사라진다.
+        "CREATE TABLE IF NOT EXISTS meetup_records ("
+        " id SERIAL PRIMARY KEY,"
+        " reservation_id INTEGER NOT NULL UNIQUE REFERENCES reservations(id) ON DELETE CASCADE,"
+        " memo TEXT,"
+        " photos JSON NOT NULL DEFAULT '[]',"
+        " created_at TIMESTAMP DEFAULT NOW(),"
+        " updated_at TIMESTAMP DEFAULT NOW())",
+        "CREATE TABLE IF NOT EXISTS meetup_attendees ("
+        " id SERIAL PRIMARY KEY,"
+        " record_id INTEGER NOT NULL REFERENCES meetup_records(id) ON DELETE CASCADE,"
+        " member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,"
+        " name VARCHAR(50) NOT NULL,"
+        " pay_type VARCHAR(20) NOT NULL DEFAULT 'dues',"
+        " fee INTEGER NOT NULL DEFAULT 0,"
+        " memo VARCHAR(200))",
+        "CREATE INDEX IF NOT EXISTS ix_meetup_attendees_record ON meetup_attendees (record_id)",
+        "CREATE TABLE IF NOT EXISTS meetup_songs ("
+        " id SERIAL PRIMARY KEY,"
+        " record_id INTEGER NOT NULL REFERENCES meetup_records(id) ON DELETE CASCADE,"
+        " title VARCHAR(200) NOT NULL,"
+        " lineup VARCHAR(500),"
+        " sort_order INTEGER NOT NULL DEFAULT 0)",
+        "CREATE INDEX IF NOT EXISTS ix_meetup_songs_record ON meetup_songs (record_id)",
         # 한 사람이 밴드를 여러 개 하는 경우. members.team_id 는 대표 팀으로만 남는다.
         "CREATE TABLE IF NOT EXISTS member_teams ("
         " member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,"
@@ -256,7 +280,7 @@ async def access_log_middleware(request: Request, call_next):
 # ========== Routers ==========
 for module in (
     auth, reservations, admin_users, inquiries, blocked,
-    teams, members, dues, tickets, settings, audit, openjams,
+    teams, members, dues, tickets, settings, audit, openjams, meetups,
 ):
     app.include_router(module.router)
 

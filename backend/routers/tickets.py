@@ -9,25 +9,11 @@ import secrets
 from database import get_db
 from app_logging import log_event
 from deps import get_current_admin, audit, get_or_404, clean_http_url
+from uploads_util import save_image
 import models
 import schemas
 
 router = APIRouter(tags=["tickets"])
-
-UPLOAD_DIR = os.getenv("UPLOAD_DIR", "/app/uploads")
-# MAX_UPLOAD_MB=0 이면 크기 제한 없음. 기본 25MB (요즘 폰 사진이 3~12MB).
-MAX_UPLOAD_MB = int(os.getenv("MAX_UPLOAD_MB", "25"))
-MAX_UPLOAD_BYTES = MAX_UPLOAD_MB * 1024 * 1024
-CHUNK = 1024 * 1024
-
-# content_type -> (extension, magic prefixes). The client-supplied content_type is only a
-# hint; the magic bytes are what actually decide, so a renamed .exe cannot get through.
-ALLOWED_IMAGES = {
-    "image/jpeg": (".jpg", [b"\xff\xd8\xff"]),
-    "image/png": (".png", [b"\x89PNG\r\n\x1a\n"]),
-    "image/webp": (".webp", [b"RIFF"]),
-}
-
 
 def _clean_map_url(value):
     """공개 페이지 href 로 나가는 값. 규칙은 deps 에 모아 뒀다 (레퍼토리 링크와 공유)."""
@@ -187,41 +173,7 @@ async def upload_ticket_image(
     file: UploadFile = File(...),
     admin: models.AdminUser = Depends(get_current_admin),
 ):
-    if file.content_type not in ALLOWED_IMAGES:
-        raise HTTPException(400, "JPG · PNG · WEBP 이미지만 업로드할 수 있습니다.")
-
-    ext, magics = ALLOWED_IMAGES[file.content_type]
-
-    # 앞부분만 먼저 읽어 실제 이미지인지 확인한다. content_type 헤더는 클라이언트가
-    # 마음대로 보내는 값이라 그것만 믿으면 안 된다.
-    head = await file.read(16)
-    if not head:
-        raise HTTPException(400, "빈 파일입니다.")
-    if not any(head.startswith(m) for m in magics):
-        raise HTTPException(400, "이미지 파일이 아닙니다.")
-
-    # 원본 파일명은 절대 쓰지 않는다 (경로 탐색 방지).
-    name = secrets.token_hex(16) + ext
-    os.makedirs(UPLOAD_DIR, exist_ok=True)
-    path = os.path.join(UPLOAD_DIR, name)
-
-    # 통째로 메모리에 올리지 않고 조각내어 쓴다 — 큰 파일도 메모리를 먹지 않는다.
-    size = len(head)
-    try:
-        with open(path, "wb") as f:
-            f.write(head)
-            while chunk := await file.read(CHUNK):
-                size += len(chunk)
-                if MAX_UPLOAD_BYTES and size > MAX_UPLOAD_BYTES:
-                    raise HTTPException(
-                        413, f"이미지는 {MAX_UPLOAD_MB}MB 이하만 업로드할 수 있습니다."
-                    )
-                f.write(chunk)
-    except Exception:
-        # 중간에 끊기면 반쪽짜리 파일이 남지 않도록 지운다.
-        if os.path.exists(path):
-            os.remove(path)
-        raise
-
+    """검사·저장 규칙은 uploads_util 한 곳에 있다 (정모 사진과 공유)."""
+    url, name, size = await save_image(file)
     log_event("ticket_image_uploaded", file=name, size=size, by=admin.username)
-    return {"url": f"/uploads/{name}"}
+    return {"url": url}

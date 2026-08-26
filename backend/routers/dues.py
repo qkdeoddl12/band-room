@@ -112,6 +112,7 @@ def get_dues_month(
             ))
 
     team_rows, team_expected, team_paid = _team_rows(db, year_month, team_id)
+    walk_total, walk_people, walk_meetups = _walk_in_totals(db, year_month)
 
     return schemas.DuesMonthResponse(
         year_month=year_month,
@@ -125,7 +126,27 @@ def get_dues_month(
         team_rows=team_rows,
         team_total_expected=team_expected,
         team_total_paid=team_paid,
+        walk_in_total=walk_total,
+        walk_in_count=walk_people,
+        walk_in_meetups=walk_meetups,
     )
+
+
+def _walk_in_totals(db: Session, year_month: str):
+    """그 달 정모의 당일 참가비. 월회비·팀 이용료와 **합치지 않는다** —
+    성격이 다른 수입이라 화면에서도 계열을 나눠 센다.
+    참가비는 정모(예약) 날짜 기준이다 — 기록을 언제 적었는지와 무관해야 한다."""
+    rows = db.query(
+        models.MeetupAttendee.fee, models.MeetupRecord.id
+    ).join(
+        models.MeetupRecord, models.MeetupRecord.id == models.MeetupAttendee.record_id
+    ).join(
+        models.Reservation, models.Reservation.id == models.MeetupRecord.reservation_id
+    ).filter(
+        models.MeetupAttendee.pay_type == 'walk_in',
+        func.to_char(models.Reservation.date, 'YYYY-MM') == year_month,
+    ).all()
+    return sum(r[0] for r in rows), len(rows), len({r[1] for r in rows})
 
 
 def _team_rows(db: Session, year_month: str, team_id=None):
@@ -281,6 +302,7 @@ def get_dues_summary(
     like = f"{year}-%"
     paid_by_month = {}
     team_by_month = {}
+    walk_by_month = {}
     unpaid_by_month = {}
     # 멤버 회비와 팀 월 이용료는 성격이 다른 수입이라 따로 센다.
     for r in db.query(models.MemberDues).filter(
@@ -294,12 +316,26 @@ def get_dues_summary(
         models.TeamDues.year_month.like(like), models.TeamDues.status == 'paid'
     ).all():
         team_by_month[r.year_month] = team_by_month.get(r.year_month, 0) + r.amount
+    # 정모 당일 참가비 — 세 번째 계열. 정모 날짜 기준으로 센다.
+    for fee, ym in db.query(
+        models.MeetupAttendee.fee,
+        func.to_char(models.Reservation.date, 'YYYY-MM'),
+    ).join(
+        models.MeetupRecord, models.MeetupRecord.id == models.MeetupAttendee.record_id
+    ).join(
+        models.Reservation, models.Reservation.id == models.MeetupRecord.reservation_id
+    ).filter(
+        models.MeetupAttendee.pay_type == 'walk_in',
+        func.to_char(models.Reservation.date, 'YYYY-MM').like(like),
+    ).all():
+        walk_by_month[ym] = walk_by_month.get(ym, 0) + fee
 
     return [
         schemas.DuesSummaryRow(
             year_month=f"{year}-{m:02d}",
             paid=paid_by_month.get(f"{year}-{m:02d}", 0),
             team_paid=team_by_month.get(f"{year}-{m:02d}", 0),
+            walk_in_paid=walk_by_month.get(f"{year}-{m:02d}", 0),
             unpaid_count=unpaid_by_month.get(f"{year}-{m:02d}", 0),
         )
         for m in range(1, 13)

@@ -57,6 +57,9 @@ function renderDues() {
   setText('duesExpected',     d.total_expected.toLocaleString());
   setText('duesTeamPaid',     teamPaid.toLocaleString());
   setText('duesTeamExpected', teamExpect.toLocaleString());
+  setText('duesWalkIn',       (d.walk_in_total || 0).toLocaleString());
+  setText('duesWalkInSub',
+    d.walk_in_count ? `${d.walk_in_count}명 · 정모 ${d.walk_in_meetups}회` : '당일 참가');
   setText('duesUnpaid',       d.unpaid_count);
   setText('duesPending',      d.pending_count);
   setText('duesUnpaidSub',    teamUnpaid ? `+ 미납 ${teamUnpaid}팀` : '입금 확인 필요');
@@ -183,22 +186,24 @@ async function loadDuesSummary(year) {
   document.getElementById('duesYearLabel').textContent = `${year}년 월별 수납`;
   try {
     const rows = await apiJson(`/api/admin/dues/summary?year=${year}`);
-    const total = r => r.paid + (r.team_paid || 0);
+    const total = r => r.paid + (r.team_paid || 0) + (r.walk_in_paid || 0);
     if (!rows.some(total)) {
       chart.innerHTML = '<div class="chart-empty">올해 수납 기록이 없습니다.</div>';
       return;
     }
-    // 위 칸이 월회비, 아래 칸이 팀 이용료. 합계는 기둥 전체 높이.
+    // 위부터 월회비 · 팀 이용료 · 정모 참가비. 합계는 기둥 전체 높이.
+  // 세 수입은 성격이 달라 색으로만 갈라 보여주고 숫자를 합쳐 말하지 않는다.
     const max = Math.max(1, ...rows.map(total));
     chart.innerHTML = rows.map((r, i) => {
       const sum = total(r);
       const peak = sum === max && sum > 0;
       return `
-        <div class="stack-col" title="${i + 1}월 · 월회비 ${r.paid.toLocaleString()}원 · 월 이용료 ${(r.team_paid || 0).toLocaleString()}원">
+        <div class="stack-col" title="${i + 1}월 · 월회비 ${r.paid.toLocaleString()}원 · 월 이용료 ${(r.team_paid || 0).toLocaleString()}원 · 정모 참가비 ${(r.walk_in_paid || 0).toLocaleString()}원">
           <div class="stack-value">${peak ? (sum / 10000).toFixed(0) + '만' : ''}</div>
           <div class="stack-track">
             <div class="stack-fill${sum ? '' : ' is-zero'}" style="height:${(sum / max) * 100}%">
               <div class="stack-r1" style="height:${sum ? (r.paid / sum) * 100 : 0}%"></div>
+              <div class="stack-r3" style="height:${sum ? ((r.walk_in_paid || 0) / sum) * 100 : 0}%"></div>
             </div>
           </div>
           <div class="stack-label">${i + 1}</div>
