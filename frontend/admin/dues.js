@@ -77,6 +77,7 @@ function renderDues() {
       <div class="dues-member">
         <div class="dues-name">
           ${escHtml(r.name)}
+          ${roleExempt(r.role) ? `<span class="mt-badge ${MEMBER_ROLES[r.role].cls}">${MEMBER_ROLES[r.role].label}</span>` : ''}
           <span class="dues-team">${r.team_name ? escHtml(r.team_name) : '무소속'}</span>
         </div>
         <div class="dues-sub">

@@ -123,9 +123,14 @@ def migrate_schema():
         " id SERIAL PRIMARY KEY,"
         " record_id INTEGER NOT NULL REFERENCES meetup_records(id) ON DELETE CASCADE,"
         " title VARCHAR(200) NOT NULL,"
-        " lineup VARCHAR(500),"
+        " parts JSON,"
         " sort_order INTEGER NOT NULL DEFAULT 0)",
         "CREATE INDEX IF NOT EXISTS ix_meetup_songs_record ON meetup_songs (record_id)",
+        # 곡 라인업이 자유 문자열에서 [{part,name,member_id}] 목록으로 바뀌었다.
+        "ALTER TABLE meetup_songs ADD COLUMN IF NOT EXISTS parts JSON",
+        "ALTER TABLE meetup_songs DROP COLUMN IF EXISTS lineup",
+        # 멤버 등급 — 운영진·모임장은 회비 기본값이 면제.
+        "ALTER TABLE members ADD COLUMN IF NOT EXISTS role VARCHAR(10) NOT NULL DEFAULT 'member'",
         # 한 사람이 밴드를 여러 개 하는 경우. members.team_id 는 대표 팀으로만 남는다.
         "CREATE TABLE IF NOT EXISTS member_teams ("
         " member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,"

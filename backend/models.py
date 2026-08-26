@@ -194,15 +194,16 @@ class MeetupAttendee(Base):
 
 
 class MeetupSong(Base):
-    """그날 합주한 곡. 라인업은 자유 문자열이다 —
-    '보컬 철용 / 기타 서현정·김원' 처럼 적고, 집계는 하지 않는다."""
+    """그날 합주한 곡. parts 는 [{part, name, member_id}] 목록으로,
+    참석 명단에서 고른 사람을 포지션에 붙인 것이다. 이름은 스냅샷이라
+    멤버를 지워도 기록이 남는다 (예약 team_name 과 같은 이유)."""
     __tablename__ = "meetup_songs"
 
     id = Column(Integer, primary_key=True, index=True)
     record_id = Column(Integer, ForeignKey("meetup_records.id", ondelete="CASCADE"),
                        nullable=False, index=True)
     title = Column(String(200), nullable=False)
-    lineup = Column(String(500))
+    parts = Column(JSON, default=list)
     sort_order = Column(Integer, nullable=False, server_default='0')
 
     record = relationship("MeetupRecord", back_populates="songs")
@@ -277,6 +278,9 @@ class Member(Base):
     # 도어즈 멤버십과 '어느 팀 소속이라 누가 회비를 내는가' 는 별개다.
     # 팀 이용료 팀으로 옮겨간 사람도 도어즈 멤버로는 계속 관리한다.
     is_doors = Column(Boolean, default=True, nullable=False)
+    # 'member' 일반 | 'staff' 운영진 | 'leader' 모임장.
+    # 운영진·모임장은 회비 기본값이 면제다 (그 달 기록을 남기면 그 값이 이긴다).
+    role = Column(String(10), default='member', server_default='member', nullable=False)
     joined_on = Column(Date)
     is_active = Column(Boolean, default=True, nullable=False)
     # 연락이 안 되거나 최근 활동이 불확실한 멤버 표시. is_active 와 별개라

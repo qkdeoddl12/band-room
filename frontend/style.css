@@ -2629,6 +2629,9 @@ body:has(.admin-dashboard) .modal-actions {
 .mt-badge.team  { background: var(--primary-light); color: var(--primary); }
 /* 도어즈 소속이 아닌 외부 밴드 */
 .mt-badge.out   { background: #FEF3C7; color: #92400E; }
+/* 멤버 등급 — 운영진/모임장. 회비 기본 면제라 눈에 띄어야 한다. */
+.mt-badge.role  { background: #E0F2FE; color: #075985; }
+.mt-badge.role.lead { background: #FCE7F3; color: #9D174D; }
 
 /* 예약 목록의 종류 꼬리표 (대관·정모) */
 .kind-tag {
@@ -2989,15 +2992,44 @@ body:has(.admin-dashboard) .modal-actions {
   padding: 8px 10px; border: 1px solid var(--border);
   border-radius: var(--radius-sm); background: var(--bg);
 }
-.meetup-att-name { flex: 1; min-width: 80px; font-size: 13px; font-weight: 700; }
-.meetup-att-pay  { flex: none; width: 128px; height: 34px; font-size: 12.5px; }
-.meetup-att-fee  { flex: none; width: 96px;  height: 34px; font-size: 12.5px; }
+/* 이름은 한 줄을 통째로 쓴다. 좁은 칼럼에서 select·금액과 나란히 두면
+   폭이 80px 밖에 안 남아 긴 이름이 두 줄로 감겼다. */
+.meetup-att-name { flex: 1 1 100%; font-size: 13px; font-weight: 700; }
+.meetup-att-pay  { flex: 1 1 118px; }
+.meetup-att-fee  { flex: 1 1 88px; }
 .meetup-att-fee:disabled { opacity: .4; }
 
-/* 곡 — 제목 + 라인업 한 줄 (자유 입력이라 집계는 하지 않는다) */
-.meetup-song-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.meetup-song-title  { flex: 1; min-width: 120px; height: 38px; }
-.meetup-song-lineup { flex: 2; min-width: 160px; height: 38px; }
+/* 곡 — 제목 한 줄, 그 아래 포지션 줄이 쌓인다. */
+.meetup-song-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg);
+}
+.meetup-song-title { flex: 1 1 140px; }
+.meetup-song-parts { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; }
+.meetup-song-parts:empty { display: none; }
+.meetup-part-row { display: flex; gap: 6px; align-items: center; }
+.meetup-part-pos { flex: 0 0 118px; }
+.meetup-part-who { flex: 1 1 auto; }
+.meetup-part-row .jam-slot-btn { flex: none; padding: 0 9px; }
+.meetup-part-add {
+  flex: 1 1 100%; height: 32px; font-size: 12.5px; font-weight: 600;
+  color: var(--primary); background: none; border: 1px dashed var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.meetup-part-add:hover { border-color: var(--primary); background: var(--bg); }
+
+/* 좁은 칸에 쓰는 작은 입력. **높이를 줄일 땐 패딩도 같이 줄여야 한다** —
+   기본 .form-input 은 상하 패딩만 26px 이라 높이만 낮추면 글자가 잘린다. */
+.meetup-att-row .form-input,
+.meetup-att-row .form-select,
+.meetup-song-row .form-input,
+.meetup-song-row .form-select {
+  height: 38px; padding-top: 8px; padding-bottom: 8px;
+  font-size: 13px; min-width: 0;
+}
+.meetup-att-row .form-select,
+.meetup-song-row .form-select { padding-right: 30px; background-position: right 10px center; }
 
 .meetup-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .meetup-photo { position: relative; }

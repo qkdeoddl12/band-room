@@ -90,6 +90,7 @@ def create_member(
         parts=clean_parts(data.parts),
         gender=data.gender,
         birth_year=data.birth_year,
+        role=data.role,
         joined_on=data.joined_on,
         is_active=data.is_active,
         needs_check=data.needs_check,
@@ -134,7 +135,7 @@ def update_member(
     team_ids, exempt_ids = _teams_from(data, fields)
     if team_ids is not None:
         set_member_teams(db, member, team_ids, exempt_ids)
-    for field in ('gender', 'birth_year', 'joined_on', 'is_active',
+    for field in ('gender', 'birth_year', 'role', 'joined_on', 'is_active',
                   'dues_exempt', 'monthly_fee', 'is_doors', 'needs_check'):
         if field in fields:
             setattr(member, field, fields[field])

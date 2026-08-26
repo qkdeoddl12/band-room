@@ -40,7 +40,9 @@ def _view(rec: models.MeetupRecord) -> schemas.MeetupRecordOut:
         room_name=res.room.name if res and res.room else None,
         memo=rec.memo, photos=list(rec.photos or []),
         attendees=[schemas.MeetupAttendeeOut.model_validate(a) for a in attendees],
-        songs=[schemas.MeetupSongOut.model_validate(s) for s in songs],
+        # parts 는 마이그레이션 전 행에서 NULL 일 수 있다 — photos 와 같이 빈 목록으로 받는다.
+        songs=[schemas.MeetupSongOut(id=s.id, title=s.title, sort_order=s.sort_order,
+                                     parts=list(s.parts or [])) for s in songs],
         attend_count=len(attendees),
         walk_in_count=len(walk_ins),
         free_count=len([a for a in attendees if a.pay_type == 'free']),
@@ -150,7 +152,9 @@ def save_meetup_record(
             continue
         rec.songs.append(models.MeetupSong(
             title=title,
-            lineup=(row.lineup or '').strip() or None,
+            # 포지션·이름이 다 있는 줄만 남긴다 (빈 줄은 화면에서 그냥 지운 것)
+            parts=[p.model_dump() for p in row.parts
+                   if p.part.strip() and p.name.strip()],
             sort_order=i,
         ))
 

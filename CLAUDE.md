@@ -110,6 +110,10 @@ docker-compose.yml
   그 중 `monthly` 팀 건만 개인 회비에서 빠진다 (`DuesRow.covered_by_team`). 나머지 팀 몫은 그대로 청구된다
 - 팀 하나만 안 받으려면 `member_teams.dues_exempt` (멤버 수정창의 '회비 제외할 팀').
   `members.dues_exempt` 는 전체 면제라 범위가 다르다
+- **등급 `members.role`**: `member` 일반 / `staff` 운영진 / `leader` 모임장.
+  운영진·모임장은 **회비 기본값이 면제**다 (`routers/dues.py` 의 `off`). 어디까지나 *기본값* —
+  그 달에 기록을 남기면(`member_dues` upsert) 그 값이 이긴다. 화면 배지·금액칸 잠금은
+  `members.js::roleExempt` 하나가 판단하고 `dues.js` 도 그걸 쓴다 (members.js 가 먼저 로드됨)
 - 회비 금액: `member.monthly_fee` > `team.dues_fee` > `app_settings.default_monthly_fee` (`deps.resolve_member_fee`)
 - 팀 이용료: `team.monthly_fee` > `app_settings.default_team_fee` (`deps.default_team_fee`). 프론트·백엔드가 같은 순서를 쓴다
 - **팀 레퍼토리**(`team_songs`): 곡마다 `status` = `candidate` 후보 / `practicing` 연습중 / `done` 완곡.
@@ -194,7 +198,12 @@ docker-compose.yml
   같이 고치므로 항목별 API 보다 단순하고, 지운 줄이 남을 일이 없다
 - 참석 구분 `pay_type`: `dues` 월회비 / `walk_in` 당일 참가비 / `free` 무료 참관.
   **금액은 `walk_in` 일 때만 저장한다** — 서버가 나머지를 0 으로 눌러 정산에 엉뚱한 돈이 안 섞이게 한다
-- 곡 라인업은 **자유 문자열**(`"보컬 철용 / 기타 서현정·김원"`). 집계하지 않는다 — 입력을 가볍게 하려고 고른 선택이다
+- 곡 라인업은 `meetup_songs.parts` JSON `[{part, name, member_id}]` — **포지션과 사람을 골라서** 넣는다.
+  사람은 **그 기록의 참석 명단**(체크한 멤버 + 외부 게스트)에서만 고른다. 게스트는 `member_id=null` 이고
+  이름만 남는다. 이름은 스냅샷이라 멤버를 지워도 기록이 살아 있다 (예약 `team_name` 과 같은 이유)
+  - 참석자를 빼면 드롭다운은 갱신되지만 **이미 고른 값은 남긴다** (`meetups.js::refreshSongWho`) —
+    기록을 조용히 지우면 안 된다. 옛 기록의 낯선 포지션도 목록에 끼워 유지한다
+  - 포지션·이름이 빈 줄은 저장하지 않는다 (화면에서 지운 것)
 - 사진은 `/uploads/` 로 시작하는 주소만 받는다 (티켓 배경과 같은 규칙)
 - **당일 참가비는 정산의 세 번째 수입**이다. 월회비(보라) · 팀 이용료(청록) 에 이어 앰버.
   **셋을 절대 합산하지 않는다** — KPI 카드 · 연간 차트 계열 모두 따로 센다.

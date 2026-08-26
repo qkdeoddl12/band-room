@@ -23,7 +23,7 @@ created = {"team": None, "team2": None, "team3": None,
            "cancel": None, "past": None, "edit": None, "edit2": None,
            "admin_res": None, "team4": None, "team5": None,
            "member5": None, "member6": None, "jam": None, "jam_res": None,
-           "member7": None, "meetup_res": None, "meetup_res2": None, "meetup_rec": None,
+           "member7": None, "member8": None, "meetup_res": None, "meetup_res2": None, "meetup_rec": None,
            "member": None, "member2": None, "member3": None,
            "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
@@ -204,6 +204,29 @@ def test_members_and_dues(h):
 
     bad = client.put(f"/api/admin/dues/{m['id']}/2099-13", headers=h, json={"status": "paid"})
     assert bad.status_code == 400, "invalid month must be rejected"
+
+    # 운영진·모임장은 회비 기본값이 면제 — 걷을 돈에도 안 들어간다
+    staff = client.post("/api/admin/members", headers=h, json={
+        "name": f"{MARK} 운영진", "role": "staff", "monthly_fee": 50000,
+    })
+    assert staff.status_code == 200, staff.text
+    created["member8"] = staff.json()["id"]
+    assert staff.json()["role"] == "staff", staff.json()
+
+    with_staff = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+    srow = next(r for r in with_staff["rows"] if r["member_id"] == created["member8"])
+    assert srow["status"] == "exempt", f"운영진 기본값이 면제가 아니다: {srow}"
+    assert with_staff["total_expected"] == exempt["total_expected"],         "면제 멤버가 걷을 돈에 들어갔다"
+
+    # 그 달을 손으로 지정하면 그게 이긴다 (기본값은 기본값일 뿐)
+    client.put(f"/api/admin/dues/{created['member8']}/{ym}", headers=h, json={"status": "paid"})
+    forced = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
+    frow = next(r for r in forced["rows"] if r["member_id"] == created["member8"])
+    assert frow["status"] == "paid", f"수동 지정이 기본값에 밀렸다: {frow}"
+
+    # 없는 등급은 막는다
+    assert client.post("/api/admin/members", headers=h,
+                       json={"name": f"{MARK} 이상", "role": "boss"}).status_code == 422
     return m["id"]
 
 
@@ -372,7 +395,12 @@ def test_meetup_record(h):
             {"name": f"{MARK}구경꾼", "pay_type": "free", "fee": 9999},
         ],
         "songs": [
-            {"title": f"{MARK} 밤편지", "lineup": "보컬 A / 기타 B"},
+            {"title": f"{MARK} 밤편지", "parts": [
+                {"part": "보컬", "name": f"{MARK}정모참석", "member_id": member["id"]},
+                {"part": "기타", "name": f"{MARK}게스트A"},
+                # 포지션이나 이름이 빈 줄은 화면에서 지운 것 — 저장되면 안 된다
+                {"part": "드럼", "name": "  "},
+            ]},
             {"title": f"{MARK} 여행"},
         ],
     })
@@ -384,6 +412,12 @@ def test_meetup_record(h):
     watcher = next(a for a in out["attendees"] if a["pay_type"] == "free")
     assert watcher["fee"] == 0, f"무료 참관에 금액이 남았다: {watcher}"
     assert len(out["songs"]) == 2 and out["songs"][0]["sort_order"] == 0, out
+    lineup = out["songs"][0]["parts"]
+    assert len(lineup) == 2, f"빈 줄이 저장됐다: {lineup}"
+    assert lineup[0] == {"part": "보컬", "name": f"{MARK}정모참석",
+                         "member_id": member["id"]}, lineup
+    assert lineup[1]["member_id"] is None, f"게스트에 멤버 id 가 붙었다: {lineup}"
+    assert out["songs"][1]["parts"] == [], out["songs"][1]
 
     # 업로드된 파일만 사진으로 받는다
     bad = client.put(f"/api/admin/meetups/{rid}", headers=h,
@@ -904,7 +938,7 @@ def cleanup(h):
         client.delete(f"/api/admin/tickets/{created['ticket']}", headers=h)
     if created["jam"]:
         client.delete(f"/api/admin/openjams/{created['jam']}", headers=h)
-    for key in ("member", "member2", "member3", "member4", "member5", "member6", "member7"):
+    for key in ("member", "member2", "member3", "member4", "member5", "member6", "member7", "member8"):
         if created[key]:
             client.delete(f"/api/admin/members/{created[key]}?force=true", headers=h)
     for key in ("team", "team2", "team3", "team4", "team5"):

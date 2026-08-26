@@ -57,6 +57,14 @@ function renderTeamOptions() {
 
 const GENDER_KO = { male: '남성', female: '여성' };
 
+const MEMBER_ROLES = {
+  member: { label: '일반 멤버', cls: '' },
+  staff:  { label: '운영진',   cls: 'role' },
+  leader: { label: '모임장',   cls: 'role lead' },
+};
+/* 운영진·모임장은 회비 기본값이 면제다 (서버 dues 목록과 같은 규칙) */
+function roleExempt(role) { return role === 'staff' || role === 'leader'; }
+
 /* 이 팀에서 이 사람이 내는 금액. 서버의 resolve_member_fee 와 같은 순서다. */
 function memberTeamFee(m, team) {
   if (m.monthly_fee != null) return m.monthly_fee;
@@ -67,7 +75,7 @@ function memberTeamFee(m, team) {
 /* 회비는 금액 그대로 보여준다 — 줄여 쓰면 얼마인지 다시 열어봐야 한다.
    소속이 여럿이면 팀마다 각각 청구되므로 합계를 보여준다. */
 function memberFee(m) {
-  if (m.dues_exempt) return { text: '회비 면제', cls: 'exempt' };
+  if (m.dues_exempt || roleExempt(m.role)) return { text: '회비 면제', cls: 'exempt' };
 
   const teams = m.teams || [];
   if (!teams.length) {
@@ -136,6 +144,7 @@ function renderMembers() {
         <div class="ecard-top">
           <span class="ecard-name">${escHtml(m.name)}</span>
           ${m.is_doors ? '<span class="mt-badge doors">도어즈</span>' : ''}
+          ${roleExempt(m.role) ? `<span class="mt-badge ${MEMBER_ROLES[m.role].cls}">${MEMBER_ROLES[m.role].label}</span>` : ''}
           ${m.needs_check ? '<span class="mt-badge check">활동 확인 필요</span>' : ''}
           ${m.is_active ? '' : '<span class="mt-badge off">비활동</span>'}
           <span class="fee-badge ${fee.cls} ecard-fee">${escHtml(fee.text)}</span>
@@ -173,6 +182,7 @@ function openMemberModal(memberId = null, presetTeamId = null) {
   document.getElementById('memberDoors').checked  = m ? m.is_doors : true;
   document.getElementById('memberPhone').value   = formatPhone(m?.phone);
   document.getElementById('memberGender').value  = m?.gender || '';
+  document.getElementById('memberRole').value    = m?.role || 'member';
   document.getElementById('memberBirthYear').value = m?.birth_year || '';
   document.getElementById('memberJoined').value  = m?.joined_on || '';
   document.getElementById('memberMemo').value    = m?.memo || '';
@@ -233,7 +243,8 @@ function syncMemberFlags() {
 
 /* 면제 회원은 금액 입력이 의미 없으므로 비활성화 */
 function syncMemberFeeState() {
-  const exempt = document.getElementById('memberExempt').checked;
+  const exempt = document.getElementById('memberExempt').checked
+    || roleExempt(document.getElementById('memberRole').value);
   const fee = document.getElementById('memberFee');
   fee.disabled = exempt;
   document.getElementById('memberFeeRow').classList.toggle('disabled', exempt);
@@ -259,6 +270,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
     phone:       document.getElementById('memberPhone').value.trim(),
     parts:       readPartPicker('memberParts', 'memberPartsOther'),
     gender:      document.getElementById('memberGender').value || null,
+    role:        document.getElementById('memberRole').value,
     birth_year:  yearRaw === '' ? null : Number(yearRaw),
     joined_on:   document.getElementById('memberJoined').value || null,
     memo:        document.getElementById('memberMemo').value.trim(),

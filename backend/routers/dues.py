@@ -78,8 +78,10 @@ def get_dues_month(
                 status, amount = rec.status, rec.amount
                 paid_on, memo = rec.paid_on, rec.memo
             else:
-                # 멤버 전체 면제와 이 팀만 면제, 둘 다 기본값을 면제로 만든다.
-                off = m.dues_exempt or (ms.dues_exempt if ms else False)
+                # 멤버 전체 면제 · 이 팀만 면제 · 운영진/모임장 — 셋 다 기본값이 면제다.
+                # (그 달 기록을 남기면 위 rec 분기가 이겨서 수동 지정이 우선한다)
+                off = (m.dues_exempt or m.role in ('staff', 'leader')
+                       or (ms.dues_exempt if ms else False))
                 status = 'exempt' if off else 'unpaid'
                 amount, paid_on, memo = 0, None, None
 
@@ -107,7 +109,7 @@ def get_dues_month(
                 team_id=team.id if team else None,
                 team_name=team.name if team else None,
                 covered_by_team=covered_by_team,
-                name=m.name, parts=m.parts, dues_exempt=m.dues_exempt,
+                name=m.name, parts=m.parts, role=m.role, dues_exempt=m.dues_exempt,
                 fee=fee, status=status, amount=amount, paid_on=paid_on, memo=memo,
             ))
 
@@ -406,7 +408,7 @@ def upsert_dues(
         team_id=team.id if team else None,
         team_name=team.name if team else None,
         covered_by_team=(team is not None and team.billing_type == 'monthly'),
-        name=member.name, parts=member.parts,
+        name=member.name, parts=member.parts, role=member.role,
         dues_exempt=member.dues_exempt, fee=fee,
         status=rec.status, amount=rec.amount, paid_on=rec.paid_on, memo=rec.memo,
     )

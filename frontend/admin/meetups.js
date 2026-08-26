@@ -145,7 +145,7 @@ function renderAttendeePicker() {
 function attendeeRow(a) {
   const isGuest = !a.member_id;
   return `
-    <div class="meetup-att-row" data-member="${a.member_id || ''}">
+    <div class="meetup-att-row" data-member="${a.member_id || ''}" data-name="${escHtml(a.name)}">
       <span class="meetup-att-name">${escHtml(a.name)}${isGuest ? ' <span class="mt-badge out">게스트</span>' : ''}</span>
       <select class="form-select meetup-att-pay" onchange="syncAttendeeFee(this)">
         ${Object.entries(PAY_TYPE).map(([k, v]) =>
@@ -154,8 +154,17 @@ function attendeeRow(a) {
       <input type="number" class="form-input meetup-att-fee" min="0" step="1000"
              value="${a.fee || ''}" placeholder="금액"
              ${a.pay_type === 'walk_in' ? '' : 'disabled'}>
-      <button type="button" class="jam-slot-btn cancel" onclick="this.closest('.meetup-att-row').remove()">빼기</button>
+      <button type="button" class="jam-slot-btn cancel" onclick="removeAttendeeRow(this)">빼기</button>
     </div>`;
+}
+
+function removeAttendeeRow(btn) {
+  const row = btn.closest('.meetup-att-row');
+  // 명부에서 체크를 켜둔 채 줄만 지우면 다음 동기화 때 되살아난다 — 체크도 같이 끈다.
+  const box = document.querySelector(`#meetupMembers input[value="${row.dataset.member}"]`);
+  if (box) { box.checked = false; box.closest('.part-check').classList.remove('active'); }
+  row.remove();
+  refreshSongWho();
 }
 
 /* 참가비일 때만 금액칸이 열린다 — 나머지는 서버에서도 0 으로 눌러 정산이 안 섞인다. */
@@ -182,6 +191,7 @@ function syncAttendeeRows() {
     const id = row.dataset.member;
     if (id && !keep.has(Number(id))) row.remove();
   });
+  refreshSongWho();
 }
 
 function addMeetupGuest() {
@@ -192,6 +202,7 @@ function addMeetupGuest() {
   document.getElementById('meetupAttendees').insertAdjacentHTML('beforeend',
     attendeeRow({ member_id: null, name, pay_type: 'walk_in', fee: 0 }));
   input.value = '';
+  refreshSongWho();
 }
 
 /* ---- 곡 ---- */
@@ -201,19 +212,80 @@ function renderMeetupSongs() {
 }
 
 function meetupSongRow(s) {
+  const parts = (s.parts || []);
   return `
     <div class="meetup-song-row">
       <input type="text" class="form-input meetup-song-title" maxlength="200"
              value="${escHtml(s.title || '')}" placeholder="곡 제목">
-      <input type="text" class="form-input meetup-song-lineup" maxlength="500"
-             value="${escHtml(s.lineup || '')}" placeholder="보컬 철용 / 기타 서현정 · 김원 / 드럼 홍주원">
       <button type="button" class="jam-slot-btn cancel" onclick="this.closest('.meetup-song-row').remove()">빼기</button>
+      <div class="meetup-song-parts">${parts.map(p => songPartRow(p)).join('')}</div>
+      <button type="button" class="meetup-part-add" onclick="addSongPart(this)">＋ 포지션</button>
     </div>`;
+}
+
+/* 곡 한 줄 = 포지션 + 그 자리를 맡은 사람. 사람은 참석 명단에서 고른다. */
+function songPartRow(p) {
+  return `
+    <div class="meetup-part-row">
+      ${songPartSelect(p.part || '')}
+      ${songWhoSelect(partKey(p))}
+      <button type="button" class="jam-slot-btn cancel"
+              onclick="this.closest('.meetup-part-row').remove()">✕</button>
+    </div>`;
+}
+
+/* 저장된 값과 드롭다운 값을 잇는 열쇠. 멤버는 id, 게스트는 이름이 신원이다. */
+function partKey(p) {
+  if (!p || !p.name) return '';
+  return p.member_id ? `m:${p.member_id}` : `g:${p.name}`;
+}
+
+function songPartSelect(part) {
+  // 옛 기록에 명단에 없는 포지션이 있으면 그것도 남긴다 (조용히 바뀌지 않게)
+  const list = part && !FIXED_PARTS.includes(part) ? [...FIXED_PARTS, part] : FIXED_PARTS;
+  return `<select class="form-select meetup-part-pos">
+      <option value="">포지션</option>
+      ${list.map(p => `<option value="${escHtml(p)}"${p === part ? ' selected' : ''}>${escHtml(p)}</option>`).join('')}
+    </select>`;
+}
+
+/* 고를 수 있는 사람 = 지금 참석 명단(멤버 + 게스트). */
+function attendeeOptions() {
+  return [...document.querySelectorAll('#meetupAttendees .meetup-att-row')].map(r => ({
+    key: r.dataset.member ? `m:${r.dataset.member}` : `g:${r.dataset.name}`,
+    name: r.dataset.name,
+  }));
+}
+
+function songWhoSelect(key, name) {
+  const opts = attendeeOptions();
+  // 명단에서 빠진 사람이라도 이미 고른 값은 남긴다 — 기록을 조용히 지우지 않는다.
+  if (key && !opts.some(o => o.key === key)) {
+    opts.push({ key, name: name || key.replace(/^[mg]:/, '') });
+  }
+  return `<select class="form-select meetup-part-who">
+      <option value="">사람</option>
+      ${opts.map(o => `<option value="${escHtml(o.key)}"${o.key === key ? ' selected' : ''}>${escHtml(o.name)}</option>`).join('')}
+    </select>`;
+}
+
+/* 참석 명단이 바뀌면 곡의 사람 드롭다운을 다시 그린다 (고른 값은 유지). */
+function refreshSongWho() {
+  document.querySelectorAll('.meetup-part-who').forEach(sel => {
+    const key = sel.value;
+    const name = sel.selectedOptions[0] ? sel.selectedOptions[0].textContent.trim() : '';
+    sel.outerHTML = songWhoSelect(key, name);
+  });
+}
+
+function addSongPart(btn) {
+  btn.closest('.meetup-song-row').querySelector('.meetup-song-parts')
+     .insertAdjacentHTML('beforeend', songPartRow({}));
 }
 
 function addMeetupSong() {
   document.getElementById('meetupSongs').insertAdjacentHTML('beforeend',
-    meetupSongRow({ title: '', lineup: '' }));
+    meetupSongRow({ title: '', parts: [] }));
 }
 
 /* ---- 사진 ---- */
@@ -270,7 +342,15 @@ document.getElementById('meetupForm').addEventListener('submit', async e => {
   const songs = [...document.querySelectorAll('#meetupSongs .meetup-song-row')]
     .map(row => ({
       title: row.querySelector('.meetup-song-title').value.trim(),
-      lineup: row.querySelector('.meetup-song-lineup').value.trim() || null,
+      parts: [...row.querySelectorAll('.meetup-part-row')].map(pr => {
+        const who = pr.querySelector('.meetup-part-who');
+        const key = who.value;
+        return {
+          part: pr.querySelector('.meetup-part-pos').value,
+          name: key ? who.selectedOptions[0].textContent.trim() : '',
+          member_id: key.startsWith('m:') ? Number(key.slice(2)) : null,
+        };
+      }).filter(p => p.part && p.name),
     }))
     .filter(s => s.title);
 

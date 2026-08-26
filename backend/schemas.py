@@ -280,9 +280,17 @@ class MeetupAttendeeIn(BaseModel):
     memo: Optional[str] = Field(None, max_length=200)
 
 
+class MeetupSongPart(BaseModel):
+    """곡 한 줄 — 포지션과 그 자리를 맡은 사람.
+    member_id 는 명부에 있는 멤버일 때만 붙고, 외부 게스트는 이름만 남는다."""
+    part: str = Field(..., min_length=1, max_length=30)
+    name: str = Field(..., min_length=1, max_length=50)
+    member_id: Optional[int] = None
+
+
 class MeetupSongIn(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
-    lineup: Optional[str] = Field(None, max_length=500)
+    parts: List[MeetupSongPart] = Field(default_factory=list, max_length=20)
 
 
 class MeetupRecordUpsert(BaseModel):
@@ -307,7 +315,7 @@ class MeetupAttendeeOut(BaseModel):
 class MeetupSongOut(BaseModel):
     id: int
     title: str
-    lineup: Optional[str] = None
+    parts: List[MeetupSongPart] = Field(default_factory=list)
     sort_order: int = 0
     model_config = {"from_attributes": True}
 
@@ -473,6 +481,8 @@ class SongResponse(BaseModel):
 
 # ========== Member (도어즈) ==========
 GENDER_PATTERN = '^(male|female)$'
+# 멤버 등급. 운영진·모임장은 회비 기본값이 면제다.
+MEMBER_ROLE_PATTERN = r'^(member|staff|leader)$'
 
 
 class MemberTeamRef(BaseModel):
@@ -495,6 +505,7 @@ class MemberCreate(BaseModel):
     parts: Optional[str] = Field(None, max_length=200)
     gender: Optional[str] = Field(None, pattern=GENDER_PATTERN)
     birth_year: Optional[int] = Field(None, ge=1900, le=2100)
+    role: str = Field('member', pattern=MEMBER_ROLE_PATTERN)
     joined_on: Optional[date] = None
     is_active: bool = True
     needs_check: bool = False
@@ -513,6 +524,7 @@ class MemberUpdate(BaseModel):
     parts: Optional[str] = Field(None, max_length=200)
     gender: Optional[str] = Field(None, pattern=GENDER_PATTERN)
     birth_year: Optional[int] = Field(None, ge=1900, le=2100)
+    role: Optional[str] = Field(None, pattern=MEMBER_ROLE_PATTERN)
     joined_on: Optional[date] = None
     is_active: Optional[bool] = None
     needs_check: Optional[bool] = None
@@ -533,6 +545,7 @@ class MemberResponse(BaseModel):
     parts: Optional[str] = None
     gender: Optional[str] = None
     birth_year: Optional[int] = None
+    role: str = 'member'
     joined_on: Optional[date] = None
     is_active: bool
     needs_check: bool = False
@@ -561,6 +574,7 @@ class DuesRow(BaseModel):
     covered_by_team: bool = False
     name: str
     parts: Optional[str] = None
+    role: str = 'member'
     dues_exempt: bool
     fee: int
     status: str
