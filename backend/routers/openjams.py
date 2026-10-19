@@ -13,7 +13,7 @@ import secrets
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, audit, get_or_404
+from deps import get_current_admin, audit, get_or_404, rate_limit
 import models
 import schemas
 
@@ -66,7 +66,7 @@ def _public(jam: models.OpenJam) -> schemas.OpenJamPublic:
 
 def _check_token(stored, given, message="권한이 없습니다."):
     """compare_digest 로 맞춘다 — 글자 수 비교로 토큰을 조금씩 알아내지 못하게."""
-    if not stored or not secrets.compare_digest(stored, given):
+    if not stored or not secrets.compare_digest(stored.encode(), (given or '').encode()):
         raise HTTPException(403, message)
 
 
@@ -86,6 +86,7 @@ def create_openjam(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    rate_limit(request, "openjam", 5)
     leader = _resolve_member(db, data.leader_name)
 
     jam = models.OpenJam(
@@ -129,8 +130,12 @@ def claim_slot(
 ):
     """선착순 지원. 두 명이 동시에 눌러도 한 명만 들어가야 하므로
     조건부 UPDATE(빈 자리일 때만) 로 잡고, 못 잡으면 이미 찬 것이다."""
+    rate_limit(request, "openjam_claim", 20)
     slot = get_or_404(db, models.OpenJamSlot, slot_id, "그런 자리가 없습니다.")
-    jam = get_or_404(db, models.OpenJam, slot.jam_id, "그런 오픈 잼이 없습니다.")
+    # 잼 행을 잠근다 — 같은 사람이 두 자리를 동시에 누르면 아래 '이미 참여' 검사를 둘 다 지나간다.
+    jam = db.query(models.OpenJam).filter(models.OpenJam.id == slot.jam_id).with_for_update().first()
+    if not jam:
+        raise HTTPException(404, "그런 오픈 잼이 없습니다.")
     if jam.status != 'recruiting':
         raise HTTPException(400, "모집이 끝난 오픈 잼입니다.")
 

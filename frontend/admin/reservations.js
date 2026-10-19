@@ -300,6 +300,8 @@ let editResId = null;
 const RES_KIND = {
   rental: { label: '대관', cls: 'rental' },
   meetup: { label: '정모', cls: 'meetup' },
+  // 팀이 없는 예약이라 대관·정모처럼 이름 한 칸만 고친다 — 팀 드롭다운에 태우면 첫 팀으로 바뀐다.
+  openjam: { label: '오픈잼', cls: 'openjam' },
 };
 
 function openResEditModal(id) {

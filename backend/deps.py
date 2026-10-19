@@ -9,6 +9,7 @@ from typing import Optional
 from urllib.parse import urlparse
 import re
 import secrets
+import time
 import bcrypt
 
 from database import get_db
@@ -120,6 +121,27 @@ def set_member_teams(db: Session, member, team_ids, exempt_ids=None):
     member.team_id = ids[0] if ids else None
 
 
+_hits: dict = {}
+
+
+def rate_limit(request, bucket: str, limit: int, window: int = 600):
+    """로그인 없는 쓰기 API(예약·문의·오픈잼) 도배 방지. IP 마다 window 초에 limit 번.
+    shortcut: 프로세스 메모리라 워커가 여럿이면 따로 센다 — 그때는 DB 나 redis 로 옮길 것."""
+    ip = request.client.host if request.client else None
+    if ip == '127.0.0.1':   # 컨테이너 안 스모크 테스트
+        return
+    now = time.monotonic()
+    key = (bucket, ip)
+    recent = [t for t in _hits.get(key, ()) if now - t < window]
+    if len(recent) >= limit:
+        raise HTTPException(429, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.")
+    recent.append(now)
+    _hits[key] = recent
+    if len(_hits) > 5000:   # 오래 안 온 IP 는 털어낸다
+        for k in [k for k, ts in _hits.items() if now - ts[-1] >= window]:
+            del _hits[k]
+
+
 def get_or_404(db: Session, model, ident, message: str):
     """라우터마다 반복되던 조회+404 세 줄을 한 곳으로."""
     obj = db.query(model).filter(model.id == ident).first()
@@ -229,7 +251,13 @@ def member_dues_ok(db: Session, member, year_month: str) -> bool:
         models.MemberDues.member_id == member.id,
         models.MemberDues.year_month == year_month,
     ).all()
-    return any(r.status in ('paid', 'exempt') for r in rows)
+    if any(r.status in ('paid', 'exempt') for r in rows):
+        return True
+    # 운영진·모임장은 기록이 없는 달이면 기본 면제다 (routers/dues.py 의 off 와 같은 규칙).
+    if member.role in ('staff', 'leader'):
+        slots = {ms.team_id for ms in member.memberships} or {None}
+        return bool(slots - {r.team_id for r in rows})
+    return False
 
 
 def default_monthly_fee(db: Session) -> int:

@@ -275,13 +275,24 @@ function roomTagCls(id) {
     .findIndex(r => r.id === id);
   return `r${Math.min(2, Math.max(1, idx + 1))}`;
 }
-function roomPrice(id)  { return roomsById[id]?.hourly_price || 0; }
+/* 이 시간 이상이면 long_hourly_price 가 시간당 요금이 된다 (app.js 와 같은 값). */
+const LONG_HOURS = 3;
+function roomPrice(id, hours) {
+  const room = roomsById[id];
+  if (!room) return 0;
+  return (hours >= LONG_HOURS && room.long_hourly_price) || room.hourly_price || 0;
+}
 /* 예약 시점에 정해진 is_free 만 본다.
    지금의 팀 과금 방식을 다시 조회하면, 팀을 월정액으로 바꾸는 순간
    그 팀의 과거 시간당 예약까지 매출에서 사라진다. */
 function resFee(r) {
   if (r.is_free) return 0;
-  return roomPrice(r.room_id) * (r.duration || 0);
+  // 자정을 넘긴 예약은 두 행으로 나뉜다 (23시 3시간 = 1h + 2h). 단가는 이용자가 본 것처럼
+  // 짝을 합친 시간으로 고른다.
+  const hours = r.group_key
+    ? allReservations.filter(x => x.group_key === r.group_key).reduce((n, x) => n + (x.duration || 0), 0)
+    : r.duration || 0;
+  return roomPrice(r.room_id, Math.max(hours, r.duration || 0)) * (r.duration || 0);
 }
 function resFeeLabel(r) {
   const fee = resFee(r);
@@ -294,7 +305,7 @@ function resFeeLabel(r) {
    Auth
    ============================================================ */
 async function init() {
-  const stored = sessionStorage.getItem('bandroom_admin_token');
+  const stored = tokenStore('get');
   if (!stored) { showLogin(); return; }
 
   authToken = stored;
@@ -305,10 +316,19 @@ async function init() {
     currentUser = await res.json();
     await showDashboard();
   } catch {
-    sessionStorage.removeItem('bandroom_admin_token');
+    tokenStore('remove');
     authToken = '';
     showLogin();
   }
+}
+
+/* 사생활 보호 모드 등에서 sessionStorage 가 막히면 던진다 — 그래도 이번 탭에선 로그인돼야 한다. */
+function tokenStore(op, value) {
+  try {
+    if (op === 'get') return sessionStorage.getItem('bandroom_admin_token');
+    if (op === 'set') sessionStorage.setItem('bandroom_admin_token', value);
+    else sessionStorage.removeItem('bandroom_admin_token');
+  } catch { return null; }
 }
 
 function showLogin() {
@@ -322,6 +342,7 @@ function showChangePassword() {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('changePwScreen').style.display = 'flex';
   document.getElementById('adminDashboard').classList.remove('show');
+  document.getElementById('currentPw').value = '';
   document.getElementById('newPw').value = '';
   document.getElementById('confirmPw').value = '';
   document.getElementById('changePwError').classList.remove('show');
@@ -373,7 +394,7 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
     }
     const data = await res.json();
     authToken = data.token;
-    sessionStorage.setItem('bandroom_admin_token', data.token);
+    tokenStore('set', data.token);
 
     if (data.must_change_password) { showChangePassword(); return; }
 
@@ -395,7 +416,7 @@ async function logout() {
 
 /* Session gone (expired / revoked) — drop local state and show the gate. */
 function forceLogout() {
-  sessionStorage.removeItem('bandroom_admin_token');
+  tokenStore('remove');
   authToken = ''; currentUser = null;
   showLogin();
 }
@@ -419,7 +440,10 @@ document.getElementById('changePwForm').addEventListener('submit', async e => {
   try {
     const res = await api('/api/admin/change-password', {
       method: 'POST',
-      body: JSON.stringify({ new_password: pw1 }),
+      body: JSON.stringify({
+        current_password: document.getElementById('currentPw').value,
+        new_password: pw1,
+      }),
     });
     if (!res.ok) {
       const e = await res.json();

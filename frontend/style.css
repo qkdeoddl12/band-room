@@ -2640,6 +2640,7 @@ body:has(.admin-dashboard) .modal-actions {
 }
 .kind-tag.rental { background: #FEF3C7; color: #92400E; }
 .kind-tag.meetup { background: #E2E8F0; color: #334155; }
+.kind-tag.openjam { background: #EDE9FE; color: #5B21B6; }
 
 /* 목록 화면 위의 동작 줄 (예약 추가 등) */
 .page-head {

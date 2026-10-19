@@ -11,7 +11,7 @@ from database import get_db
 from broadcaster import broadcaster
 from app_logging import log_event
 from deps import (
-    get_current_admin, normalize_phone, member_dues_ok, audit, get_or_404,
+    get_current_admin, normalize_phone, member_dues_ok, audit, get_or_404, rate_limit,
 )
 import models
 import schemas
@@ -73,6 +73,8 @@ def _assert_slots_free(db: Session, room_id: int, segments, request, who=None,
     생성과 수정이 같은 규칙을 써야 하므로 한 곳에 모아 둔다.
     exclude_ids 는 수정 중인 예약 자기 자신 — 자기 시간과 겹친다고 거부하면 안 된다."""
     skip = set(exclude_ids)
+    # 같은 방 예약을 커밋까지 한 줄로 세운다 — 검사와 저장 사이에 다른 요청이 끼면 이중 예약이 된다.
+    db.query(models.Room).filter(models.Room.id == room_id).with_for_update().first()
     for seg in segments:
         seg_start, seg_end = _mins(seg["start"]), _end_mins(seg["end"])
 
@@ -122,6 +124,9 @@ def _assert_slots_free(db: Session, room_id: int, segments, request, who=None,
                 raise HTTPException(400, msg)
 
 
+OVERNIGHT_END = 6   # 이용자 예약은 다음날 이 시각까지 — app.js · guide.js 와 같은 값
+
+
 def _split_segments(day, start_time, duration: int):
     """시작 시각 + 시간 수 를 날짜별 구간으로. 자정을 넘기면 두 건이 된다."""
     start_dt = datetime.combine(day, start_time)
@@ -139,7 +144,8 @@ def _sse_payload(r: models.Reservation) -> dict:
         "date": str(r.date),
         "start_time": str(r.start_time),
         "end_time": str(r.end_time),
-        "team_name": r.team_name,
+        # SSE 도 인증 없는 공개 스트림이다 — 개인연습실 실명은 공개 목록처럼 가린다.
+        "team_name": schemas.mask_name(r.team_name) if r.kind == 'personal' else r.team_name,
         "status": r.status,
     }
 
@@ -251,6 +257,7 @@ def create_reservation(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    rate_limit(request, "reservation", 20)
     room = db.query(models.Room).filter(models.Room.id == reservation.room_id).first()
     if not room:
         raise HTTPException(400, "존재하지 않는 공간입니다.")
@@ -297,6 +304,8 @@ def create_reservation(
 
     # 자정을 넘기면 거부하지 않고 날짜별로 쪼갠다 (23시~새벽 2시 같은 예약).
     segments = _split_segments(reservation.date, reservation.start_time, reservation.duration)
+    if len(segments) > 1 and segments[-1]["end"] > time(OVERNIGHT_END):
+        raise HTTPException(400, f"자정을 넘긴 예약은 다음날 {OVERNIGHT_END}시까지만 가능합니다.")
 
     display = team.name if team else (
         f"[오픈잼] {open_jam.title}" if open_jam else booker_name)
@@ -319,7 +328,8 @@ def create_reservation(
             end_time=seg["end"],
             duration=seg["hours"],
             team_name=display,
-            members=reservation.members,
+            # 개인연습실은 혼자 쓴다 — 이 칸에 연락처를 적는 일이 있어 아예 받지 않는다.
+            members=None if room.booking_mode == 'personal' else reservation.members,
             note=reservation.note,
             # 낼 것이 없는 예약(선불 팀 · 회비 낸 멤버)은 입금 확인 단계를 건너뛴다.
             kind=('personal' if room.booking_mode == 'personal'
@@ -459,6 +469,8 @@ def update_reservation(
     res = get_or_404(db, models.Reservation, reservation_id, "예약을 찾을 수 없습니다.")
     rows = _group_rows(db, res)
     old_ids = [r.id for r in rows]
+    # 옮기거나 줄이면 옛 날짜를 보던 화면도 새로고침해야 한다.
+    old_payloads = [{"id": r.id, "room_id": r.room_id, "date": str(r.date)} for r in rows]
     fields = data.model_dump(exclude_unset=True)
     if not fields:
         raise HTTPException(400, "바꿀 내용이 없습니다.")
@@ -481,7 +493,7 @@ def update_reservation(
         else first.booker_phone
 
     # 종류는 만들 때 정해지고 바뀌지 않는다. 대관·정모는 팀도 이용자도 없이 이름만 갖는다.
-    if first.kind in ADMIN_KIND_KO:
+    if first.kind in ADMIN_KIND_KO or first.kind == 'openjam':
         display = (fields.get('title') or first.team_name or '').strip()
         if not display:
             raise HTTPException(400, "이름을 입력해주세요.")
@@ -519,7 +531,6 @@ def update_reservation(
     # 취소 토큰도 유지해야 이용자 쪽 취소 버튼이 계속 살아 있다.
     members = fields.get('members', first.members)
     note = fields.get('note', first.note)
-    old_room_id = first.room_id
     kind = first.kind
     # 자정을 넘기느냐에 따라 한 건이 되기도 두 건이 되기도 한다.
     group_key = secrets.token_hex(8) if len(segments) > 1 else None
@@ -551,13 +562,12 @@ def update_reservation(
         kept.append(row)
 
     # 자정을 안 넘기게 줄이면 뒷 조각은 사라진다.
-    removed = [r.id for r in rows[len(segments):]]
     for row in rows[len(segments):]:
         db.delete(row)
     db.commit()
 
-    for rid in removed:
-        broadcaster.publish("reservation_deleted", {"id": rid, "room_id": old_room_id})
+    for payload in old_payloads:
+        broadcaster.publish("reservation_deleted", payload)
     for row in kept:
         db.refresh(row)
         broadcaster.publish("reservation_created", _sse_payload(row))
@@ -583,7 +593,7 @@ def cancel_reservation(
     토큰이 없으면 남의 예약도 id 만으로 지워지므로 절대 생략하면 안 된다."""
     res = get_or_404(db, models.Reservation, reservation_id, "예약을 찾을 수 없습니다.")
     # compare_digest 로 맞춘다 — 글자 수 비교로 토큰을 조금씩 알아내지 못하게.
-    if not res.cancel_token or not secrets.compare_digest(res.cancel_token, data.token):
+    if not res.cancel_token or not secrets.compare_digest(res.cancel_token.encode(), data.token.encode()):
         raise HTTPException(403, "이 예약을 취소할 권한이 없습니다.")
 
     rows = _group_rows(db, res)

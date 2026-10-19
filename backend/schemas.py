@@ -1,7 +1,18 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import date, time, datetime
 import datetime as dt
+import re
 from typing import Optional, List, Dict
+
+
+def mask_name(name):
+    """공개 화면용 이름 가리기 — '우병수' → '우*수', '김철' → '김*'. 본인은 알아보고 남은 모르게."""
+    name = (name or '').strip()
+    if len(name) <= 1:
+        return name or None
+    if len(name) == 2:
+        return name[0] + '*'
+    return name[0] + '*' * (len(name) - 2) + name[-1]
 
 
 # ========== Room ==========
@@ -13,6 +24,7 @@ class RoomBase(BaseModel):
 class Room(RoomBase):
     id: int
     hourly_price: int = 0
+    long_hourly_price: Optional[int] = None
     booking_mode: str = 'team'
     model_config = {"from_attributes": True}
 
@@ -68,6 +80,22 @@ class ReservationPublic(BaseModel):
     status: str = 'pending'
     group_key: Optional[str] = None   # 자정 넘김 예약을 한 건으로 묶어 보기 위해
     model_config = {"from_attributes": True}
+
+    @field_validator('members')
+    @classmethod
+    def _hide_phone(cls, v):
+        # '참여 멤버' 칸에 연락처를 적는 사람이 있다 — 공개 목록에선 번호처럼 생긴 건 지운다.
+        if not v:
+            return v
+        v = re.sub(r'\+?\d[\d\s().-]{6,}\d', '', v)
+        return ', '.join(p.strip() for p in v.split(',') if p.strip()) or None
+
+    @model_validator(mode='after')
+    def _hide_booker(self):
+        # 개인연습실은 team_name 이 이용자 실명이다 — 공개 목록에선 가린다.
+        if self.kind == 'personal':
+            self.team_name = mask_name(self.team_name)
+        return self
 
 
 class ReservationResponse(BaseModel):
@@ -134,6 +162,7 @@ class LoginResponse(BaseModel):
 
 
 class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
     new_password: str = Field(..., min_length=4)
 
 
@@ -736,6 +765,8 @@ BOOKING_MODE_PATTERN = '^(team|personal)$'
 
 class RoomUpdate(BaseModel):
     hourly_price: int = Field(..., ge=0)
+    # 3시간 이상 예약의 시간당 요금. None 이면 할인 없음
+    long_hourly_price: Optional[int] = Field(None, ge=0)
     booking_mode: Optional[str] = Field(None, pattern=BOOKING_MODE_PATTERN)
 
 

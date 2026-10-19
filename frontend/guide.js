@@ -7,6 +7,8 @@
 
 /* app.js 의 OVERNIGHT_END 와 같은 값이어야 한다. 한쪽만 고치면 안내가 거짓말이 된다. */
 const OVERNIGHT_END = 6;
+/* app.js · admin/core.js 의 LONG_HOURS 와 같은 값 — 이 시간 이상이면 장시간 요금. */
+const LONG_HOURS = 3;
 
 function escHtml(str) {
   return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -15,7 +17,7 @@ function escHtml(str) {
 
 const MODE_KO = {
   team: '팀 단위로 예약합니다. 등록된 팀만 고를 수 있습니다.',
-  personal: '개인이 예약합니다. 이름만 적으면 됩니다.',
+  personal: '개인이 예약합니다. 회원은 이름만, 회원이 아니면 연락처도 적습니다.',
 };
 
 async function loadGuide() {
@@ -43,6 +45,9 @@ function renderRooms(rooms) {
           ? `시간당 ${room.hourly_price.toLocaleString()}원`
           : '요금 문의'}
       </div>
+      ${room.long_hourly_price
+        ? `<div class="guide-room-desc">${LONG_HOURS}시간 이상 시간당 ${room.long_hourly_price.toLocaleString()}원</div>`
+        : ''}
       <div class="guide-room-mode">${escHtml(MODE_KO[room.booking_mode] || '')}</div>
     </div>
   `).join('') + '</div>';

@@ -24,6 +24,13 @@ async function loadSettings() {
                  id="roomPrice${r.id}" data-room-id="${r.id}" value="${r.hourly_price}">
         </div>
         <div class="form-group">
+          <label class="form-label" for="roomLong${r.id}">${LONG_HOURS}시간 이상 시간당 요금</label>
+          <input type="number" min="0" step="1000" class="form-input" placeholder="할인 없음"
+                 id="roomLong${r.id}" value="${r.long_hourly_price ?? ''}">
+        </div>
+      </div>
+      <div class="tk-panel-row">
+        <div class="form-group">
           <label class="form-label" for="roomMode${r.id}">예약 단위</label>
           <select class="form-select" id="roomMode${r.id}" data-room-mode="${r.id}">
             <option value="team"${r.booking_mode === 'team' ? ' selected' : ''}>팀</option>
@@ -57,14 +64,17 @@ document.getElementById('settingsForm').addEventListener('submit', async e => {
     });
 
     // 방끼리 서로 기다릴 이유가 없다.
-    await Promise.all([...document.querySelectorAll('#settingsRooms input[data-room-id]')].map(input =>
-      apiJson(`/api/admin/rooms/${input.dataset.roomId}/price`, {
+    await Promise.all([...document.querySelectorAll('#settingsRooms input[data-room-id]')].map(input => {
+      const long = document.getElementById(`roomLong${input.dataset.roomId}`)?.value;
+      return apiJson(`/api/admin/rooms/${input.dataset.roomId}/price`, {
         method: 'PUT',
         body: JSON.stringify({
           hourly_price: Number(input.value || 0),
+          long_hourly_price: long ? Number(long) : null,
           booking_mode: document.getElementById(`roomMode${input.dataset.roomId}`)?.value,
         }),
-      })));
+      });
+    }));
 
     await Promise.all([loadRooms(), loadAppSettings()]);   // 요금 캐시 갱신
     showToast('설정이 저장되었습니다.', 'success');

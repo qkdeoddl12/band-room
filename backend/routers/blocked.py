@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, audit, get_or_404
+from deps import get_current_admin, require_system_admin, audit, get_or_404
 from routers.reservations import _mins, _end_mins
 import models
 import schemas
@@ -35,7 +35,7 @@ def list_blocked(
 def create_blocked(
     data: schemas.BlockedPeriodCreate,
     request: Request,
-    admin: models.AdminUser = Depends(get_current_admin),
+    admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
     if (data.start_time is None) != (data.end_time is None):
@@ -76,7 +76,7 @@ def create_blocked(
 def delete_blocked(
     blocked_id: int,
     request: Request,
-    admin: models.AdminUser = Depends(get_current_admin),
+    admin: models.AdminUser = Depends(require_system_admin),
     db: Session = Depends(get_db),
 ):
     blk = get_or_404(db, models.BlockedPeriod, blocked_id, "차단 설정을 찾을 수 없습니다.")

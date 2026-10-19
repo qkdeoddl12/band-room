@@ -73,7 +73,7 @@ def get_dues_month(
         for ms in (mine or [None]):
             team = ms.team if ms else None
             fee = resolve_member_fee(m, team, fallback)
-            rec = existing.get((m.id, team.id if team else None))
+            rec = existing.pop((m.id, team.id if team else None), None)
             if rec:
                 status, amount = rec.status, rec.amount
                 paid_on, memo = rec.paid_on, rec.memo
@@ -114,6 +114,16 @@ def get_dues_month(
             ))
 
     team_rows, team_expected, team_paid = _team_rows(db, year_month, team_id)
+    if team_id is None:
+        # 그 뒤 비활성·탈퇴·과금 변경으로 행이 사라진 기록도 낸 돈이다 —
+        # 연간 합계(/summary)는 기록을 그대로 더하므로 여기도 같이 세야 숫자가 맞는다.
+        total_paid += sum(d.amount for d in existing.values() if d.status == 'paid')
+        shown = [t.team_id for t in team_rows]
+        team_paid += sum(d.amount for d in db.query(models.TeamDues).filter(
+            models.TeamDues.year_month == year_month,
+            models.TeamDues.status == 'paid',
+            models.TeamDues.team_id.notin_(shown),
+        ).all())
     walk_total, walk_people, walk_meetups = _walk_in_totals(db, year_month)
 
     return schemas.DuesMonthResponse(

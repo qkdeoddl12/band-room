@@ -71,7 +71,10 @@ docker-compose.yml
 ### 인증 (관리자만 존재, 일반 사용자는 로그인 없음)
 - 토큰 기반. `X-Auth-Token` 헤더로 전달, 서버는 `admin_sessions`에서 조회
 - **세션 12시간 만료 + 슬라이딩 갱신** (`deps.SESSION_TTL`). 남은 시간이 절반 아래일 때만 UPDATE
-- **로그인 실패 5회/5분 → 429** (`routers/auth.py`의 인메모리 dict, 단일 프로세스 전제)
+- **로그인 실패 5회/5분 → 429** (`routers/auth.py`의 인메모리 dict, 단일 프로세스 전제).
+  키는 **(아이디, 접속 IP)** — 아이디만으로 세면 남이 틀린 비번을 넣어 관리자를 잠글 수 있다
+- **비밀번호 변경은 현재 비밀번호를 받는다** (`current_password`). 바꾸면 **그 세션만 남기고** 나머지 세션을 지운다.
+  관리자가 남의 비밀번호를 초기화하면 그 사람 세션은 전부 지운다
 - 두 단계 의존성 (`deps.py`):
   - `get_current_admin_raw`: 인증만 확인 (비밀번호 변경 엔드포인트용)
   - `get_current_admin`: 추가로 `must_change_password` 체크, true면 403
@@ -85,9 +88,13 @@ docker-compose.yml
 - 사용자가 `POST /api/reservations` → `status='pending'`으로 저장
 - 관리자가 입금 확인 후 `POST /api/reservations/{id}/confirm` → `status='confirmed'`
 - 슬롯 충돌 검사는 상태 무관 (pending도 슬롯을 점유)
-- **자정 넘김 예약**: 23시에 3시간을 고르면 서버가 `_split_by_day()`로 날짜별 두 건(23~24시 / 0~2시)으로 나눠 저장하고 `group_key`로 묶는다. 확정·취소는 `_group_rows()`로 짝을 함께 처리. 날짜별 타임라인·겹침 검사는 그대로 동작. 프론트는 종료 시각을 다음날 `OVERNIGHT_END`(6시)까지 고를 수 있고, 다음날 예약·차단도 같이 조회해 미리 막는다
+- `_assert_slots_free()` 는 **방 행을 `FOR UPDATE` 로 잠그고** 겹침을 본다 — 안 그러면 두 명이 동시에 같은 칸을 잡는다
+- **자정 넘김 예약**: 23시에 3시간을 고르면 서버가 `_split_by_day()`로 날짜별 두 건(23~24시 / 0~2시)으로 나눠 저장하고 `group_key`로 묶는다. 확정·취소는 `_group_rows()`로 짝을 함께 처리. 날짜별 타임라인·겹침 검사는 그대로 동작. 프론트는 종료 시각을 다음날 `OVERNIGHT_END`(6시)까지 고를 수 있고(서버도 `reservations.py::OVERNIGHT_END` 로 막는다 — 관리자 예약은 제외), 다음날 예약·차단도 같이 조회해 미리 막는다
 - **팀은 등록된 활성 팀에서만 선택** — `team_id` 필수. 서버가 `team_name`을 스냅샷으로 채운다
 - 요금은 `rooms.hourly_price`, 입금 계좌는 `app_settings`에서 온다 (프론트 하드코딩 없음)
+- **오래 빌리면 시간당 요금이 내려간다** — `rooms.long_hourly_price` (NULL 이면 할인 없음).
+  경계는 `LONG_HOURS = 3` 시간이고 `app.js` 와 `admin/core.js` 의 `roomPrice(id, hours)` 가 같은 값을 쓴다 (`guide.js` 안내 문구도 같은 상수).
+  금액은 관리자 환경 설정에서 방마다 정한다 — 화면에 박지 않는다
 
 ### 팀 · 멤버 · 정산
 - `teams.billing_type` 세 가지 — 예약 확정 흐름과 정산이 여기서 갈린다:
@@ -97,7 +104,7 @@ docker-compose.yml
   | `monthly` | 팀이 월 이용료 일괄 (`monthly_fee`) | 즉시 `confirmed` | 건별 0원 |
   | `dues` | 멤버가 각자 월회비 (`dues_fee`) | 즉시 `confirmed` | 멤버별 수납 |
 - 과금 방식을 바꾸면 안 쓰는 금액 컬럼은 비운다(`_apply_billing`) — 되돌렸을 때 옛 금액이 되살아나지 않게
-- 비활성 팀은 예약 드롭다운에서 사라짐. 예약 이력·소속 멤버 있으면 삭제 불가
+- 비활성 팀은 예약 드롭다운에서 사라짐. 예약 이력·소속 멤버·**회비/이용료 기록**이 있으면 삭제 불가 (지우면 정산 기록이 같이 날아간다)
 - `teams.is_doors` = 도어즈 밴드인가 외부 밴드인가. **`billing_type` 과는 별개다** —
   외부 밴드도 월 이용료를 낼 수 있고, 도어즈 밴드도 시간당일 수 있다.
   멤버의 `is_doors` 와 같은 뜻이고, 팀 목록에서 외부는 `외부` 뱃지가 붙는다
@@ -182,7 +189,9 @@ docker-compose.yml
   **주소는 반드시 외부에서 열리는 절대 주소여야 한다** — 내부 주소가 박히면 카톡이 이미지를 못 가져와
   미리보기가 흰 칸으로 뜬다 (실제로 그랬다). 두 겹으로 막는다:
   1. `.env` 의 `PUBLIC_BASE_URL` (역방향 프록시 뒤에서는 필수). 있으면 이 값을 쓴다
-  2. 없으면 `request.base_url` — 이게 맞으려면 uvicorn 에 `--proxy-headers --forwarded-allow-ips "*"` 가 있어야 한다 (Dockerfile)
+  2. 없으면 `request.base_url` — 이게 맞으려면 uvicorn 에 `--proxy-headers` 가 있어야 한다 (Dockerfile).
+     `--forwarded-allow-ips` 는 `127.0.0.1,172.16.0.0/12` (도커 브리지 게이트웨이) 만 믿는다.
+     `"*"` 로 두면 누구나 `X-Forwarded-For` 로 IP 를 속여 로그인 잠금을 피한다. CIDR 은 uvicorn 0.30+ 필요
   - 카카오는 URL 단위로 캐시하므로 태그를 고쳐도 **카카오 개발자 도구에서 캐시 초기화**를 해야 반영된다
   - og 이미지는 가로형(권장 2:1)에 수백 KB 대가 안전하다. 세로로 긴 원본 포스터는 작게 잘려 나오거나 실패할 수 있다
 - 업로드는 content-type + **매직 넘버** 둘 다 검사, 파일명은 `secrets.token_hex(16)` — 원본 파일명 절대 사용 안 함.
@@ -243,7 +252,7 @@ docker-compose.yml
 - 바로 `confirmed` + `is_free=True` 로 들어간다. 요금·입금 확인 단계가 없다.
   대관비를 남기고 싶어지면 `is_free` 를 끄고 기존 입금 확인 흐름에 태우면 된다
 - **종류는 만들 때 정해지고 수정으로 바뀌지 않는다.** 수정 라우트가 `kind` 를 그대로 물려준다.
-  대관·정모를 고칠 땐 팀을 요구하지 않고 `title` 한 칸만 받는다
+  대관·정모·**오픈잼**을 고칠 땐 팀을 요구하지 않고 `title` 한 칸만 받는다 (`reservations.js::RES_KIND` 에도 있어야 팀 드롭다운에 안 탄다)
 - 이용자 타임라인에서 **방 색(보라·청록)이 아니라 자기 색**으로 나온다 (대관 앰버 / 정모 슬레이트).
   팀 합주 옆에 놓였을 때 갈라져 보여야 한다. `ReservationPublic.kind` 는 공개한다 (개인정보 아님)
 - 기존 행 백필: `team_id IS NULL` 이면 `personal`, 아니면 기본값 `team`
@@ -254,6 +263,10 @@ docker-compose.yml
   타임라인에 실제로 쓰는 것만 (`id room_id date start_time end_time duration team_name members status group_key`)
 - 관리자 화면은 `GET /api/admin/reservations` (`get_current_admin`) 로 전부 본다.
   두 라우트가 `_reservation_query()` 하나를 공유한다
+- `members`(참여 멤버) 는 자유 입력이라 연락처를 적는 사람이 있었다 (개인연습실 예약에서 실제로 샜다).
+  개인연습실은 이 칸을 아예 받지 않고(화면에서도 숨김), 공개 응답은 번호처럼 생긴 건 지운다 (`ReservationPublic._hide_phone`)
+- 개인연습실은 `team_name` 이 이용자 실명이라 공개 목록·SSE 에선 `우*수` 로 가린다 (`schemas.mask_name`). 관리자 화면은 그대로
+- 로그인 없는 쓰기(예약·문의·오픈잼 발제·지원)는 IP 마다 10분 횟수 제한이 있다 (`deps.rate_limit`, 인메모리)
 - **공개 스키마에 필드를 더할 땐 그게 남에게 보여도 되는지 먼저 본다.**
   전에는 한 엔드포인트가 둘 다 맡아서 `booker_phone` 이 그대로 새고 있었다
 
@@ -281,7 +294,7 @@ docker-compose.yml
 - 요금·계좌는 `/api/rooms` · `/api/settings` 에서 받아 채운다 — **안내문에 금액을 박지 않는다**
 - 화면 캡처는 `frontend/guide/*.png`. **예약 화면을 바꾸면 다시 찍어야 한다.**
   계좌 숫자는 캡처에서 가려 뒀다 (계좌가 바뀌면 이미지만 옛값으로 남으므로)
-- `guide.js::OVERNIGHT_END` 는 `app.js` 의 같은 값과 맞춰야 한다
+- `guide.js::OVERNIGHT_END` 는 `app.js` · `reservations.py` 의 같은 값과 맞춰야 한다
 
 ### SSE 실시간 업데이트
 - 엔드포인트: `GET /api/reservations/stream`

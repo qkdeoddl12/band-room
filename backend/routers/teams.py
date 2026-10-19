@@ -320,6 +320,14 @@ def delete_team(
             400,
             f"예약 이력이 {used}건 있어 삭제할 수 없습니다. 비활성 처리해주세요.",
         )
+    # 회비·이용료 기록은 팀과 함께 CASCADE 로 지워진다 — 정산 합계가 조용히 줄어든다.
+    paid = db.query(models.TeamDues).filter(models.TeamDues.team_id == team_id).count() + \
+        db.query(models.MemberDues).filter(models.MemberDues.team_id == team_id).count()
+    if paid:
+        raise HTTPException(
+            400,
+            f"회비·이용료 기록이 {paid}건 있어 삭제할 수 없습니다. 비활성 처리해주세요.",
+        )
     members = db.query(models.MemberTeam).filter(
         models.MemberTeam.team_id == team_id
     ).count()

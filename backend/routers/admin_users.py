@@ -66,6 +66,9 @@ def update_admin_user(
     changes = []
     if data.password is not None:
         user.password_hash = hash_password(data.password)
+        # 비밀번호를 초기화하면 그 계정의 열린 세션도 모두 끊는다.
+        db.query(models.AdminSession).filter(models.AdminSession.user_id == user_id) \
+            .delete(synchronize_session=False)
         changes.append("password")
 
     if data.role is not None and data.role != user.role:

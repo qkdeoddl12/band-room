@@ -61,9 +61,14 @@
 
       <form id="changePwForm" autocomplete="off">
         <div class="form-group">
+          <label class="form-label" for="currentPw">현재 비밀번호</label>
+          <input type="password" class="form-input" id="currentPw"
+            placeholder="방금 로그인한 비밀번호" required autocomplete="current-password" autofocus>
+        </div>
+        <div class="form-group">
           <label class="form-label" for="newPw">새 비밀번호</label>
           <input type="password" class="form-input" id="newPw"
-            placeholder="4자 이상" minlength="4" required autocomplete="new-password" autofocus>
+            placeholder="4자 이상" minlength="4" required autocomplete="new-password">
         </div>
         <div class="form-group">
           <label class="form-label" for="confirmPw">비밀번호 확인</label>

@@ -37,6 +37,7 @@ def admin_settings(
             {
                 "id": r.id, "name": r.name,
                 "hourly_price": r.hourly_price,
+                "long_hourly_price": r.long_hourly_price,
                 "booking_mode": r.booking_mode,
             }
             for r in rooms
@@ -86,6 +87,7 @@ def update_room_price(
     room = get_or_404(db, models.Room, room_id, "공간을 찾을 수 없습니다.")
     price = payload.hourly_price
     room.hourly_price = price
+    room.long_hourly_price = payload.long_hourly_price or None
     if payload.booking_mode is not None:
         room.booking_mode = payload.booking_mode
 
@@ -95,8 +97,11 @@ def update_room_price(
         mode=room.booking_mode, by=admin.username,
     )
     audit(db, admin, "room.update", room.name,
-          f"시간당 {price:,}원 · 예약 단위 {room.booking_mode}", request)
+          f"시간당 {price:,}원 · 장시간 {room.long_hourly_price or 0:,}원 · 예약 단위 {room.booking_mode}",
+          request)
     return {
         "id": room.id, "name": room.name,
-        "hourly_price": room.hourly_price, "booking_mode": room.booking_mode,
+        "hourly_price": room.hourly_price,
+        "long_hourly_price": room.long_hourly_price,
+        "booking_mode": room.booking_mode,
     }

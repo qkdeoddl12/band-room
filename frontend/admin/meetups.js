@@ -228,7 +228,7 @@ function songPartRow(p) {
   return `
     <div class="meetup-part-row">
       ${songPartSelect(p.part || '')}
-      ${songWhoSelect(partKey(p))}
+      ${songWhoSelect(partKey(p), p.name)}
       <button type="button" class="jam-slot-btn cancel"
               onclick="this.closest('.meetup-part-row').remove()">✕</button>
     </div>`;

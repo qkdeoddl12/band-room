@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from database import get_db
 from app_logging import log_event
-from deps import get_current_admin, normalize_phone, audit, get_or_404
+from deps import get_current_admin, normalize_phone, audit, get_or_404, rate_limit
 import models
 import schemas
 
@@ -18,6 +18,7 @@ def create_inquiry(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    rate_limit(request, "inquiry", 5)
     inq = models.Inquiry(
         category=data.category,
         content=data.content.strip(),
@@ -61,7 +62,7 @@ def resolve_inquiry(
         raise HTTPException(400, "이미 처리된 문의입니다.")
     inq.status = 'resolved'
     inq.resolved_by = admin.username
-    inq.resolved_at = datetime.utcnow()
+    inq.resolved_at = datetime.now()   # created_at(func.now()) 과 같은 한국 시각
     db.commit()
     db.refresh(inq)
     log_event("inquiry_resolved", id=inq.id, category=inq.category, by=admin.username)

@@ -27,7 +27,7 @@ created = {"team": None, "team2": None, "team3": None,
            "member": None, "member2": None, "member3": None,
            "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
-           "reservation4": None, "overnight": None}
+           "reservation4": None, "overnight": None, "admin_user": None, "member9": None}
 
 
 def login(username, password):
@@ -83,10 +83,13 @@ def test_reservation(h, team):
     bad = client.post("/api/reservations", json={**body, "team_id": 999999})
     assert bad.status_code == 400, f"unknown team must be rejected, got {bad.status_code}"
 
-    res = client.post("/api/reservations", json={**body, "team_id": team["id"]})
+    res = client.post("/api/reservations", json={
+        **body, "team_id": team["id"], "members": "홍길동, 010-1234-5678"})
     assert res.status_code == 200, res.text
     r = res.json()
     created["reservation"] = r["id"]
+    pub = next(x for x in client.get(f"/api/reservations?date={day}").json() if x["id"] == r["id"])
+    assert pub["members"] == "홍길동", f"공개 목록에 번호가 실렸다: {pub['members']}"
     assert r["team_name"] == team["name"], "server must snapshot the team name"
     assert r["end_time"].startswith("11:00"), r["end_time"]
 
@@ -113,6 +116,10 @@ def test_overnight(h, team):
     rows = client.get(f"/api/reservations?date={nxt}").json()
     second = next(r for r in rows if r["group_key"] == first["group_key"])
     assert second["start_time"].startswith("00:00") and second["duration"] == 2, second
+
+    # 이용자 예약은 다음날 6시까지만
+    late = client.post("/api/reservations", json={**body, "start_time": "22:00:00", "duration": 9})
+    assert late.status_code == 400, f"다음날 6시를 넘기면 막아야 한다, got {late.status_code}"
 
     # 다음날 구간과 겹치면 전체가 거부된다
     clash = client.post("/api/reservations", json={
@@ -160,7 +167,13 @@ def test_personal_room(h):
         **base, "start_time": "11:00:00", "booker_name": name}).json()
     created["reservation3"] = after["id"]
     assert after["status"] == "confirmed" and after["is_free"], after
+    solo = client.post("/api/reservations", json={
+        **base, "start_time": "15:00:00", "booker_name": name, "members": "01099998888"}).json()
+    client.delete(f"/api/reservations/{solo['id']}", headers=h)
+    assert solo["members"] is None, "개인연습실은 참여 멤버 칸을 받지 않는다 (연락처가 새던 곳)"
     assert after["member_id"] == m["id"]
+    pub = next(x for x in client.get(f"/api/reservations?date={day}").json() if x["id"] == after["id"])
+    assert pub["team_name"] != name and pub["team_name"].startswith(name[0]), f"공개 목록에 실명이 나갔다: {pub}"
 
     # 게스트 — 연락처가 없으면 거부
     guest = client.post("/api/reservations", json={
@@ -173,6 +186,10 @@ def test_personal_room(h):
     created["reservation4"] = ok["id"]
     assert ok["member_id"] is None and not ok["is_free"], ok
     assert ok["booker_phone"] == "01012345678", "전화번호는 숫자만 저장"
+
+    gone = client.delete(f"/api/admin/members/{m['id']}?force=true", headers=h)
+    assert gone.status_code == 200, f"예약이 남은 멤버도 지워져야 한다: {gone.text}"
+    created["member2"] = None
 
 
 def test_members_and_dues(h):
@@ -317,6 +334,8 @@ def test_team_dues(h, team, member_id):
     month = client.get(f"/api/admin/dues?year_month={ym}", headers=h).json()
     row = next(r for r in month["team_rows"] if r["team_id"] == tid)
     assert row["status"] == "paid" and month["team_total_paid"] >= 200000, month
+    gone = client.delete(f"/api/admin/teams/{tid}", headers=h)
+    assert gone.status_code == 400, f"입금 기록이 있는 팀은 지우면 안 된다, got {gone.status_code}"
 
     # 월 이용료를 안 적은 팀은 환경 설정의 기본 팀 이용료를 쓴다.
     # 실제 설정을 잠깐 바꾸므로 실패해도 반드시 되돌린다.
@@ -532,6 +551,10 @@ def test_open_jam(h):
     assert made_res["kind"] == "openjam" and made_res["team_id"] is None, made_res
     assert made_res["team_name"] == f"[오픈잼] {MARK} 밤편지", made_res
     assert made_res["status"] == "confirmed" and made_res["is_free"], made_res
+    edited = client.patch(f"/api/admin/reservations/{made_res['id']}", headers=h, json={"note": "메모"})
+    assert edited.status_code == 200, edited.text
+    assert edited.json()["kind"] == "openjam" and edited.json()["team_id"] is None, \
+        f"고쳤다고 팀 예약으로 바뀌면 안 된다: {edited.text}"
 
     # 7) 팀 예약과 같은 겹침 검사를 받는다
     clash = client.post("/api/reservations", json={**resv, "start_time": "20:00:00"})
@@ -928,6 +951,56 @@ def test_multi_team(h):
     assert teams[b]["age_avg"] == float(year - 1990), "겸업 멤버는 두 팀 모두에서 센다"
 
 
+def test_leader_dues(h):
+    """모임장은 기록 없는 달이면 회비 면제 — 개인연습실도 무료다."""
+    ym = "2099-03"
+    name = f"{MARK}모임장"
+    m = client.post("/api/admin/members", headers=h, json={"name": name, "role": "leader"}).json()
+    created["member9"] = m["id"]
+    check = lambda: client.post("/api/members/check", json={"name": name, "date": f"{ym}-10"}).json()
+    assert check()["dues_ok"], "기록이 없으면 모임장은 면제다"
+    client.put(f"/api/admin/dues/{m['id']}/{ym}", headers=h, json={"status": "unpaid"})
+    assert not check()["dues_ok"], "그 달에 미납을 남기면 그 값이 이긴다"
+
+
+def test_password_and_roles(h):
+    """비밀번호 변경은 현재 비밀번호가 필요하고 다른 세션을 끊는다. 예약 관리자는 차단 설정 불가."""
+    res = client.post("/api/admin/users", headers=h,
+                      json={"username": "smoke_pw_user", "role": "reservation"})
+    assert res.status_code == 200, res.text
+    created["admin_user"] = res.json()["user"]["id"]
+    temp = res.json()["temp_password"]
+    t1 = login("smoke_pw_user", temp).json()["token"]
+    t2 = login("smoke_pw_user", temp).json()["token"]
+
+    url = "/api/admin/change-password"
+    assert client.post(url, headers=auth(t1), json={"new_password": "newpw1234"}).status_code == 422
+    assert client.post(url, headers=auth(t1), json={
+        "current_password": "wrong", "new_password": "newpw1234"}).status_code == 400
+    ok = client.post(url, headers=auth(t1), json={"current_password": temp, "new_password": "newpw1234"})
+    assert ok.status_code == 200, ok.text
+    assert client.get("/api/admin/me", headers=auth(t2)).status_code == 401, "다른 세션은 끊겨야 한다"
+    assert client.get("/api/admin/me", headers=auth(t1)).status_code == 200, "바꾼 세션은 남는다"
+
+    blk = client.post("/api/admin/blocked", headers=auth(t1),
+                      json={"date": str(date.today() + timedelta(days=200)), "reason": MARK})
+    assert blk.status_code == 403, f"예약 관리자는 차단을 못 건다, got {blk.status_code}"
+
+
+def _purge_dues(team_ids):
+    """팀 삭제는 입금 기록이 있으면 막힌다 — 테스트가 남긴 기록만 직접 지운다."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from database import SessionLocal
+    import models as _m
+    db = SessionLocal()
+    try:
+        db.query(_m.TeamDues).filter(_m.TeamDues.team_id.in_(team_ids)).delete(synchronize_session=False)
+        db.query(_m.MemberDues).filter(_m.MemberDues.team_id.in_(team_ids)).delete(synchronize_session=False)
+        db.commit()
+    finally:
+        db.close()
+
+
 def cleanup(h):
     for key in ("reservation", "reservation2", "reservation3", "reservation4",
                 "overnight", "cancel", "past", "edit", "edit2", "admin_res",
@@ -938,9 +1011,15 @@ def cleanup(h):
         client.delete(f"/api/admin/tickets/{created['ticket']}", headers=h)
     if created["jam"]:
         client.delete(f"/api/admin/openjams/{created['jam']}", headers=h)
-    for key in ("member", "member2", "member3", "member4", "member5", "member6", "member7", "member8"):
+    if created["admin_user"]:
+        client.delete(f"/api/admin/users/{created['admin_user']}", headers=h)
+    for key in ("member", "member2", "member3", "member4", "member5", "member6", "member7", "member8",
+                "member9"):
         if created[key]:
             client.delete(f"/api/admin/members/{created[key]}?force=true", headers=h)
+    teams = [created[k] for k in ("team", "team2", "team3", "team4", "team5") if created[k]]
+    if teams:
+        _purge_dues(teams)
     for key in ("team", "team2", "team3", "team4", "team5"):
         if created[key]:
             client.delete(f"/api/admin/teams/{created[key]}", headers=h)
@@ -975,6 +1054,8 @@ def main():
         test_tickets(h);                       steps.append("tickets")
         test_upload_guards(h);                 steps.append("upload guards")
         test_settings(h);                      steps.append("settings")
+        test_leader_dues(h);                   steps.append("leader dues")
+        test_password_and_roles(h);            steps.append("password + roles")
     except AssertionError as exc:
         print(f"FAIL after {len(steps)} step(s) [{', '.join(steps)}]: {exc}")
         return 1

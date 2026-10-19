@@ -166,6 +166,9 @@ def delete_member(
             f"회비 기록이 {dues}건 있어 삭제할 수 없습니다. 비활성 처리해주세요.",
         )
     name = member.name
+    # 예약은 이름(booker_name)이 스냅샷으로 남는다 — 연결만 끊는다.
+    db.query(models.Reservation).filter(models.Reservation.member_id == member_id) \
+        .update({"member_id": None}, synchronize_session=False)
     db.delete(member)
     db.commit()
     log_event("member_deleted", id=member_id, name=name, by=admin.username)

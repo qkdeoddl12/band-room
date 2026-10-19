@@ -75,8 +75,8 @@ function auditParts(action) {
 }
 
 function fmtAuditTime(iso) {
-  // 서버는 UTC 로 기록한다. 표시할 때 로컬 시각으로 돌린다.
-  const d = new Date(iso.endsWith('Z') ? iso : iso + 'Z');
+  // at 은 DB 의 func.now() — 이미 한국 시각이다 (PGTZ=Asia/Seoul). Z 를 붙이면 9시간 밀린다.
+  const d = new Date(iso);
   const pad = n => String(n).padStart(2, '0');
   return `${d.getMonth() + 1}/${d.getDate()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
@@ -94,7 +94,7 @@ function renderAudit(rows) {
   let html = '<div class="audit-list">';
   let lastDay = '';
   rows.forEach(r => {
-    const d = new Date(r.at.endsWith('Z') ? r.at : r.at + 'Z');
+    const d = new Date(r.at);
     const day = toDateStr(d);
     if (day !== lastDay) {
       lastDay = day;

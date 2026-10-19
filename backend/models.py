@@ -14,6 +14,8 @@ class Room(Base):
     name = Column(String(100), nullable=False)
     description = Column(Text)
     hourly_price = Column(Integer, nullable=False, server_default='0')
+    # 3시간 이상 예약이면 시간당 이 요금으로 계산한다. NULL 이면 할인 없음
+    long_hourly_price = Column(Integer)
     # 'team'     = 등록된 팀이 예약 (합주실)
     # 'personal' = 멤버 본인 또는 게스트가 예약 (개인연습실)
     booking_mode = Column(String(20), nullable=False, server_default='team')

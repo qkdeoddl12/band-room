@@ -27,7 +27,13 @@ let openJams       = [];   // 모집 마감된 오픈 잼 (예약 주체가 될 
 let settings       = { deposit_bank: '', deposit_account: '', deposit_holder: '' };
 
 function roomById(id)  { return rooms.find(r => r.id === id) || null; }
-function roomPrice(id) { return roomById(id)?.hourly_price || 0; }
+/* 이 시간 이상 빌리면 long_hourly_price 가 시간당 요금이 된다. */
+const LONG_HOURS = 3;
+function roomPrice(id, hours) {
+  const room = roomById(id);
+  if (!room) return 0;
+  return (hours >= LONG_HOURS && room.long_hourly_price) || room.hourly_price || 0;
+}
 /* CSS는 room1 / room2 두 벌만 있으므로 목록 순서로 매핑한다. */
 function roomCls(id) {
   const idx = rooms.findIndex(r => r.id === id);
@@ -222,7 +228,7 @@ function renderReservations() {
       </div>
       <div class="res-time">${fmtTime(r.start_time)} ~ ${fmtEndTime(r.end_time)}</div>
       ${r.members ? `<div class="res-members">👥 ${escHtml(r.members)}</div>` : ''}
-      ${mine && canCancel(r)
+      ${mine && canCancel(r, mine)
         ? `<button type="button" class="btn-res-cancel"
                    onclick="cancelMyReservation(${r.id})">취소</button>`
         : ''}
@@ -260,6 +266,7 @@ function rememberMyRes(created) {
   map[created.id] = {
     token: created.cancel_token,
     date: String(created.date),
+    start_time: String(created.start_time),   // 나뉜 예약의 뒤 조각도 이 시각으로 취소 가능 여부를 본다
     group_key: created.group_key || null,
   };
   saveMyRes(map);
@@ -285,9 +292,19 @@ function forgetMyRes(r) {
   saveMyRes(map);
 }
 
-/* 시작 시각이 지나면 서버도 막는다 — 버튼을 미리 감춰 헛클릭을 줄인다. */
-function canCancel(r) {
-  return new Date(`${r.date}T${r.start_time}`) > new Date();
+/* 시작 시각이 지나면 서버도 막는다 — 버튼을 미리 감춰 헛클릭을 줄인다.
+   자정을 넘긴 예약은 서버가 첫 조각 시작을 보므로, 저장해 둔 첫 조각 시각을 쓴다. */
+function canCancel(r, mine) {
+  const start = mine && mine.start_time ? `${mine.date}T${mine.start_time}` : `${r.date}T${r.start_time}`;
+  return new Date(start) > new Date();
+}
+
+/* FastAPI 검증 오류는 detail 이 배열이다 — 그대로 띄우면 [object Object] 가 된다. */
+function errDetail(body, fallback) {
+  const d = body && body.detail;
+  if (typeof d === 'string') return d;
+  if (Array.isArray(d) && d.length) return d.map(e => e.msg).join(', ');
+  return fallback;
 }
 
 async function cancelMyReservation(id) {
@@ -302,7 +319,7 @@ async function cancelMyReservation(id) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: mine.token }),
     });
-    if (!res.ok) throw new Error((await res.json()).detail || '취소에 실패했습니다.');
+    if (!res.ok) throw new Error(errDetail(await res.json().catch(() => null), '취소에 실패했습니다.'));
     forgetMyRes(r);
     await loadReservations();
     showToast('예약이 취소되었습니다.', 'success');
@@ -446,7 +463,8 @@ function hourUnavailable(hour) { return hourBlocked(hour) || hourTaken(hour); }
 
 /* 시작 시각에서 끊기지 않고 이어 잡을 수 있는 마지막 시각. 24를 넘으면 다음날. */
 function maxEndHour(startH) {
-  const limit = HOURS_END + OVERNIGHT_END;
+  // 서버는 한 번에 24시간까지만 받는다 (schemas.ReservationCreate.duration le=24).
+  const limit = Math.min(HOURS_END + OVERNIGHT_END, startH + 24);
   for (let h = startH; h < limit; h++) {
     if (hourUnavailable(h)) return h;
   }
@@ -543,6 +561,7 @@ function applyBookingMode() {
   const personal = isPersonalRoom(currentRoomId);
   document.getElementById('teamField').style.display = personal ? 'none' : '';
   document.getElementById('personalFields').style.display = personal ? '' : 'none';
+  document.getElementById('membersField').style.display = personal ? 'none' : '';
   syncBookerPhoneField();
   updateTimeSummary();
 }
@@ -591,7 +610,7 @@ function updateFeeBox(dur) {
   feeBox.style.display = '';
   prepaid.style.display = 'none';
 
-  const perHour = roomPrice(currentRoomId);
+  const perHour = roomPrice(currentRoomId, dur);
   document.getElementById('feeAmount').textContent = `${(perHour * dur).toLocaleString()}원`;
   document.getElementById('feeBreakdown').textContent =
     `시간당 ${perHour.toLocaleString()}원 × ${dur}시간`;
@@ -722,14 +741,13 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
         date:      toDateStr(currentDate),
         start_time: startTime + ':00',
         duration:  duration,
-        members:   document.getElementById('members').value.trim() || null,
+        members:   personal ? null : document.getElementById('members').value.trim() || null,
         note:      document.getElementById('note').value.trim()     || null,
       }),
     });
 
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || '예약에 실패했습니다.');
+      throw new Error(errDetail(await res.json().catch(() => null), '예약에 실패했습니다.'));
     }
 
     const created = await res.json();
@@ -805,8 +823,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async e => {
       }),
     });
     if (!res.ok) {
-      const err = await res.json();
-      throw new Error(err.detail || '접수 실패');
+      throw new Error(errDetail(await res.json().catch(() => null), '접수 실패'));
     }
     closeInquiryModal();
     showToast('접수되었습니다. 빠르게 확인하겠습니다 🙏', 'success');
