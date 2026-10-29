@@ -42,7 +42,8 @@ class ReservationCreate(BaseModel):
     booker_phone: Optional[str] = Field(None, max_length=30)
     date: date
     start_time: time
-    duration: int = Field(..., ge=1, le=24)   # 한 번에 최대 24시간 (자정을 넘기면 두 건으로 나뉜다)
+    # 시간 단위, 30분(0.5) 간격. 한 번에 최대 24시간 (자정을 넘기면 두 건으로 나뉜다)
+    duration: float = Field(..., ge=0.5, le=24, multiple_of=0.5)
     members: Optional[str] = None
     note: Optional[str] = None
 
@@ -58,7 +59,7 @@ class AdminReservationCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
     date: dt.date
     start_time: dt.time
-    duration: int = Field(..., ge=1, le=24)
+    duration: float = Field(..., ge=0.5, le=24, multiple_of=0.5)
     contact_phone: Optional[str] = Field(None, max_length=30)
     note: Optional[str] = None
 
@@ -72,7 +73,7 @@ class ReservationPublic(BaseModel):
     date: date
     start_time: time
     end_time: time
-    duration: int
+    duration: float
     team_name: Optional[str] = None   # 개인연습실·대관·정모는 예약 시점 이름 스냅샷
     members: Optional[str] = None     # 타임라인에 '누가 쓰는지' 로 이미 보여주던 값
     # 팀 합주와 대관·정모를 화면에서 갈라 보여주기 위해 종류는 공개한다 (개인정보 아님)
@@ -105,7 +106,7 @@ class ReservationResponse(BaseModel):
     date: date
     start_time: time
     end_time: time
-    duration: int
+    duration: float
     team_name: Optional[str] = None
     member_id: Optional[int] = None
     booker_name: Optional[str] = None
@@ -134,7 +135,7 @@ class ReservationAdminUpdate(BaseModel):
     # date 라는 이름이 None 으로 덮여 타입이 None 이 돼버린다 (실제로 422 가 났었다).
     date: Optional[dt.date] = None
     start_time: Optional[dt.time] = None
-    duration: Optional[int] = Field(None, ge=1, le=24)
+    duration: Optional[float] = Field(None, ge=0.5, le=24, multiple_of=0.5)
     team_id: Optional[int] = None
     booker_name: Optional[str] = Field(None, max_length=50)
     booker_phone: Optional[str] = Field(None, max_length=30)

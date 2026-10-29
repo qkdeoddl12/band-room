@@ -1,6 +1,6 @@
 from sqlalchemy import (
     Column, Integer, String, Date, Time, Text, DateTime, ForeignKey, Boolean,
-    JSON, UniqueConstraint,
+    JSON, UniqueConstraint, Float,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -81,7 +81,7 @@ class Reservation(Base):
     date = Column(Date, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    duration = Column(Integer, nullable=False)
+    duration = Column(Float, nullable=False)   # 시간 단위, 30분 = 0.5
     team_name = Column(String(200))  # snapshot of team.name at booking time
     # 개인연습실 예약용. member_id 가 있으면 우리 멤버, 없으면 게스트.
     member_id = Column(Integer, ForeignKey("members.id"))

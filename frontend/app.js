@@ -9,6 +9,7 @@ const HOURS_END   = 24;   // 24시간 운영 — 타임라인은 00:00 ~ 24:00
 // ponytail: 새벽 6시면 실사용엔 충분. 더 길게 필요하면 숫자만 올리면 된다.
 const OVERNIGHT_END = 6;
 const SLOT_H      = 64;   // px per hour slot
+const STEP        = 0.5;  // 예약 단위 30분 — 서버 _split_segments · schemas.duration 과 같은 규칙
 const DAY_NAMES   = ['일', '월', '화', '수', '목', '금', '토'];
 
 /* ============================================================
@@ -72,6 +73,13 @@ function endMinutes(t) {
   const m = timeToMinutes(t);
   return m === 0 ? 24 * 60 : m;
 }
+/* 9.5 -> '09:30'. 24 이상이면 그대로 '25:00' (다음날 1시) — 종료 select 값으로 쓴다. */
+function hhmm(h) {
+  const m = Math.round(h * 60);
+  return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+}
+function parseHour(v) { return timeToMinutes(v) / 60; }
+
 function fmtEndTime(t) {
   const s = fmtTime(t);
   return s === '00:00' ? '24:00' : s;
@@ -442,7 +450,7 @@ function hourBlocked(hour) {
     if (!b.start_time || !b.end_time) return true;
     const bStart = timeToMinutes(b.start_time) / 60;
     const bEnd   = endMinutes(b.end_time)   / 60;
-    if (!(hour + 1 <= bStart || hour >= bEnd)) return true;
+    if (!(hour + STEP <= bStart || hour >= bEnd)) return true;
   }
   return false;
 }
@@ -455,7 +463,7 @@ function hourTaken(hour) {
     if (r.room_id !== currentRoomId) return false;
     const s = timeToMinutes(r.start_time) / 60;
     const e = endMinutes(r.end_time)   / 60;
-    return !(hour + 1 <= s || hour >= e);
+    return !(hour + STEP <= s || hour >= e);
   });
 }
 
@@ -465,7 +473,7 @@ function hourUnavailable(hour) { return hourBlocked(hour) || hourTaken(hour); }
 function maxEndHour(startH) {
   // 서버는 한 번에 24시간까지만 받는다 (schemas.ReservationCreate.duration le=24).
   const limit = Math.min(HOURS_END + OVERNIGHT_END, startH + 24);
-  for (let h = startH; h < limit; h++) {
+  for (let h = startH; h < limit; h += STEP) {
     if (hourUnavailable(h)) return h;
   }
   return limit;
@@ -473,8 +481,7 @@ function maxEndHour(startH) {
 
 /* 25 -> '다음날 01:00'. 24:00 은 그날 자정이므로 그대로 둔다. */
 function endHourLabel(h) {
-  const label = `${String(h % HOURS_END).padStart(2, '0')}:00`;
-  return h > HOURS_END ? `다음날 ${label}` : `${String(h).padStart(2, '0')}:00`;
+  return h > HOURS_END ? `다음날 ${hhmm(h % HOURS_END)}` : hhmm(h);
 }
 
 function populateStartTimes(defaultHour) {
@@ -482,8 +489,8 @@ function populateStartTimes(defaultHour) {
   select.innerHTML = '';
 
   let firstAvailable = null;
-  for (let h = HOURS_START; h < HOURS_END; h++) {
-    const val    = `${String(h).padStart(2, '0')}:00`;
+  for (let h = HOURS_START; h < HOURS_END; h += STEP) {
+    const val    = hhmm(h);
     const option = document.createElement('option');
     option.value = val;
     option.textContent = val;
@@ -501,30 +508,29 @@ function populateStartTimes(defaultHour) {
   }
   if (select.selectedIndex === -1 || select.options[select.selectedIndex]?.disabled) {
     if (firstAvailable !== null) {
-      select.value = `${String(firstAvailable).padStart(2,'0')}:00`;
+      select.value = hhmm(firstAvailable);
     }
   }
 }
 
 function populateEndTimes(preferredHour = null) {
   const select = document.getElementById('endTime');
-  const startH = Number(document.getElementById('startTime').value.split(':')[0]);
+  const startH = parseHour(document.getElementById('startTime').value);
 
   select.innerHTML = '';
   const maxEnd = maxEndHour(startH);
-  for (let h = startH + 1; h <= maxEnd; h++) {
+  for (let h = startH + STEP; h <= maxEnd; h += STEP) {
     const option = document.createElement('option');
-    option.value = `${String(h).padStart(2, '0')}:00`;
+    option.value = hhmm(h);
     option.textContent = endHourLabel(h);
     select.appendChild(option);
   }
 
+  // 기본은 1시간. 그 사이가 막혀 있으면 잡을 수 있는 만큼(30분)으로.
   const desired = preferredHour !== null && preferredHour > startH && preferredHour <= maxEnd
     ? preferredHour
-    : startH + 1;
-  if (desired <= maxEnd) {
-    select.value = `${String(desired).padStart(2, '0')}:00`;
-  }
+    : Math.min(startH + 1, maxEnd);
+  if (desired > startH) select.value = hhmm(desired);
 
   updateTimeSummary();
 }
@@ -533,8 +539,8 @@ function updateTimeSummary() {
   const start = document.getElementById('startTime').value;
   const end   = document.getElementById('endTime').value;
   if (!start || !end) return;
-  const startH = Number(start.split(':')[0]);
-  const endH   = Number(end.split(':')[0]);
+  const startH = parseHour(start);
+  const endH   = parseHour(end);
   const dur    = endH - startH;
   document.getElementById('timeSummaryText').textContent =
     `${displayDate(currentDate)} · ${start} ~ ${endHourLabel(endH)} (${dur}시간)`;
@@ -611,7 +617,7 @@ function updateFeeBox(dur) {
   prepaid.style.display = 'none';
 
   const perHour = roomPrice(currentRoomId, dur);
-  document.getElementById('feeAmount').textContent = `${(perHour * dur).toLocaleString()}원`;
+  document.getElementById('feeAmount').textContent = `${Math.round(perHour * dur).toLocaleString()}원`;
   document.getElementById('feeBreakdown').textContent =
     `시간당 ${perHour.toLocaleString()}원 × ${dur}시간`;
   document.getElementById('feeDepositBox').style.display = '';
@@ -620,7 +626,7 @@ function updateFeeBox(dur) {
 
 /* Start/End time changes */
 document.getElementById('startTime').addEventListener('change', () => {
-  const prevEnd = Number(document.getElementById('endTime').value?.split(':')[0] || 0);
+  const prevEnd = parseHour(document.getElementById('endTime').value || '00:00');
   populateEndTimes(prevEnd);
 });
 document.getElementById('endTime').addEventListener('change', updateTimeSummary);
@@ -712,10 +718,10 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
 
   const startTime = document.getElementById('startTime').value;
   const endTime   = document.getElementById('endTime').value;
-  const startHour = Number(startTime.split(':')[0]);
-  const endHour   = Number(endTime.split(':')[0]);
+  const startHour = parseHour(startTime);
+  const endHour   = parseHour(endTime);
   const duration  = endHour - startHour;
-  if (duration < 1) {
+  if (duration < STEP) {
     showToast('종료 시간은 시작 시간 이후여야 합니다.', 'error');
     return;
   }

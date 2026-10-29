@@ -144,6 +144,8 @@ def migrate_schema():
         " ON CONFLICT DO NOTHING",
         "ALTER TABLE member_dues ADD COLUMN IF NOT EXISTS team_id INTEGER"
         " REFERENCES teams(id) ON DELETE CASCADE",
+        # 30분 단위 예약 — 이용 시간이 정수 시간에서 0.5 간격 실수가 됐다. 같은 타입이면 재작성 없음.
+        "ALTER TABLE reservations ALTER COLUMN duration TYPE DOUBLE PRECISION",
     ]
     with engine.begin() as conn:
         for stmt in statements:

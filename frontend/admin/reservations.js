@@ -294,6 +294,10 @@ function renderList(items) {
    서버가 슬롯을 다시 검사하고, 자정을 넘기면 다시 두 건으로 쪼갠다.
    ============================================================ */
 let editResId = null;
+// 30분 단위 예약 — 서버 _split_segments · schemas.duration 과 같은 규칙.
+const HALF_HOURS = Array.from({ length: 48 }, (_, i) =>
+  `${String(Math.floor(i / 2)).padStart(2, '0')}:${i % 2 ? '30' : '00'}`);
+function validDuration(d) { return d >= 0.5 && d <= 24 && Number.isInteger(d * 2); }
 
 /* 예약 종류. 팀·개인은 이용자가 만들고 대관·정모는 관리자가 만든다.
    라벨을 여기 한 곳에만 둔다. */
@@ -326,10 +330,8 @@ function openResEditModal(id) {
     .sort((a, b) => a.id - b.id)
     .map(room => `<option value="${room.id}"${room.id === head.room_id ? ' selected' : ''}>${escHtml(room.name)}</option>`)
     .join('');
-  document.getElementById('resEditStart').innerHTML = Array.from({ length: 24 }, (_, h) => {
-    const v = `${String(h).padStart(2, '0')}:00`;
-    return `<option value="${v}"${head.start_time.startsWith(v) ? ' selected' : ''}>${v}</option>`;
-  }).join('');
+  document.getElementById('resEditStart').innerHTML = HALF_HOURS.map(v =>
+    `<option value="${v}"${head.start_time.startsWith(v) ? ' selected' : ''}>${v}</option>`).join('');
   document.getElementById('resEditTeam').innerHTML = Object.values(teamsById)
     .filter(t => t.is_active || t.id === head.team_id)
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -383,8 +385,8 @@ document.getElementById('resEditForm').addEventListener('submit', async e => {
   const roomId = Number(document.getElementById('resEditRoom').value);
   const personal = roomsById[roomId]?.booking_mode === 'personal';
   const duration = Number(document.getElementById('resEditDuration').value);
-  if (!duration || duration < 1 || duration > 24) {
-    showToast('이용 시간은 1~24 사이여야 합니다.', 'error');
+  if (!validDuration(duration)) {
+    showToast('이용 시간은 0.5~24 사이, 30분(0.5) 단위여야 합니다.', 'error');
     return;
   }
 
@@ -447,10 +449,8 @@ function openAdminResModal() {
   document.getElementById('adminResRoom').innerHTML = Object.values(roomsById)
     .sort((a, b) => a.id - b.id)
     .map(r => `<option value="${r.id}">${escHtml(r.name)}</option>`).join('');
-  document.getElementById('adminResStart').innerHTML = Array.from({ length: 24 }, (_, h) => {
-    const v = `${String(h).padStart(2, '0')}:00`;
-    return `<option value="${v}"${h === 19 ? ' selected' : ''}>${v}</option>`;
-  }).join('');
+  document.getElementById('adminResStart').innerHTML = HALF_HOURS.map(v =>
+    `<option value="${v}"${v === '19:00' ? ' selected' : ''}>${v}</option>`).join('');
   document.getElementById('adminResTitle').value = '';
   document.getElementById('adminResDate').value  = toDateStr(new Date());
   document.getElementById('adminResDuration').value = 3;
@@ -468,8 +468,8 @@ document.getElementById('adminResForm').addEventListener('submit', async e => {
   const title = document.getElementById('adminResTitle').value.trim();
   if (!title) { showToast('이름을 입력해주세요.', 'error'); return; }
   const duration = Number(document.getElementById('adminResDuration').value);
-  if (!duration || duration < 1 || duration > 24) {
-    showToast('이용 시간은 1~24 사이여야 합니다.', 'error');
+  if (!validDuration(duration)) {
+    showToast('이용 시간은 0.5~24 사이, 30분(0.5) 단위여야 합니다.', 'error');
     return;
   }
 
@@ -847,8 +847,9 @@ function renderHourChart(confirmedRes) {
   // 24시간 운영이다. 예전 09~23시 범위로 두면 새벽·심야 예약이 통째로 빠진다.
   const counts = new Array(24).fill(0);
   confirmedRes.forEach(r => {
-    const startH = Number(String(r.start_time).substring(0, 2));
-    for (let h = startH; h < startH + (r.duration || 0); h++) {
+    const [hh, mm] = String(r.start_time).split(':').map(Number);
+    const startH = hh + mm / 60;   // 30분 시작이면 그 시간 칸부터 센다
+    for (let h = Math.floor(startH); h < startH + (r.duration || 0); h++) {
       if (h >= 0 && h < 24) counts[h]++;
     }
   });

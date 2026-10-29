@@ -52,7 +52,7 @@ def _split_by_day(start_dt: datetime, end_dt: datetime):
             "date": cursor.date(),
             "start": cursor.time(),
             "end": seg_end.time(),          # 자정이면 00:00 = 그날 24시
-            "hours": int((seg_end - cursor).total_seconds() // 3600),
+            "hours": (seg_end - cursor).total_seconds() / 3600,
         })
         cursor = seg_end
     return segments
@@ -127,8 +127,11 @@ def _assert_slots_free(db: Session, room_id: int, segments, request, who=None,
 OVERNIGHT_END = 6   # 이용자 예약은 다음날 이 시각까지 — app.js · guide.js 와 같은 값
 
 
-def _split_segments(day, start_time, duration: int):
+def _split_segments(day, start_time, duration: float):
     """시작 시각 + 시간 수 를 날짜별 구간으로. 자정을 넘기면 두 건이 된다."""
+    # 30분 단위 예약 — duration 은 스키마가 0.5 배수로 막고, 시작 시각은 여기서 막는다.
+    if start_time.minute % 30 or start_time.second or start_time.microsecond:
+        raise HTTPException(400, "시작 시각은 30분 단위여야 합니다.")
     start_dt = datetime.combine(day, start_time)
     segments = _split_by_day(start_dt, start_dt + timedelta(hours=duration))
     if len(segments) > 2:

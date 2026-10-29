@@ -292,7 +292,7 @@ function resFee(r) {
   const hours = r.group_key
     ? allReservations.filter(x => x.group_key === r.group_key).reduce((n, x) => n + (x.duration || 0), 0)
     : r.duration || 0;
-  return roomPrice(r.room_id, Math.max(hours, r.duration || 0)) * (r.duration || 0);
+  return Math.round(roomPrice(r.room_id, Math.max(hours, r.duration || 0)) * (r.duration || 0));
 }
 function resFeeLabel(r) {
   const fee = resFee(r);

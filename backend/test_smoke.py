@@ -27,7 +27,7 @@ created = {"team": None, "team2": None, "team3": None,
            "member": None, "member2": None, "member3": None,
            "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
-           "reservation4": None, "overnight": None, "admin_user": None, "member9": None}
+           "reservation4": None, "half": None, "overnight": None, "admin_user": None, "member9": None}
 
 
 def login(username, password):
@@ -95,6 +95,19 @@ def test_reservation(h, team):
 
     clash = client.post("/api/reservations", json={**body, "team_id": team["id"]})
     assert clash.status_code == 400, "overlapping reservation must be rejected"
+
+    # 30분 단위 — 11:30 부터 1시간 반이면 13:00 에 끝난다
+    half = client.post("/api/reservations", json={
+        **body, "team_id": team["id"], "start_time": "11:30:00", "duration": 1.5})
+    assert half.status_code == 200, half.text
+    created["half"] = half.json()["id"]
+    assert half.json()["end_time"].startswith("13:00"), half.json()
+    odd = client.post("/api/reservations", json={
+        **body, "team_id": team["id"], "start_time": "14:15:00", "duration": 1})
+    assert odd.status_code == 400, f"30분 단위가 아닌 시작은 막아야 한다, got {odd.status_code}"
+    odd = client.post("/api/reservations", json={
+        **body, "team_id": team["id"], "start_time": "14:00:00", "duration": 0.75})
+    assert odd.status_code == 422, f"30분 단위가 아닌 길이는 막아야 한다, got {odd.status_code}"
 
 
 def test_overnight(h, team):
@@ -1002,7 +1015,7 @@ def _purge_dues(team_ids):
 
 
 def cleanup(h):
-    for key in ("reservation", "reservation2", "reservation3", "reservation4",
+    for key in ("reservation", "half", "reservation2", "reservation3", "reservation4",
                 "overnight", "cancel", "past", "edit", "edit2", "admin_res",
                 "jam_res", "meetup_res", "meetup_res2"):
         if created[key]:

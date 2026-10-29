@@ -90,6 +90,9 @@ docker-compose.yml
 - 슬롯 충돌 검사는 상태 무관 (pending도 슬롯을 점유)
 - `_assert_slots_free()` 는 **방 행을 `FOR UPDATE` 로 잠그고** 겹침을 본다 — 안 그러면 두 명이 동시에 같은 칸을 잡는다
 - **자정 넘김 예약**: 23시에 3시간을 고르면 서버가 `_split_by_day()`로 날짜별 두 건(23~24시 / 0~2시)으로 나눠 저장하고 `group_key`로 묶는다. 확정·취소는 `_group_rows()`로 짝을 함께 처리. 날짜별 타임라인·겹침 검사는 그대로 동작. 프론트는 종료 시각을 다음날 `OVERNIGHT_END`(6시)까지 고를 수 있고(서버도 `reservations.py::OVERNIGHT_END` 로 막는다 — 관리자 예약은 제외), 다음날 예약·차단도 같이 조회해 미리 막는다
+- **예약 단위는 30분** — `reservations.duration` 은 시간 단위 실수(`DOUBLE PRECISION`, 1시간 반 = 1.5).
+  길이는 스키마가 `multiple_of=0.5` 로, 시작 시각(:00/:30)은 `_split_segments()` 가 막는다.
+  프론트는 `app.js::STEP` · `admin/reservations.js::HALF_HOURS` 가 같은 규칙. 요금은 `시간당 × 시간` 을 반올림
 - **팀은 등록된 활성 팀에서만 선택** — `team_id` 필수. 서버가 `team_name`을 스냅샷으로 채운다
 - 요금은 `rooms.hourly_price`, 입금 계좌는 `app_settings`에서 온다 (프론트 하드코딩 없음)
 - **오래 빌리면 시간당 요금이 내려간다** — `rooms.long_hourly_price` (NULL 이면 할인 없음).
