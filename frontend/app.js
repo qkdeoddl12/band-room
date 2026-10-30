@@ -578,11 +578,12 @@ function isGuestBooking() {
   return !isPersonalRoom(currentRoomId) && !!selectedBooker()?.guest;
 }
 
-/* 멤버로 확인되면 연락처는 안 받아도 된다 (개인연습실만 — 게스트는 늘 받는다). */
+/* 멤버로 확인되면 연락처는 안 받아도 된다 (개인연습실만). 팀 없는 게스트는 연락처가 선택. */
 function syncBookerPhoneField() {
   const known = isPersonalRoom(currentRoomId) && memberCheck?.is_member;
   const field = document.getElementById('bookerPhoneField');
   field.style.display = known ? 'none' : '';
+  document.getElementById('bookerPhoneReq').style.display = isGuestBooking() ? 'none' : '';
 }
 
 /* 시간당이 아닌 팀(월 이용료 · 월회비)은 건별로 낼 게 없다. */
@@ -721,8 +722,8 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
   } else if (!picked) {
     showToast('예약할 팀 또는 오픈 잼을 선택해주세요.', 'error');
     return;
-  } else if (picked.guest && (!bookerName || !bookerPhone)) {
-    showToast('팀 없이 예약하려면 이름과 연락처를 입력해주세요.', 'error');
+  } else if (picked.guest && !bookerName) {
+    showToast('팀 없이 예약하려면 이름을 입력해주세요.', 'error');
     return;
   }
   const named = personal || !!picked?.guest;   // 팀 대신 이름·연락처로 잡는 예약
@@ -972,7 +973,7 @@ async function loadTeams() {
     + (openJams.length ? `<optgroup label="오픈 잼">${
         openJams.map(j => `<option value="jam:${j.id}">${escHtml(j.title)}</option>`).join('')
       }</optgroup>` : '')
-    + '<option value="guest">팀 없이 예약 (이름·연락처)</option>';
+    + '<option value="guest">팀 없이 예약 (이름으로)</option>';
 }
 
 /* 드롭다운 값은 팀이면 숫자, 오픈 잼이면 "jam:3", 팀 없는 게스트면 "guest" 다. */

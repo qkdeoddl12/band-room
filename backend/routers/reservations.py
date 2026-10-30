@@ -300,11 +300,11 @@ def create_reservation(
         # 참여자 전원이 이미 월회비를 내는 도어즈 회원이라 건별 요금이 없다.
         free = True
     elif reservation.team_id is None:
-        # 팀 없이 합주실을 쓰는 사람 — 이름·연락처만 받고 시간당 요금으로 입금 확인을 거친다.
+        # 팀 없이 합주실을 쓰는 사람 — 이름(연락처는 선택)만 받고 시간당 요금으로 입금 확인을 거친다.
         booker_name = (reservation.booker_name or '').strip()
         booker_phone = normalize_phone(reservation.booker_phone)
-        if not booker_name or not booker_phone:
-            raise HTTPException(400, "팀 없이 예약하려면 이름과 연락처를 입력해주세요.")
+        if not booker_name:
+            raise HTTPException(400, "팀 없이 예약하려면 이름을 입력해주세요.")
     else:
         team = db.query(models.Team).filter(models.Team.id == reservation.team_id).first()
         if not team or not team.is_active:

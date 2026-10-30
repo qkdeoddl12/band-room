@@ -95,7 +95,7 @@ docker-compose.yml
   프론트는 `app.js::STEP` · `admin/reservations.js::HALF_HOURS` 가 같은 규칙. 요금은 `시간당 × 시간` 을 반올림
 - **팀은 등록된 활성 팀에서만 선택** — 서버가 `team_name`을 스냅샷으로 채운다
 - **팀 없이 합주실 예약 (`kind='guest'`)** — 드롭다운 맨 아래 '팀 없이 예약' (`value="guest"`).
-  `team_id`·`jam_id` 없이 `booker_name` + `booker_phone` **둘 다 필수**. 시간당 요금 → `pending` → 입금 확인.
+  `team_id`·`jam_id` 없이 `booker_name` 필수, `booker_phone` 은 선택. 시간당 요금 → `pending` → 입금 확인.
   멤버 회비 확인은 하지 않는다 (개인연습실만). `team_name` 이 실명이라 공개 목록·SSE 에선
   개인연습실처럼 가린다 (`schemas.BOOKER_KINDS`)
 - 요금은 `rooms.hourly_price`, 입금 계좌는 `app_settings`에서 온다 (프론트 하드코딩 없음)

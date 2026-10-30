@@ -109,12 +109,11 @@ def test_reservation(h, team):
         **body, "team_id": team["id"], "start_time": "14:00:00", "duration": 0.75})
     assert odd.status_code == 422, f"30분 단위가 아닌 길이는 막아야 한다, got {odd.status_code}"
 
-    # 팀 없이 합주실 — 이름·연락처만으로, 시간당 요금(입금 대기), 공개 목록에선 실명을 가린다
+    # 팀 없이 합주실 — 이름만으로(연락처 선택), 시간당 요금(입금 대기), 공개 목록에선 실명을 가린다
     guest = {**body, "start_time": "15:00:00", "duration": 1}
-    no_phone = client.post("/api/reservations", json={**guest, "booker_name": "게스트테스트"})
-    assert no_phone.status_code == 400, f"게스트는 연락처가 필요하다, got {no_phone.status_code}"
-    g = client.post("/api/reservations", json={
-        **guest, "booker_name": "게스트테스트", "booker_phone": "010-9999-0000"})
+    no_name = client.post("/api/reservations", json=guest)
+    assert no_name.status_code == 400, f"게스트는 이름이 필요하다, got {no_name.status_code}"
+    g = client.post("/api/reservations", json={**guest, "booker_name": "게스트테스트"})
     assert g.status_code == 200, g.text
     created["guest"] = g.json()["id"]
     assert g.json()["kind"] == "guest" and g.json()["status"] == "pending", g.json()
