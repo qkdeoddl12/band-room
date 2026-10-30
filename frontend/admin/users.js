@@ -72,7 +72,7 @@ document.getElementById('createUserForm').addEventListener('submit', async e => 
   const role = document.querySelector('input[name="newRole"]:checked').value;
 
   const btn = document.getElementById('createUserBtn');
-  btn.disabled = true; btn.textContent = '생성 중...';
+  btn.disabled = true; btn.textContent = '생성 중…';
 
   try {
     const data = await apiJson('/api/admin/users', {
@@ -158,7 +158,7 @@ document.getElementById('editUserForm').addEventListener('submit', async e => {
   if (password) body.password = password;
 
   const btn = document.getElementById('editUserBtn');
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
 
   try {
     await apiJson(`/api/admin/users/${editTargetUserId}`, {

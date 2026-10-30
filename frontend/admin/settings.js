@@ -47,7 +47,7 @@ async function loadSettings() {
 document.getElementById('settingsForm').addEventListener('submit', async e => {
   e.preventDefault();
   const btn = document.getElementById('settingsSaveBtn');
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
 
   try {
     await apiJson('/api/admin/settings', {

@@ -81,7 +81,7 @@ function memberFee(m) {
   if (!teams.length) {
     const fee = memberTeamFee(m, null);
     return fee
-      ? { text: `${fee.toLocaleString()}원`, cls: m.monthly_fee != null ? '' : 'default' }
+      ? { text: `${fee.toLocaleString('ko-KR')}원`, cls: m.monthly_fee != null ? '' : 'default' }
       : { text: '회비 미설정', cls: 'default' };
   }
 
@@ -96,7 +96,7 @@ function memberFee(m) {
   });
   if (!charged) return { text: '팀 이용료 납부', cls: 'monthly' };
   return {
-    text: `${total.toLocaleString()}원${charged > 1 ? ` (${charged}팀)` : ''}`,
+    text: `${total.toLocaleString('ko-KR')}원${charged > 1 ? ` (${charged}팀)` : ''}`,
     cls,
   };
 }
@@ -139,7 +139,7 @@ function renderMembers() {
     ].filter(Boolean).join(' · ');
 
     return `
-      <div class="ecard${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
+      <div role="button" tabindex="0" class="ecard${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
            onclick="openMemberModal(${m.id})">
         <div class="ecard-top">
           <span class="ecard-name">${escHtml(m.name)}</span>
@@ -291,7 +291,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
 
   const btn = document.getElementById('memberSaveBtn');
   const original = btn.textContent;
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
   try {
     if (editMemberId) {
       await apiJson(`/api/admin/members/${editMemberId}`, { method: 'PATCH', body: JSON.stringify(body) });

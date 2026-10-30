@@ -25,7 +25,8 @@ async function loadInquiries() {
     allInquiries = await apiJson('/api/admin/inquiries');
   } catch (e) {
     allInquiries = [];
-    showToast(e.message, 'error');
+    document.getElementById('inquiryList').innerHTML = loadErrorHtml(e.message);
+    return;
   }
   renderInquiries();
   refreshInquiryBadge();
@@ -68,7 +69,10 @@ function renderInquiries() {
   if (currentInqCat    !== 'all') items = items.filter(i => i.category === currentInqCat);
 
   if (items.length === 0) {
-    list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">📭</span><div class="admin-empty-text">해당되는 문의가 없습니다.</div></div>';
+    const others = currentInqStatus === 'all' ? 0
+      : allInquiries.filter(i => currentInqCat === 'all' || i.category === currentInqCat).length;
+    list.innerHTML = `<div class="admin-empty"><span class="admin-empty-icon">📭</span><div class="admin-empty-text">해당되는 문의가 없습니다.</div>
+      ${others ? `<button class="link-inline" onclick="setInquiryStatus('all')">전체 ${others}건 보기 →</button>` : ''}</div>`;
     return;
   }
 
@@ -78,7 +82,7 @@ function renderInquiries() {
     const isNew = i.status === 'new';
     const preview = escHtml((i.content || '').replace(/\s+/g, ' ').slice(0, 120));
     html += `
-      <div class="inquiry-item ${meta.cls}${isNew ? ' new' : ''}" onclick="openInquiryDetail(${i.id})">
+      <div role="button" tabindex="0" class="inquiry-item ${meta.cls}${isNew ? ' new' : ''}" onclick="openInquiryDetail(${i.id})">
         <div class="inquiry-head">
           <span class="inquiry-cat-tag ${meta.cls}">${meta.icon} ${meta.label}</span>
           ${isNew ? '<span class="inquiry-status-badge new">새 접수</span>' : '<span class="inquiry-status-badge resolved">처리완료</span>'}
@@ -126,7 +130,7 @@ function openInquiryDetail(id) {
     <div class="modal-actions">
       <button onclick="deleteInquiry(${i.id})" class="btn-danger" style="flex:1;">삭제</button>
       ${isNew
-        ? `<button onclick="resolveInquiry(${i.id})" class="btn-submit" style="flex:2;margin-top:0;">처리 완료</button>`
+        ? `<button onclick="resolveInquiry(${i.id}, this)" class="btn-submit" style="flex:2;margin-top:0;">처리 완료</button>`
         : `<button onclick="closeInquiryDetail()" class="btn-submit" style="flex:2;margin-top:0;">닫기</button>`}
     </div>
   `;
@@ -136,7 +140,9 @@ function openInquiryDetail(id) {
 function closeInquiryDetail() { closeOverlay('inquiryDetailOverlay'); }
 bindOverlayClose('inquiryDetailOverlay', closeInquiryDetail);
 
-async function resolveInquiry(id) {
+async function resolveInquiry(id, btn) {
+  if (btn.disabled) return;
+  btn.disabled = true;
   try {
     await apiJson(`/api/admin/inquiries/${id}/resolve`, { method: 'POST' });
     closeInquiryDetail();
@@ -144,6 +150,8 @@ async function resolveInquiry(id) {
     showToast('처리 완료로 변경되었습니다.', 'success');
   } catch (e) {
     showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -293,7 +301,7 @@ document.getElementById('createBlockedForm').addEventListener('submit', async e 
   }
 
   const btn = document.getElementById('createBlockedBtn');
-  btn.disabled = true; btn.textContent = '등록 중...';
+  btn.disabled = true; btn.textContent = '등록 중…';
   try {
     await apiJson('/api/admin/blocked', { method: 'POST', body: JSON.stringify(body) });
     closeCreateBlockedModal();
@@ -330,7 +338,7 @@ function closeDeleteBlockedModal() {
 document.getElementById('confirmDeleteBlockedBtn').addEventListener('click', async () => {
   if (!deleteBlockedTargetId) return;
   const btn = document.getElementById('confirmDeleteBlockedBtn');
-  btn.disabled = true; btn.textContent = '해제 중...';
+  btn.disabled = true; btn.textContent = '해제 중…';
   try {
     await apiJson(`/api/admin/blocked/${deleteBlockedTargetId}`, { method: 'DELETE' });
     closeDeleteBlockedModal();

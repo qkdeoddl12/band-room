@@ -66,11 +66,11 @@ function teamBillingBadge(t) {
   let amount = '';
   if (t.billing_type === 'monthly') {
     const fee = t.monthly_fee ?? settingNum('default_team_fee');
-    if (fee) amount = ` ${fee.toLocaleString()}원`;
+    if (fee) amount = ` ${fee.toLocaleString('ko-KR')}원`;
   }
   if (t.billing_type === 'dues') {
     const { fee } = teamDuesFee(t);
-    if (fee) amount = ` 1인 ${fee.toLocaleString()}원`;
+    if (fee) amount = ` 1인 ${fee.toLocaleString('ko-KR')}원`;
   }
   return `<span class="fee-badge ${meta.cls}">${meta.label}${amount}</span>`;
 }
@@ -103,7 +103,7 @@ function renderTeams() {
     const ages = teamAgeText(t);
 
     return `
-      <div class="ecard${t.is_active ? '' : ' inactive'}" onclick="openTeamDetail(${t.id})">
+      <div role="button" tabindex="0" class="ecard${t.is_active ? '' : ' inactive'}" onclick="openTeamDetail(${t.id})">
         <div class="ecard-top">
           <span class="ecard-name">${escHtml(t.name)}</span>
           ${t.is_doors ? '' : '<span class="mt-badge out">외부</span>'}
@@ -206,7 +206,7 @@ document.getElementById('teamForm').addEventListener('submit', async e => {
 
   const btn = document.getElementById('teamSaveBtn');
   const original = btn.textContent;
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
   try {
     if (editTeamId) {
       await apiJson(`/api/admin/teams/${editTeamId}`, { method: 'PATCH', body: JSON.stringify(body) });
@@ -273,11 +273,11 @@ function teamDuesNote(team) {
     <div class="team-fee-note${own ? ' own' : ''}">
       <div class="team-fee-line">
         <span>1인 회비</span>
-        <b>${fee.toLocaleString()}원</b>
+        <b>${fee.toLocaleString('ko-KR')}원</b>
         <span class="team-fee-src">${own ? '이 팀에 지정됨' : '환경 설정 기본값'}</span>
       </div>
       ${own ? `<div class="team-fee-hint">
-        기본값 ${base.toLocaleString()}원 대신 이 팀에만 적용됩니다.
+        기본값 ${base.toLocaleString('ko-KR')}원 대신 이 팀에만 적용됩니다.
         화면에서 바꿀 수 없고, 과금 방식을 다른 것으로 바꾸면 사라집니다.
         멤버별로 다르게 받으려면 멤버 수정에서 금액을 지정하세요.
       </div>` : ''}
@@ -355,7 +355,7 @@ async function renderTeamDetail() {
         ${done
           ? `✅ ${dues.rows.length}명 전원 납부 완료`
           : `미납 ${dues.unpaid_count}명${dues.pending_count ? ` · 확인중 ${dues.pending_count}명` : ''} / 전체 ${dues.rows.length}명`}
-        <span class="team-dues-amount">${dues.total_paid.toLocaleString()} / ${dues.total_expected.toLocaleString()}원</span>
+        <span class="team-dues-amount">${dues.total_paid.toLocaleString('ko-KR')} / ${dues.total_expected.toLocaleString('ko-KR')}원</span>
       </div>`;
   }
 
@@ -368,7 +368,7 @@ async function renderTeamDetail() {
       <div class="dues-chips">
         ${Object.entries(DUES_STATUS).map(([key, meta]) => `
           <button class="dues-chip ${meta.cls}${d.status === key ? ' active' : ''}"
-                  onclick="setRosterDuesStatus(${m.id}, '${key}')">${meta.label}</button>
+                  onclick="setRosterDuesStatus(${m.id}, '${key}', '${d.status}')">${meta.label}</button>
         `).join('')}
       </div>` : '';
     // 다른 밴드도 하는 사람은 어디에 또 속했는지 같이 보여준다.
@@ -433,7 +433,7 @@ function renderSongList() {
       <div class="dues-row status-${song.status === 'done' ? 'paid' : song.status === 'practicing' ? 'pending' : 'unpaid'}">
         <div class="dues-member">
           <div class="dues-name">
-            <span class="song-title" onclick="toggleSongEdit(${song.id})">${escHtml(song.title)}</span>
+            <span role="button" tabindex="0" class="song-title" onclick="toggleSongEdit(${song.id})">${escHtml(song.title)}</span>
             ${song.link ? `<a class="song-link" href="${escHtml(song.link)}" target="_blank" rel="noopener noreferrer" title="참고 링크">🔗</a>` : ''}
           </div>
           <div class="dues-sub">
@@ -479,7 +479,7 @@ function renderAddSongBox() {
       <div class="team-add-row">
         <input type="text" class="form-input" id="newSongTitle" maxlength="200" placeholder="곡 제목">
         <input type="text" class="form-input" id="newSongArtist" maxlength="100" placeholder="아티스트">
-        <button type="button" class="btn-primary" onclick="addSong()">추가</button>
+        <button type="button" class="btn-primary" onclick="addSong(this)">추가</button>
       </div>
       <div class="team-add-empty">추가하면 <b>후보</b>로 들어갑니다. 곡을 눌러 링크·메모를 넣을 수 있습니다.</div>
     </div>`;
@@ -490,9 +490,11 @@ function toggleSongEdit(songId) {
   renderTeamDetail();
 }
 
-async function addSong() {
+async function addSong(btn) {
   const title = document.getElementById('newSongTitle').value.trim();
   if (!title) { showToast('곡 제목을 입력해주세요.', 'error'); return; }
+  if (btn.disabled) return;
+  btn.disabled = true;   // 응답 전에 또 누르면 같은 곡이 두 번 생긴다
   try {
     await apiJson(`/api/admin/teams/${detailTeamId}/songs`, {
       method: 'POST',
@@ -505,6 +507,8 @@ async function addSong() {
     showToast(`${title} 추가됨`, 'success');
   } catch (e) {
     showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false;
   }
 }
 
@@ -619,7 +623,8 @@ function newMemberForTeam() {
 
 /* 팀 상세 명단의 회비 칩. 이름을 setTeamDuesStatus 로 두면 dues.js 의
    같은 이름(팀 이용료용)이 나중에 로드되며 덮어써서 아무 동작도 하지 않는다. */
-async function setRosterDuesStatus(memberId, status) {
+async function setRosterDuesStatus(memberId, status, from) {
+  if (status === from || !confirmDropPaid(from, status)) return;
   try {
     await apiJson(
       `/api/admin/dues/${memberId}/${ymStr(detailCursor)}?team_id=${detailTeamId}`, {

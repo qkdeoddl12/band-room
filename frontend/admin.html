@@ -25,16 +25,17 @@
       <h2 class="login-title">로그인</h2>
       <div class="login-error" id="loginError"></div>
 
-      <form id="loginForm" autocomplete="off">
+      <form id="loginForm">
         <div class="form-group">
           <label class="form-label" for="loginUsername">아이디</label>
           <input type="text" class="form-input" id="loginUsername"
-            placeholder="관리자 아이디" required autofocus>
+            placeholder="관리자 아이디" required autofocus
+            autocomplete="username" autocapitalize="none" spellcheck="false">
         </div>
         <div class="form-group">
           <label class="form-label" for="loginPassword">비밀번호</label>
           <input type="password" class="form-input" id="loginPassword"
-            placeholder="비밀번호" required>
+            placeholder="비밀번호" required autocomplete="current-password">
         </div>
         <button type="submit" class="btn-login" id="loginBtn">로그인</button>
       </form>
@@ -117,59 +118,59 @@
       <aside class="admin-sidebar">
         <ul class="sidebar-nav">
           <li class="sidebar-group">예약</li>
-          <li class="sidebar-item active" data-page="dashboard" onclick="switchPage('dashboard')">
+          <li class="sidebar-item active" role="button" tabindex="0" data-page="dashboard" onclick="switchPage('dashboard')">
             <span class="sidebar-icon">📊</span> 대시보드
           </li>
-          <li class="sidebar-item" data-page="reservations" onclick="switchPage('reservations')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="reservations" onclick="switchPage('reservations')">
             <span class="sidebar-icon">📋</span> 예약 관리
           </li>
-          <li class="sidebar-item" data-page="calendar" onclick="switchPage('calendar')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="calendar" onclick="switchPage('calendar')">
             <span class="sidebar-icon">📅</span> 캘린더
           </li>
-          <li class="sidebar-item" data-page="stats" onclick="switchPage('stats')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="stats" onclick="switchPage('stats')">
             <span class="sidebar-icon">📈</span> 통계
           </li>
 
           <li class="sidebar-group">조직</li>
-          <li class="sidebar-item" data-page="teams" onclick="switchPage('teams')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="teams" onclick="switchPage('teams')">
             <span class="sidebar-icon">🎸</span> 팀 관리
           </li>
-          <li class="sidebar-item" data-page="members" onclick="switchPage('members')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="members" onclick="switchPage('members')">
             <span class="sidebar-icon">🥁</span> 멤버 관리
           </li>
-          <li class="sidebar-item" data-page="dues" onclick="switchPage('dues')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="dues" onclick="switchPage('dues')">
             <span class="sidebar-icon">💰</span> 정산 관리
           </li>
-          <li class="sidebar-item" data-page="contacts" onclick="switchPage('contacts')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="contacts" onclick="switchPage('contacts')">
             <span class="sidebar-icon">📇</span> 연락망
           </li>
 
           <li class="sidebar-group">콘텐츠</li>
-          <li class="sidebar-item" data-page="tickets" onclick="switchPage('tickets')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="tickets" onclick="switchPage('tickets')">
             <span class="sidebar-icon">🎫</span> 티켓
           </li>
 
           <li class="sidebar-group">운영</li>
-          <li class="sidebar-item" data-page="openjams" onclick="switchPage('openjams')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="openjams" onclick="switchPage('openjams')">
             <span class="sidebar-icon">🎸</span> 오픈 잼
           </li>
-          <li class="sidebar-item" data-page="meetups" onclick="switchPage('meetups')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="meetups" onclick="switchPage('meetups')">
             <span class="sidebar-icon">📸</span> 정모 기록
           </li>
-          <li class="sidebar-item" data-page="inquiries" onclick="switchPage('inquiries')">
+          <li class="sidebar-item" role="button" tabindex="0" data-page="inquiries" onclick="switchPage('inquiries')">
             <span class="sidebar-icon">📩</span> 문의/민원
             <span class="nav-badge" id="navInquiryBadge" style="display:none;"></span>
           </li>
-          <li class="sidebar-item system-only" data-page="blocked" onclick="switchPage('blocked')">
+          <li class="sidebar-item system-only" role="button" tabindex="0" data-page="blocked" onclick="switchPage('blocked')">
             <span class="sidebar-icon">🚫</span> 차단 설정
           </li>
-          <li class="sidebar-item system-only" data-page="users" onclick="switchPage('users')">
+          <li class="sidebar-item system-only" role="button" tabindex="0" data-page="users" onclick="switchPage('users')">
             <span class="sidebar-icon">👥</span> 계정 관리
           </li>
-          <li class="sidebar-item system-only" data-page="audit" onclick="switchPage('audit')">
+          <li class="sidebar-item system-only" role="button" tabindex="0" data-page="audit" onclick="switchPage('audit')">
             <span class="sidebar-icon">🧾</span> 감사 로그
           </li>
-          <li class="sidebar-item system-only" data-page="settings" onclick="switchPage('settings')">
+          <li class="sidebar-item system-only" role="button" tabindex="0" data-page="settings" onclick="switchPage('settings')">
             <span class="sidebar-icon">⚙️</span> 환경 설정
           </li>
         </ul>
@@ -240,6 +241,7 @@
 
           <div class="filter-panel">
             <div class="chip-row" role="tablist" aria-label="기간">
+              <button class="chip" data-period="upcoming" onclick="setPeriod('upcoming')">다가오는</button>
               <button class="chip" data-period="today" onclick="setPeriod('today')">오늘</button>
               <button class="chip" data-period="week" onclick="setPeriod('week')">이번 주</button>
               <button class="chip" data-period="month" onclick="setPeriod('month')">이번 달</button>
@@ -251,12 +253,12 @@
               <button class="chip" data-room="2" onclick="setRoom('2')"><span class="chip-dot room2"></span>개인연습실</button>
             </div>
             <div class="chip-row" role="tablist" aria-label="상태">
-              <button class="chip" data-status="all" onclick="setStatus('all')">전체</button>
-              <button class="chip chip-status-pending active" data-status="pending" onclick="setStatus('pending')">🕐 입금 대기</button>
-              <button class="chip chip-status-confirmed" data-status="confirmed" onclick="setStatus('confirmed')">✅ 확정</button>
+              <button class="chip" data-status="all" onclick="setStatus('all')">전체 <span class="chip-count" id="statusCount-all"></span></button>
+              <button class="chip chip-status-pending active" data-status="pending" onclick="setStatus('pending')">🕐 입금 대기 <span class="chip-count" id="statusCount-pending"></span></button>
+              <button class="chip chip-status-confirmed" data-status="confirmed" onclick="setStatus('confirmed')">✅ 확정 <span class="chip-count" id="statusCount-confirmed"></span></button>
             </div>
-            <input type="text" class="filter-search" id="searchInput"
-              placeholder="🔍 팀명, 멤버, 메모 검색..." oninput="applyFilters()">
+            <input type="text" class="filter-search" id="searchInput" aria-label="예약 검색"
+              placeholder="🔍 팀명, 이름, 연락처, 멤버, 메모 검색…" oninput="applyFilters()">
           </div>
 
           <div id="reservationList">
@@ -428,8 +430,8 @@
           </div>
 
           <div class="filter-panel">
-            <input type="text" class="filter-search" id="teamSearch"
-              placeholder="🔍 팀명, 리더, 연락처 검색..." oninput="filterTeams()">
+            <input type="text" class="filter-search" id="teamSearch" aria-label="팀 검색"
+              placeholder="🔍 팀명, 리더, 연락처 검색…" oninput="filterTeams()">
           </div>
 
           <div class="admin-note">
@@ -459,12 +461,12 @@
               <button class="chip" data-mstat="check" onclick="setMemberStatus('check')">⚠️ 확인 필요</button>
               <button class="chip" data-mstat="inactive" onclick="setMemberStatus('inactive')">비활동</button>
             </div>
-            <select class="form-select" id="memberTeamFilter" onchange="filterMembers()"
+            <select class="form-select" id="memberTeamFilter" aria-label="팀으로 거르기" onchange="filterMembers()"
                     style="margin-bottom:10px;">
               <option value="">전체 팀</option>
             </select>
-            <input type="text" class="filter-search" id="memberSearch"
-              placeholder="🔍 이름, 포지션, 연락처, 메모 검색..." oninput="filterMembers()">
+            <input type="text" class="filter-search" id="memberSearch" aria-label="멤버 검색"
+              placeholder="🔍 이름, 포지션, 연락처, 메모 검색…" oninput="filterMembers()">
           </div>
 
           <div id="memberList"><div class="spinner"></div></div>
@@ -481,8 +483,8 @@
           </div>
 
           <div class="filter-panel">
-            <input type="text" class="filter-search" id="contactSearch"
-              placeholder="🔍 이름, 팀, 번호, 포지션 검색..." oninput="filterContacts()">
+            <input type="text" class="filter-search" id="contactSearch" aria-label="연락망 검색"
+              placeholder="🔍 이름, 팀, 번호, 포지션 검색…" oninput="filterContacts()">
           </div>
 
           <div id="contactList"><div class="spinner"></div></div>
@@ -612,7 +614,7 @@
           <div id="ticketEditView" style="display:none;">
             <div class="tk-topbar">
               <button class="btn-secondary tk-back" onclick="backToTicketList()">← 목록</button>
-              <input type="text" class="form-input tk-title-input" id="tkTitle" placeholder="티켓 이름" maxlength="200">
+              <input type="text" class="form-input tk-title-input" id="tkTitle" aria-label="티켓 이름" placeholder="티켓 이름" maxlength="200">
               <button class="btn-secondary tk-back" onclick="openTicketPreview()">📱 미리보기</button>
               <button class="btn-primary" id="tkSaveBtn" onclick="saveTicket()">저장</button>
             </div>
@@ -622,7 +624,7 @@
                       onclick="document.getElementById('tkBgInput').click()">🖼 배경 이미지</button>
               <input type="file" id="tkBgInput" accept="image/jpeg,image/png,image/webp" hidden>
               <button type="button" class="btn-secondary" onclick="tkClearBg()">배경 제거</button>
-              <select class="form-select tk-aspect" id="tkAspect" onchange="tkSetAspect(this.value)"></select>
+              <select class="form-select tk-aspect" id="tkAspect" aria-label="캔버스 비율" onchange="tkSetAspect(this.value)"></select>
             </div>
 
             <div class="tk-toolbar">
@@ -689,11 +691,11 @@
                       <input type="text" class="form-input" id="tkSlug" maxlength="32"
                              placeholder="autumn-live" pattern="[A-Za-z0-9][A-Za-z0-9_-]*[A-Za-z0-9]">
                     </div>
-                    <div class="tk-slug-hint">영소문자·숫자·하이픈만. 바꾸면 이전에 보낸 링크는 열리지 않습니다.</div>
+                    <div class="tk-slug-hint">영문·숫자·하이픈·밑줄만 (처음과 끝은 영문·숫자). 바꾸면 이전에 보낸 링크는 열리지 않습니다.</div>
                   </div>
 
                   <div class="tk-share" id="tkShareBox">
-                    <input type="text" class="form-input" id="tkShareLink" readonly>
+                    <input type="text" class="form-input" id="tkShareLink" readonly aria-label="공유 링크">
                     <button type="button" class="btn-secondary" id="tkCopyBtn" onclick="copyTicketLink()">링크 복사</button>
                   </div>
                   <button type="button" class="btn-danger tk-del" onclick="deleteTicket()">티켓 삭제</button>
@@ -809,19 +811,19 @@
     <!-- Mobile Nav -->
     <nav class="mobile-admin-nav">
       <div class="mobile-nav-items">
-        <div class="mobile-nav-item active" data-mtab="dashboard" onclick="switchPageMobile('dashboard')">
+        <div class="mobile-nav-item active" role="button" tabindex="0" data-mtab="dashboard" onclick="switchPageMobile('dashboard')">
           <span class="mobile-nav-icon">📊</span>대시보드
         </div>
-        <div class="mobile-nav-item" data-mtab="reservations" onclick="switchPageMobile('reservations')">
+        <div class="mobile-nav-item" role="button" tabindex="0" data-mtab="reservations" onclick="switchPageMobile('reservations')">
           <span class="mobile-nav-icon">📋</span>예약
         </div>
-        <div class="mobile-nav-item" data-mtab="dues" onclick="switchPageMobile('dues')">
+        <div class="mobile-nav-item" role="button" tabindex="0" data-mtab="dues" onclick="switchPageMobile('dues')">
           <span class="mobile-nav-icon">💰</span>정산
         </div>
-        <div class="mobile-nav-item" data-mtab="tickets" onclick="switchPageMobile('tickets')">
+        <div class="mobile-nav-item" role="button" tabindex="0" data-mtab="tickets" onclick="switchPageMobile('tickets')">
           <span class="mobile-nav-icon">🎫</span>티켓
         </div>
-        <div class="mobile-nav-item" onclick="openMoreMenu()">
+        <div class="mobile-nav-item" role="button" tabindex="0" onclick="openMoreMenu()">
           <span class="mobile-nav-icon">☰</span>더보기
           <span class="nav-badge mobile" id="mobileInquiryBadge" style="display:none;"></span>
         </div>
@@ -841,7 +843,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">예약 취소</h3>
-        <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+        <button class="modal-close" onclick="closeDeleteModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size:15px;color:var(--text-sub);margin-bottom:8px;">
@@ -869,7 +871,7 @@
           <h3 class="modal-title" id="meetupModalTitle">정모 기록</h3>
           <p class="modal-target-sub" id="meetupModalWhen"></p>
         </div>
-        <button class="modal-close" onclick="closeMeetupModal()">✕</button>
+        <button class="modal-close" onclick="closeMeetupModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <form id="meetupForm" autocomplete="off">
@@ -941,7 +943,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">예약 추가</h3>
-        <button class="modal-close" onclick="closeAdminResModal()">✕</button>
+        <button class="modal-close" onclick="closeAdminResModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <form id="adminResForm" autocomplete="off">
@@ -1024,7 +1026,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">예약 수정</h3>
-        <button class="modal-close" onclick="closeResEditModal()">✕</button>
+        <button class="modal-close" onclick="closeResEditModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <form id="resEditForm" autocomplete="off">
@@ -1102,7 +1104,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">입금 확인 · 예약 확정</h3>
-        <button class="modal-close" onclick="closeConfirmModal()">✕</button>
+        <button class="modal-close" onclick="closeConfirmModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size:15px;color:var(--text-sub);margin-bottom:8px;">
@@ -1127,7 +1129,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title" id="inquiryDetailTitle">문의 상세</h3>
-        <button class="modal-close" onclick="closeInquiryDetail()">✕</button>
+        <button class="modal-close" onclick="closeInquiryDetail()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body" id="inquiryDetailBody"></div>
     </div>
@@ -1139,7 +1141,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title" id="dayDetailTitle">—</h3>
-        <button class="modal-close" onclick="closeDayDetail()">✕</button>
+        <button class="modal-close" onclick="closeDayDetail()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body" id="dayDetailBody"></div>
     </div>
@@ -1151,7 +1153,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">차단 추가</h3>
-        <button class="modal-close" onclick="closeCreateBlockedModal()">✕</button>
+        <button class="modal-close" onclick="closeCreateBlockedModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <form id="createBlockedForm" autocomplete="off">
@@ -1174,14 +1176,14 @@
           <div class="form-group" id="blockTimeRow" style="display:none;">
             <label class="form-label">시간 범위</label>
             <div style="display:flex;gap:10px;align-items:center;">
-              <select class="form-select" id="blockStart" style="flex:1;"></select>
+              <select class="form-select" id="blockStart" aria-label="차단 시작 시각" style="flex:1;"></select>
               <span style="color:var(--text-sub);">~</span>
-              <select class="form-select" id="blockEnd" style="flex:1;"></select>
+              <select class="form-select" id="blockEnd" aria-label="차단 종료 시각" style="flex:1;"></select>
             </div>
           </div>
 
           <div class="form-group">
-            <label class="form-label">대상 공간</label>
+            <label class="form-label" for="blockRoom">대상 공간</label>
             <!-- options filled from /api/rooms by ops.js -->
             <select class="form-select" id="blockRoom">
               <option value="">전체 공간</option>
@@ -1209,7 +1211,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">차단 해제</h3>
-        <button class="modal-close" onclick="closeDeleteBlockedModal()">✕</button>
+        <button class="modal-close" onclick="closeDeleteBlockedModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size:15px;color:var(--text-sub);margin-bottom:8px;">
@@ -1234,7 +1236,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">계정 추가</h3>
-        <button class="modal-close" onclick="closeCreateUserModal()">✕</button>
+        <button class="modal-close" onclick="closeCreateUserModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <form id="createUserForm" autocomplete="off">
@@ -1285,7 +1287,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">임시 비밀번호 발급</h3>
-        <button class="modal-close" onclick="closeTempPasswordModal()">✕</button>
+        <button class="modal-close" onclick="closeTempPasswordModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <p style="font-size:14px;color:var(--text-sub);margin-bottom:14px;line-height:1.6;">
@@ -1335,7 +1337,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">계정 수정</h3>
-        <button class="modal-close" onclick="closeEditUserModal()">✕</button>
+        <button class="modal-close" onclick="closeEditUserModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <div id="editUserTarget" style="
@@ -1399,7 +1401,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title" id="teamModalTitle">팀 등록</h3>
-        <button class="modal-close" onclick="closeTeamModal()">✕</button>
+        <button class="modal-close" onclick="closeTeamModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <form id="teamForm" autocomplete="off">
@@ -1420,7 +1422,7 @@
           <div class="form-group">
             <label class="form-label">팀 구성 포지션</label>
             <div class="part-checks" id="teamParts"></div>
-            <input type="text" class="form-input part-other" id="teamPartsOther"
+            <input type="text" class="form-input part-other" id="teamPartsOther" aria-label="기타 포지션"
                    maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
           </div>
 
@@ -1510,7 +1512,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title" id="teamDetailTitle">팀 상세</h3>
-        <button class="modal-close" onclick="closeTeamDetail()">✕</button>
+        <button class="modal-close" onclick="closeTeamDetail()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body" id="teamDetailBody"></div>
     </div>
@@ -1522,7 +1524,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title" id="memberModalTitle">멤버 등록</h3>
-        <button class="modal-close" onclick="closeMemberModal()">✕</button>
+        <button class="modal-close" onclick="closeMemberModal()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <form id="memberForm" autocomplete="off">
@@ -1594,7 +1596,7 @@
           <div class="form-group">
             <label class="form-label">가능한 포지션</label>
             <div class="part-checks" id="memberParts"></div>
-            <input type="text" class="form-input part-other" id="memberPartsOther"
+            <input type="text" class="form-input part-other" id="memberPartsOther" aria-label="기타 포지션"
                    maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
           </div>
 
@@ -1651,7 +1653,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">스마트폰 미리보기</h3>
-        <button class="modal-close" onclick="closeTicketPreview()">✕</button>
+        <button class="modal-close" onclick="closeTicketPreview()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <div class="tkp-preview-bar" id="tkPreviewSizes"></div>
@@ -1679,7 +1681,7 @@
       <div class="modal-handle"></div>
       <div class="modal-header">
         <h3 class="modal-title">전체 메뉴</h3>
-        <button class="modal-close" onclick="closeMoreMenu()">✕</button>
+        <button class="modal-close" onclick="closeMoreMenu()" aria-label="닫기">✕</button>
       </div>
       <div class="modal-body">
         <div class="more-menu">
@@ -1702,7 +1704,7 @@
   </div>
 
   <!-- Toast -->
-  <div class="admin-toast" id="adminToast"></div>
+  <div class="admin-toast" id="adminToast" role="status" aria-live="polite"></div>
 
   <script src="/static/ticket-render.js"></script>
   <script src="/static/parts.js"></script>

@@ -29,7 +29,8 @@ async function loadAllReservations() {
     allReservations = await apiJson('/api/admin/reservations');
   } catch (e) {
     allReservations = [];
-    showToast(e.message, 'error');
+    document.getElementById('reservationList').innerHTML = loadErrorHtml(e.message);
+    return;
   }
   applyFilters();
 }
@@ -84,7 +85,7 @@ function renderDashboard() {
   document.getElementById('pendingSub').textContent =
     pending.length === 0 ? '대기 중인 예약이 없습니다.' : `${pending.length}건 · 입금 확인이 필요합니다`;
   document.getElementById('pendingAmount').textContent =
-    pending.length === 0 ? '—' : `${pendingFee.toLocaleString()}원`;
+    pending.length === 0 ? '—' : `${pendingFee.toLocaleString('ko-KR')}원`;
   document.getElementById('pendingHighlight').classList.toggle('empty', pending.length === 0);
 
   renderWeekChart(confirmed);
@@ -95,7 +96,7 @@ function renderDashboard() {
 function usageSub(rows) {
   const hours = rows.reduce((n, r) => n + (r.duration || 0), 0);
   const fee = rows.reduce((n, r) => n + resFee(r), 0);
-  return `확정 ${hours}시간` + (fee ? ` · ${fee.toLocaleString()}원` : '');
+  return `확정 ${hours}시간` + (fee ? ` · ${fee.toLocaleString('ko-KR')}원` : '');
 }
 
 /* 막대차트 3개가 같은 DOM 을 각자 만들고 있었다. 하나로 모은다.
@@ -174,7 +175,7 @@ function renderRoomBreakdown(elId, items, { emptyMsg } = {}) {
           <div class="room-row-meter-fill ${roomTagCls(room.id)}" style="width:${pct}%"></div>
         </div>
         <div class="room-row-amount">
-          <span>${hours}시간${rev ? ` · ${rev.toLocaleString()}원` : ''}</span>
+          <span>${hours}시간${rev ? ` · ${rev.toLocaleString('ko-KR')}원` : ''}</span>
           <span class="room-row-pct">${pct}%</span>
         </div>
       </div>`;
@@ -208,31 +209,44 @@ function applyFilters() {
           monthStart: monStart, monthEnd: monEnd } = dateRanges();
 
   const search = document.getElementById('searchInput').value.trim().toLowerCase();
+  // 연락처는 숫자만 저장돼 있다 — '010-1234', '1234' 어느 쪽으로 쳐도 찾게 숫자만 비교한다.
+  const digits = search.replace(/\D/g, '');
 
-  let filtered = allReservations.filter(r => {
+  // 상태 칩 건수는 상태를 뺀 나머지 조건으로 센다 — '입금 대기 1 · 전체 54' 를 한눈에.
+  const scoped = allReservations.filter(r => {
+    if (currentPeriod === 'upcoming' && r.date < today) return false;
     if (currentPeriod === 'today' && r.date !== today) return false;
     if (currentPeriod === 'week'  && (r.date < wkStartStr || r.date > wkEndStr))  return false;
     if (currentPeriod === 'month' && (r.date < monStart   || r.date > monEnd))    return false;
     if (currentRoom !== 'all' && String(r.room_id) !== currentRoom) return false;
-    if (currentStatus !== 'all' && r.status !== currentStatus) return false;
     if (search) {
-      const hay = `${r.team_name||''} ${r.members||''} ${r.note||''}`.toLowerCase();
-      if (!hay.includes(search)) return false;
+      const hay = `${r.team_name||''} ${r.booker_name||''} ${r.members||''} ${r.note||''}`.toLowerCase();
+      const phoneHit = digits.length >= 3 && (r.booker_phone || '').includes(digits);
+      if (!hay.includes(search) && !phoneHit) return false;
     }
     return true;
   });
+  setText('statusCount-all', scoped.length);
+  setText('statusCount-pending', scoped.filter(r => r.status === 'pending').length);
+  setText('statusCount-confirmed', scoped.filter(r => r.status === 'confirmed').length);
+
+  const filtered = currentStatus === 'all' ? scoped
+    : scoped.filter(r => r.status === currentStatus);
 
   filtered.sort((a, b) => (a.date + a.start_time > b.date + b.start_time) ? 1 : -1);
-  renderList(filtered);
+  renderList(filtered, scoped.length);
 }
 
-function renderList(items) {
+function renderList(items, scopedCount = 0) {
   const container = document.getElementById('reservationList');
   if (items.length === 0) {
+    // 기본 필터가 '입금 대기' 라 0건이면 예약이 통째로 없는 줄 안다.
     container.innerHTML = `
       <div class="admin-empty">
         <span class="admin-empty-icon">📭</span>
         <div class="admin-empty-text">예약이 없습니다.</div>
+        ${currentStatus !== 'all' && scopedCount
+          ? `<button class="link-inline" onclick="setStatus('all')">전체 ${scopedCount}건 보기 →</button>` : ''}
       </div>`;
     return;
   }
@@ -264,16 +278,19 @@ function renderList(items) {
         ? `<button class="btn-confirm-deposit" onclick="openConfirmModal(${r.id})" aria-label="확정">입금확인</button>`
         : '';
 
+      const name = r.team_name || r.booker_name || '(이름 없음)';
+      const kind = RES_KIND[r.kind];
+      // 날짜는 그룹 머리에 이미 있다. 이름에 '정모' 가 들어 있으면 태그는 군더더기.
       html += `
         <div class="reservation-item${isPending ? ' pending' : ''}">
           <span class="res-room-tag ${roomTagCls(r.room_id)}">${escHtml(roomName(r.room_id))}</span>
           <div class="res-info">
-            <div class="res-date-label">${fmtDateKo(r.date)} ${statusBadge}</div>
             <div class="res-name">
-              ${escHtml(r.team_name || r.booker_name || '(이름 없음)')}
-              ${RES_KIND[r.kind] ? `<span class="kind-tag ${RES_KIND[r.kind].cls}">${RES_KIND[r.kind].label}</span>` : ''}
+              ${escHtml(name)}
+              ${kind && !name.includes(kind.label) ? `<span class="kind-tag ${kind.cls}">${kind.label}</span>` : ''}
               ${r.member_id ? '<span class="booker-tag member">멤버</span>' : ''}
               ${r.booker_name && !r.member_id ? '<span class="booker-tag guest">게스트</span>' : ''}
+              ${statusBadge}
             </div>
             ${r.booker_phone ? `<div class="res-detail">📞 ${escHtml(formatPhone(r.booker_phone))}</div>` : ''}
             ${det ? `<div class="res-detail">👥 ${escHtml(det)}</div>` : ''}
@@ -425,7 +442,7 @@ document.getElementById('resEditForm').addEventListener('submit', async e => {
   }
 
   const btn = document.getElementById('resEditSaveBtn');
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
   try {
     await apiJson(`/api/admin/reservations/${editResId}`, {
       method: 'PATCH',
@@ -514,7 +531,7 @@ document.getElementById('adminResForm').addEventListener('submit', async e => {
   }
 
   const btn = document.getElementById('adminResSaveBtn');
-  btn.disabled = true; btn.textContent = '추가 중...';
+  btn.disabled = true; btn.textContent = '추가 중…';
   const common = {
     room_id: Number(document.getElementById('adminResRoom').value),
     date: document.getElementById('adminResDate').value,
@@ -575,7 +592,7 @@ function closeDeleteModal() {
 document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
   if (!deleteTargetId) return;
   const btn = document.getElementById('confirmDeleteBtn');
-  btn.disabled = true; btn.textContent = '취소 중...';
+  btn.disabled = true; btn.textContent = '취소 중…';
   try {
     await apiJson(`/api/reservations/${deleteTargetId}`, { method: 'DELETE' });
     closeDeleteModal();
@@ -616,7 +633,7 @@ function closeConfirmModal() {
 document.getElementById('confirmReservationBtn').addEventListener('click', async () => {
   if (!confirmTargetId) return;
   const btn = document.getElementById('confirmReservationBtn');
-  btn.disabled = true; btn.textContent = '확정 중...';
+  btn.disabled = true; btn.textContent = '확정 중…';
   try {
     await apiJson(`/api/reservations/${confirmTargetId}/confirm`, { method: 'POST' });
     closeConfirmModal();
@@ -690,7 +707,7 @@ function renderCalendar() {
     if (dayBlk.length) bars.push(`<div class="cal-bar blocked">🚫 차단 ${dayBlk.length}</div>`);
 
     cells += `
-      <div class="cal-cell${dateStr === today ? ' today' : ''}${weekendCls}"
+      <div role="button" tabindex="0" class="cal-cell${dateStr === today ? ' today' : ''}${weekendCls}"
            onclick="openDayDetail('${dateStr}')">
         <div class="cal-date">${d}</div>
         <div class="cal-bars">${bars.join('')}</div>
@@ -863,7 +880,7 @@ function renderMonthChart(confirmedRes, startDate) {
     const r1Pct = total > 0 ? (v.r1 / total) * 100 : 0;
     const peak  = total === max && total > 0;
     return `
-      <div class="stack-col" title="${m.label} · ${rooms[0] ? rooms[0].name : ''} ${v.r1}건 · ${rooms[1] ? rooms[1].name : ''} ${v.r2}건">
+      <div class="stack-col" title="${m.label} · ${rooms[0] ? escHtml(rooms[0].name) : ''} ${v.r1}건 · ${rooms[1] ? escHtml(rooms[1].name) : ''} ${v.r2}건">
         <div class="stack-value">${peak ? total + '건' : ''}</div>
         <div class="stack-track">
           <div class="stack-fill${total ? '' : ' is-zero'}" style="height:${pct}%;">

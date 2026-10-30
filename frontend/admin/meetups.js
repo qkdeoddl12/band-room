@@ -43,7 +43,7 @@ function renderMeetups() {
   const list = document.getElementById('meetupList');
   const walkTotal = allMeetups.reduce((s, m) => s + m.walk_in_total, 0);
   setText('meetupCount',
-    `기록 ${allMeetups.length}건 · 참가비 합계 ${walkTotal.toLocaleString()}원`
+    `기록 ${allMeetups.length}건 · 참가비 합계 ${walkTotal.toLocaleString('ko-KR')}원`
     + (meetupSlots.length ? ` · 기록 안 한 정모 ${meetupSlots.length}건` : ''));
 
   // 기록이 없는 정모 예약부터 보여준다 — 이게 할 일이다.
@@ -65,10 +65,10 @@ function renderMeetups() {
   }
 
   list.innerHTML = todo + '<div class="entity-cards">' + allMeetups.map(m => `
-    <div class="ecard" onclick="openMeetupModal(${m.id})">
+    <div role="button" tabindex="0" class="ecard" onclick="openMeetupModal(${m.id})">
       <div class="ecard-top">
         <span class="ecard-name">${escHtml(m.title || '정모')}</span>
-        ${m.walk_in_total ? `<span class="fee-badge pending ecard-fee">참가비 ${m.walk_in_total.toLocaleString()}원</span>` : ''}
+        ${m.walk_in_total ? `<span class="fee-badge pending ecard-fee">참가비 ${m.walk_in_total.toLocaleString('ko-KR')}원</span>` : ''}
       </div>
       <div class="ecard-sub">
         ${fmtDateKo(m.date)} ${fmtTime(m.start_time)}~${fmtEndTime(m.end_time)}
@@ -230,7 +230,7 @@ function songPartRow(p) {
       ${songPartSelect(p.part || '')}
       ${songWhoSelect(partKey(p), p.name)}
       <button type="button" class="jam-slot-btn cancel"
-              onclick="this.closest('.meetup-part-row').remove()">✕</button>
+              onclick="this.closest('.meetup-part-row').remove()" aria-label="이 줄 지우기">✕</button>
     </div>`;
 }
 
@@ -293,7 +293,7 @@ function renderMeetupPhotos() {
   document.getElementById('meetupPhotos').innerHTML = meetupPhotos.map((p, i) => `
     <div class="meetup-photo">
       <img src="${escHtml(p)}" alt="" loading="lazy">
-      <button type="button" class="meetup-photo-x" onclick="removeMeetupPhoto(${i})">✕</button>
+      <button type="button" class="meetup-photo-x" onclick="removeMeetupPhoto(${i})" aria-label="사진 지우기">✕</button>
     </div>`).join('');
 }
 
@@ -306,7 +306,7 @@ async function uploadMeetupPhotos(input) {
   const files = [...input.files];
   if (!files.length) return;
   const status = document.getElementById('meetupPhotoStatus');
-  status.textContent = `올리는 중... (0/${files.length})`;
+  status.textContent = `올리는 중… (0/${files.length})`;
   let done = 0;
   for (const file of files) {
     const form = new FormData();
@@ -318,7 +318,7 @@ async function uploadMeetupPhotos(input) {
     } catch (e) {
       showToast(`${file.name}: ${e.message}`, 'error');
     }
-    status.textContent = `올리는 중... (${++done}/${files.length})`;
+    status.textContent = `올리는 중… (${++done}/${files.length})`;
   }
   status.textContent = '';
   input.value = '';
@@ -334,7 +334,7 @@ document.getElementById('meetupForm').addEventListener('submit', async e => {
     const pay = row.querySelector('.meetup-att-pay').value;
     return {
       member_id: row.dataset.member ? Number(row.dataset.member) : null,
-      name: row.querySelector('.meetup-att-name').textContent.replace('게스트', '').trim(),
+      name: row.dataset.name,
       pay_type: pay,
       fee: pay === 'walk_in' ? Number(row.querySelector('.meetup-att-fee').value) || 0 : 0,
     };
@@ -355,7 +355,7 @@ document.getElementById('meetupForm').addEventListener('submit', async e => {
     .filter(s => s.title);
 
   const btn = document.getElementById('meetupSaveBtn');
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
   try {
     await apiJson(`/api/admin/meetups/${editMeetup.id}`, {
       method: 'PUT',
