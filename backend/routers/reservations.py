@@ -261,6 +261,27 @@ def create_reservation(
     db: Session = Depends(get_db),
 ):
     rate_limit(request, "reservation", 20)
+    return _create_booking(reservation, request, db)
+
+
+@router.post("/api/admin/reservations/booking", response_model=schemas.ReservationResponse)
+def create_booking_for(
+    reservation: schemas.ReservationCreate,
+    request: Request,
+    admin: models.AdminUser = Depends(get_current_admin),
+    db: Session = Depends(get_db),
+):
+    """전화·문자로 받은 예약을 관리자가 대신 넣는다. 이용자 예약과 같은 규칙
+    (팀·게스트·개인, 요금·확정 여부)을 타고, 횟수 제한과 새벽 상한만 없다."""
+    db_r = _create_booking(reservation, request, db, admin=admin)
+    audit(db, admin, "reservation.admin_booking", db_r.team_name,
+          f"{db_r.date} {db_r.start_time} · {db_r.status}", request)
+    return db_r
+
+
+def _create_booking(reservation: schemas.ReservationCreate, request: Request,
+                    db: Session, admin: Optional[models.AdminUser] = None):
+    """이용자 예약 생성. admin 이 있으면 관리자가 대신 넣는 것."""
     room = db.query(models.Room).filter(models.Room.id == reservation.room_id).first()
     if not room:
         raise HTTPException(400, "존재하지 않는 공간입니다.")
@@ -313,7 +334,8 @@ def create_reservation(
 
     # 자정을 넘기면 거부하지 않고 날짜별로 쪼갠다 (23시~새벽 2시 같은 예약).
     segments = _split_segments(reservation.date, reservation.start_time, reservation.duration)
-    if len(segments) > 1 and segments[-1]["end"] > time(OVERNIGHT_END):
+    # 관리자 예약은 새벽 상한이 없다 (대관·정모와 같은 규칙).
+    if admin is None and len(segments) > 1 and segments[-1]["end"] > time(OVERNIGHT_END):
         raise HTTPException(400, f"자정을 넘긴 예약은 다음날 {OVERNIGHT_END}시까지만 가능합니다.")
 
     display = team.name if team else (
@@ -368,6 +390,7 @@ def create_reservation(
         segments=len(created),
         status=db_r.status,
         client=request.client.host if request.client else None,
+        by=admin.username if admin else None,
     )
     return db_r
 

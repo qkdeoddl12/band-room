@@ -254,6 +254,9 @@ docker-compose.yml
 - `team` 팀 합주 · `personal` 개인연습실 · `guest` 팀 없는 합주실 이용 — **이용자**가 만든다
 - `rental` 장소 대관 · `meetup` 도어즈 정모 — **관리자**가 `POST /api/admin/reservations` 로 만든다
 - `openjam` 오픈 잼 — 회원이 `POST /api/reservations` 에 `jam_id` 를 주면 만들어진다
+- **관리자 대신 예약** (`POST /api/admin/reservations/booking`) — 전화·문자로 받은 팀·게스트·개인 예약.
+  본문·규칙이 이용자 예약과 같다 (`_create_booking()` 공유) — 요금·`pending`/즉시 확정도 똑같이 갈린다.
+  다른 점은 횟수 제한과 새벽 상한(`OVERNIGHT_END`)이 없다는 것뿐. 관리자 '예약 추가' 창의 세 번째 칩
 - 대관·정모는 팀도 이용자도 없다. 표시 이름은 **`team_name` 에 넣는다** — 목록·타임라인·캘린더가
   이미 그 칸을 읽고 있어서 화면을 안 고쳐도 이름이 나온다 (예약 시점 스냅샷이라는 뜻도 그대로 맞다)
 - 바로 `confirmed` + `is_free=True` 로 들어간다. 요금·입금 확인 단계가 없다.

@@ -953,19 +953,27 @@
                       onclick="setAdminResKind('meetup')">도어즈 정모</button>
               <button type="button" class="chip" data-kind="rental"
                       onclick="setAdminResKind('rental')">장소 대관</button>
+              <button type="button" class="chip" data-kind="booking"
+                      onclick="setAdminResKind('booking')">팀·개인 대신 예약</button>
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label" for="adminResTitle">이름 <span style="color:var(--danger)">*</span></label>
-            <input type="text" class="form-input" id="adminResTitle" maxlength="200"
-                   placeholder="예: 도어즈 8월 정모">
-            <div class="field-hint">예약 페이지 시간표에 이대로 보입니다.</div>
+          <!-- 대신 예약 · 합주실: 팀을 고르거나 '팀 없이' 로 이름·연락처 -->
+          <div class="form-group" id="adminResTeamRow" style="display:none;">
+            <label class="form-label" for="adminResTeam">예약 팀 <span style="color:var(--danger)">*</span></label>
+            <select class="form-select" id="adminResTeam" onchange="syncAdminResMode()"></select>
           </div>
 
           <div class="form-group">
             <label class="form-label" for="adminResRoom">공간</label>
-            <select class="form-select" id="adminResRoom"></select>
+            <select class="form-select" id="adminResRoom" onchange="syncAdminResMode()"></select>
+          </div>
+
+          <div class="form-group" id="adminResTitleRow">
+            <label class="form-label" for="adminResTitle"><span id="adminResTitleLabel">이름</span> <span style="color:var(--danger)">*</span></label>
+            <input type="text" class="form-input" id="adminResTitle" maxlength="200"
+                   placeholder="예: 도어즈 8월 정모">
+            <div class="field-hint" id="adminResTitleHint">예약 페이지 시간표에 이대로 보입니다.</div>
           </div>
 
           <div class="tk-panel-row">
@@ -985,9 +993,9 @@
                    min="0.5" max="24" step="0.5" value="3">
           </div>
 
-          <div class="form-group">
+          <div class="form-group" id="adminResPhoneRow">
             <label class="form-label" for="adminResPhone">
-              담당 연락처 <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
+              <span id="adminResPhoneLabel">담당 연락처</span> <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
             </label>
             <input type="tel" class="form-input" id="adminResPhone" maxlength="30"
                    placeholder="010-0000-0000">
@@ -999,7 +1007,7 @@
             <textarea class="form-input memo-box" id="adminResNote" rows="3"></textarea>
           </div>
 
-          <div class="field-hint">바로 확정 상태로 들어갑니다. 요금·입금 확인 단계가 없습니다.</div>
+          <div class="field-hint" id="adminResHint">바로 확정 상태로 들어갑니다. 요금·입금 확인 단계가 없습니다.</div>
 
           <div class="modal-actions">
             <button type="button" onclick="closeAdminResModal()" class="btn-secondary">닫기</button>

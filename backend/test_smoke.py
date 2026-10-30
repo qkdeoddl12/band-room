@@ -21,7 +21,7 @@ MARK = "[smoke]"
 client = httpx.Client(base_url=BASE, timeout=20.0)
 created = {"team": None, "team2": None, "team3": None,
            "cancel": None, "past": None, "edit": None, "edit2": None,
-           "admin_res": None, "team4": None, "team5": None,
+           "admin_res": None, "admin_booking": None, "team4": None, "team5": None,
            "member5": None, "member6": None, "jam": None, "jam_res": None,
            "member7": None, "member8": None, "meetup_res": None, "meetup_res2": None, "meetup_rec": None,
            "member": None, "member2": None, "member3": None,
@@ -687,6 +687,14 @@ def test_admin_booking(h):
     tail = next(r for r in nxt if r["group_key"] == split.json()["group_key"])
     assert tail["kind"] == "meetup", tail
 
+    # 대신 예약 — 이용자 예약과 같은 규칙(게스트는 입금 대기), 로그인 없이는 못 한다
+    guest = {**base, "start_time": "10:00:00", "booker_name": f"{MARK} 전화손님"}
+    assert client.post("/api/admin/reservations/booking", json=guest).status_code == 401
+    bk = client.post("/api/admin/reservations/booking", headers=h, json=guest)
+    assert bk.status_code == 200, bk.text
+    created["admin_booking"] = bk.json()["id"]
+    assert bk.json()["kind"] == "guest" and bk.json()["status"] == "pending", bk.json()
+
 
 def test_team_doors(h):
     """팀도 도어즈 밴드 / 외부 밴드로 갈린다. 과금 방식과는 별개다."""
@@ -1027,7 +1035,7 @@ def _purge_dues(team_ids):
 
 def cleanup(h):
     for key in ("reservation", "half", "guest", "reservation2", "reservation3", "reservation4",
-                "overnight", "cancel", "past", "edit", "edit2", "admin_res",
+                "overnight", "cancel", "past", "edit", "edit2", "admin_res", "admin_booking",
                 "jam_res", "meetup_res", "meetup_res2"):
         if created[key]:
             client.delete(f"/api/reservations/{created[key]}", headers=h)

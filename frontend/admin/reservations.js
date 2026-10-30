@@ -454,7 +454,26 @@ function setAdminResKind(kind) {
     c.classList.toggle('active', c.dataset.kind === kind);
   });
   const title = document.getElementById('adminResTitle');
-  title.placeholder = kind === 'rental' ? '예: ○○교회 대관' : '예: 도어즈 8월 정모';
+  title.placeholder = kind === 'rental' ? '예: ○○교회 대관'
+    : kind === 'booking' ? '홍길동' : '예: 도어즈 8월 정모';
+  syncAdminResMode();
+}
+
+/* '대신 예약' 은 이용자 예약과 같은 규칙: 합주실은 팀(또는 팀 없이 이름), 개인연습실은 이름. */
+function syncAdminResMode() {
+  const booking = adminResKind === 'booking';
+  const personal = roomsById[document.getElementById('adminResRoom').value]?.booking_mode === 'personal';
+  const named = !booking || personal || document.getElementById('adminResTeam').value === 'guest';
+  document.getElementById('adminResTeamRow').style.display  = booking && !personal ? '' : 'none';
+  document.getElementById('adminResTitleRow').style.display = named ? '' : 'none';
+  document.getElementById('adminResPhoneRow').style.display = named ? '' : 'none';
+  setText('adminResTitleLabel', booking ? '이용자 이름' : '이름');
+  setText('adminResPhoneLabel', booking ? '연락처' : '담당 연락처');
+  setText('adminResTitleHint', booking ? '관리자 화면에만 실명으로 보입니다. 예약 페이지에는 가려서 나갑니다.'
+    : '예약 페이지 시간표에 이대로 보입니다.');
+  setText('adminResHint', booking
+    ? '이용자 예약과 같습니다 — 시간당 요금이면 입금 대기, 선불 팀·회비 낸 멤버는 바로 확정.'
+    : '바로 확정 상태로 들어갑니다. 요금·입금 확인 단계가 없습니다.');
 }
 
 function openAdminResModal() {
@@ -468,6 +487,11 @@ function openAdminResModal() {
   document.getElementById('adminResDuration').value = 3;
   document.getElementById('adminResPhone').value = '';
   document.getElementById('adminResNote').value  = '';
+  document.getElementById('adminResTeam').innerHTML = '<option value="">팀을 선택하세요</option>'
+    + Object.values(teamsById).filter(t => t.is_active)
+      .sort((a, b) => a.name.localeCompare(b.name, 'ko'))
+      .map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('')
+    + '<option value="guest">팀 없이 (이름으로)</option>';
   setAdminResKind('meetup');
   openOverlay('adminResOverlay');
 }
@@ -478,7 +502,11 @@ bindOverlayClose('adminResOverlay', closeAdminResModal);
 document.getElementById('adminResForm').addEventListener('submit', async e => {
   e.preventDefault();
   const title = document.getElementById('adminResTitle').value.trim();
-  if (!title) { showToast('이름을 입력해주세요.', 'error'); return; }
+  const titleShown = document.getElementById('adminResTitleRow').style.display !== 'none';
+  if (titleShown && !title) { showToast('이름을 입력해주세요.', 'error'); return; }
+  const team = document.getElementById('adminResTeam').value;
+  const teamShown = document.getElementById('adminResTeamRow').style.display !== 'none';
+  if (teamShown && !team) { showToast('예약 팀을 선택해주세요.', 'error'); return; }
   const duration = Number(document.getElementById('adminResDuration').value);
   if (!validDuration(duration)) {
     showToast('이용 시간은 0.5~24 사이, 30분(0.5) 단위여야 합니다.', 'error');
@@ -487,23 +515,32 @@ document.getElementById('adminResForm').addEventListener('submit', async e => {
 
   const btn = document.getElementById('adminResSaveBtn');
   btn.disabled = true; btn.textContent = '추가 중...';
+  const common = {
+    room_id: Number(document.getElementById('adminResRoom').value),
+    date: document.getElementById('adminResDate').value,
+    start_time: document.getElementById('adminResStart').value + ':00',
+    duration,
+    note: document.getElementById('adminResNote').value.trim() || null,
+  };
+  const phone = document.getElementById('adminResPhone').value.trim() || null;
   try {
-    await apiJson('/api/admin/reservations', {
-      method: 'POST',
-      body: JSON.stringify({
-        kind: adminResKind,
-        room_id: Number(document.getElementById('adminResRoom').value),
-        title,
-        date: document.getElementById('adminResDate').value,
-        start_time: document.getElementById('adminResStart').value + ':00',
-        duration,
-        contact_phone: document.getElementById('adminResPhone').value.trim() || null,
-        note: document.getElementById('adminResNote').value.trim() || null,
-      }),
-    });
+    const res = adminResKind === 'booking'
+      ? await apiJson('/api/admin/reservations/booking', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...common,
+            team_id: teamShown && team !== 'guest' ? Number(team) : null,
+            booker_name: titleShown ? title : null,
+            booker_phone: titleShown ? phone : null,
+          }),
+        })
+      : await apiJson('/api/admin/reservations', {
+          method: 'POST',
+          body: JSON.stringify({ ...common, kind: adminResKind, title, contact_phone: phone }),
+        });
     closeAdminResModal();
     await loadAllReservations();
-    showToast(`${title} 추가됨`, 'success');
+    showToast(`${res.team_name} 추가됨${res.status === 'pending' ? ' (입금 대기)' : ''}`, 'success');
   } catch (err) {
     showToast(err.message, 'error');
   } finally {
