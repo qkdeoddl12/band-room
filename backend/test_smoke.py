@@ -27,7 +27,7 @@ created = {"team": None, "team2": None, "team3": None,
            "member": None, "member2": None, "member3": None,
            "member4": None, "ticket": None,
            "reservation": None, "reservation2": None, "reservation3": None,
-           "reservation4": None, "half": None, "overnight": None, "admin_user": None, "member9": None}
+           "reservation4": None, "half": None, "guest": None, "overnight": None, "admin_user": None, "member9": None}
 
 
 def login(username, password):
@@ -108,6 +108,18 @@ def test_reservation(h, team):
     odd = client.post("/api/reservations", json={
         **body, "team_id": team["id"], "start_time": "14:00:00", "duration": 0.75})
     assert odd.status_code == 422, f"30분 단위가 아닌 길이는 막아야 한다, got {odd.status_code}"
+
+    # 팀 없이 합주실 — 이름·연락처만으로, 시간당 요금(입금 대기), 공개 목록에선 실명을 가린다
+    guest = {**body, "start_time": "15:00:00", "duration": 1}
+    no_phone = client.post("/api/reservations", json={**guest, "booker_name": "게스트테스트"})
+    assert no_phone.status_code == 400, f"게스트는 연락처가 필요하다, got {no_phone.status_code}"
+    g = client.post("/api/reservations", json={
+        **guest, "booker_name": "게스트테스트", "booker_phone": "010-9999-0000"})
+    assert g.status_code == 200, g.text
+    created["guest"] = g.json()["id"]
+    assert g.json()["kind"] == "guest" and g.json()["status"] == "pending", g.json()
+    gpub = next(x for x in client.get(f"/api/reservations?date={day}").json() if x["id"] == created["guest"])
+    assert gpub["team_name"] != "게스트테스트", f"공개 목록에 게스트 실명이 실렸다: {gpub['team_name']}"
 
 
 def test_overnight(h, team):
@@ -1015,7 +1027,7 @@ def _purge_dues(team_ids):
 
 
 def cleanup(h):
-    for key in ("reservation", "half", "reservation2", "reservation3", "reservation4",
+    for key in ("reservation", "half", "guest", "reservation2", "reservation3", "reservation4",
                 "overnight", "cancel", "past", "edit", "edit2", "admin_res",
                 "jam_res", "meetup_res", "meetup_res2"):
         if created[key]:

@@ -566,15 +566,21 @@ function selectedTeam() {
 function applyBookingMode() {
   const personal = isPersonalRoom(currentRoomId);
   document.getElementById('teamField').style.display = personal ? 'none' : '';
-  document.getElementById('personalFields').style.display = personal ? '' : 'none';
+  document.getElementById('personalFields').style.display =
+    personal || isGuestBooking() ? '' : 'none';
   document.getElementById('membersField').style.display = personal ? 'none' : '';
   syncBookerPhoneField();
   updateTimeSummary();
 }
 
-/* 멤버로 확인되면 연락처는 안 받아도 된다. */
+/* 합주실에서 팀 없이 잡는 예약 — 이름·연락처만 받고 시간당 요금. */
+function isGuestBooking() {
+  return !isPersonalRoom(currentRoomId) && !!selectedBooker()?.guest;
+}
+
+/* 멤버로 확인되면 연락처는 안 받아도 된다 (개인연습실만 — 게스트는 늘 받는다). */
 function syncBookerPhoneField() {
-  const known = memberCheck?.is_member;
+  const known = isPersonalRoom(currentRoomId) && memberCheck?.is_member;
   const field = document.getElementById('bookerPhoneField');
   field.style.display = known ? 'none' : '';
 }
@@ -630,7 +636,7 @@ document.getElementById('startTime').addEventListener('change', () => {
   populateEndTimes(prevEnd);
 });
 document.getElementById('endTime').addEventListener('change', updateTimeSummary);
-document.getElementById('teamSelect').addEventListener('change', updateTimeSummary);
+document.getElementById('teamSelect').addEventListener('change', applyBookingMode);
 
 /* ============================================================
    개인연습실 — 이름으로 멤버·회비 확인
@@ -653,7 +659,8 @@ document.getElementById('bookerName').addEventListener('input', () => {
 async function runMemberCheck() {
   const name = document.getElementById('bookerName').value.trim();
   const status = document.getElementById('bookerStatus');
-  if (name.length < 2) return;
+  // 회비 확인은 개인연습실만 의미가 있다 — 합주실 게스트는 언제나 시간당 요금.
+  if (name.length < 2 || !isPersonalRoom(currentRoomId)) return;
 
   try {
     const res = await fetch('/api/members/check', {
@@ -714,7 +721,11 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
   } else if (!picked) {
     showToast('예약할 팀 또는 오픈 잼을 선택해주세요.', 'error');
     return;
+  } else if (picked.guest && (!bookerName || !bookerPhone)) {
+    showToast('팀 없이 예약하려면 이름과 연락처를 입력해주세요.', 'error');
+    return;
   }
+  const named = personal || !!picked?.guest;   // 팀 대신 이름·연락처로 잡는 예약
 
   const startTime = document.getElementById('startTime').value;
   const endTime   = document.getElementById('endTime').value;
@@ -742,8 +753,8 @@ document.getElementById('reservationForm').addEventListener('submit', async e =>
         room_id:   currentRoomId,
         team_id:   personal ? null : (picked?.teamId ?? null),
         jam_id:    personal ? null : (picked?.jamId ?? null),
-        booker_name:  personal ? bookerName : null,
-        booker_phone: personal ? (bookerPhone || null) : null,
+        booker_name:  named ? bookerName : null,
+        booker_phone: named ? (bookerPhone || null) : null,
         date:      toDateStr(currentDate),
         start_time: startTime + ':00',
         duration:  duration,
@@ -954,23 +965,21 @@ async function loadTeams() {
     openJams = res.ok ? (await res.json()).filter(j => j.status === 'closed') : [];
   } catch { openJams = []; }
 
-  if (teams.length === 0 && openJams.length === 0) {
-    select.innerHTML = '<option value="">등록된 팀이 없습니다</option>';
-    return;
-  }
   select.innerHTML = '<option value="">팀을 선택하세요</option>'
     + (teams.length ? `<optgroup label="팀">${
         teams.map(t => `<option value="${t.id}">${escHtml(t.name)}</option>`).join('')
       }</optgroup>` : '')
     + (openJams.length ? `<optgroup label="오픈 잼">${
         openJams.map(j => `<option value="jam:${j.id}">${escHtml(j.title)}</option>`).join('')
-      }</optgroup>` : '');
+      }</optgroup>` : '')
+    + '<option value="guest">팀 없이 예약 (이름·연락처)</option>';
 }
 
-/* 드롭다운 값은 팀이면 숫자, 오픈 잼이면 "jam:3" 이다. */
+/* 드롭다운 값은 팀이면 숫자, 오픈 잼이면 "jam:3", 팀 없는 게스트면 "guest" 다. */
 function selectedBooker() {
   const raw = document.getElementById('teamSelect').value;
   if (!raw) return null;
+  if (raw === 'guest') return { guest: true };
   if (raw.startsWith('jam:')) {
     const id = Number(raw.slice(4));
     return { jamId: id, jam: openJams.find(j => j.id === id) || null };

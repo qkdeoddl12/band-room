@@ -93,7 +93,11 @@ docker-compose.yml
 - **예약 단위는 30분** — `reservations.duration` 은 시간 단위 실수(`DOUBLE PRECISION`, 1시간 반 = 1.5).
   길이는 스키마가 `multiple_of=0.5` 로, 시작 시각(:00/:30)은 `_split_segments()` 가 막는다.
   프론트는 `app.js::STEP` · `admin/reservations.js::HALF_HOURS` 가 같은 규칙. 요금은 `시간당 × 시간` 을 반올림
-- **팀은 등록된 활성 팀에서만 선택** — `team_id` 필수. 서버가 `team_name`을 스냅샷으로 채운다
+- **팀은 등록된 활성 팀에서만 선택** — 서버가 `team_name`을 스냅샷으로 채운다
+- **팀 없이 합주실 예약 (`kind='guest'`)** — 드롭다운 맨 아래 '팀 없이 예약' (`value="guest"`).
+  `team_id`·`jam_id` 없이 `booker_name` + `booker_phone` **둘 다 필수**. 시간당 요금 → `pending` → 입금 확인.
+  멤버 회비 확인은 하지 않는다 (개인연습실만). `team_name` 이 실명이라 공개 목록·SSE 에선
+  개인연습실처럼 가린다 (`schemas.BOOKER_KINDS`)
 - 요금은 `rooms.hourly_price`, 입금 계좌는 `app_settings`에서 온다 (프론트 하드코딩 없음)
 - **오래 빌리면 시간당 요금이 내려간다** — `rooms.long_hourly_price` (NULL 이면 할인 없음).
   경계는 `LONG_HOURS = 3` 시간이고 `app.js` 와 `admin/core.js` 의 `roomPrice(id, hours)` 가 같은 값을 쓴다 (`guide.js` 안내 문구도 같은 상수).
@@ -247,7 +251,7 @@ docker-compose.yml
   (참여자 전원이 이미 월회비를 내는 회원이다)
 
 ### 예약 종류 (`reservations.kind`)
-- `team` 팀 합주 · `personal` 개인연습실 — **이용자**가 만든다
+- `team` 팀 합주 · `personal` 개인연습실 · `guest` 팀 없는 합주실 이용 — **이용자**가 만든다
 - `rental` 장소 대관 · `meetup` 도어즈 정모 — **관리자**가 `POST /api/admin/reservations` 로 만든다
 - `openjam` 오픈 잼 — 회원이 `POST /api/reservations` 에 `jam_id` 를 주면 만들어진다
 - 대관·정모는 팀도 이용자도 없다. 표시 이름은 **`team_name` 에 넣는다** — 목록·타임라인·캘린더가

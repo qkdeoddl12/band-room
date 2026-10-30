@@ -148,7 +148,7 @@ def _sse_payload(r: models.Reservation) -> dict:
         "start_time": str(r.start_time),
         "end_time": str(r.end_time),
         # SSE 도 인증 없는 공개 스트림이다 — 개인연습실 실명은 공개 목록처럼 가린다.
-        "team_name": schemas.mask_name(r.team_name) if r.kind == 'personal' else r.team_name,
+        "team_name": schemas.mask_name(r.team_name) if r.kind in schemas.BOOKER_KINDS else r.team_name,
         "status": r.status,
     }
 
@@ -299,6 +299,12 @@ def create_reservation(
         open_jam = jam
         # 참여자 전원이 이미 월회비를 내는 도어즈 회원이라 건별 요금이 없다.
         free = True
+    elif reservation.team_id is None:
+        # 팀 없이 합주실을 쓰는 사람 — 이름·연락처만 받고 시간당 요금으로 입금 확인을 거친다.
+        booker_name = (reservation.booker_name or '').strip()
+        booker_phone = normalize_phone(reservation.booker_phone)
+        if not booker_name or not booker_phone:
+            raise HTTPException(400, "팀 없이 예약하려면 이름과 연락처를 입력해주세요.")
     else:
         team = db.query(models.Team).filter(models.Team.id == reservation.team_id).first()
         if not team or not team.is_active:
@@ -336,7 +342,7 @@ def create_reservation(
             note=reservation.note,
             # 낼 것이 없는 예약(선불 팀 · 회비 낸 멤버)은 입금 확인 단계를 건너뛴다.
             kind=('personal' if room.booking_mode == 'personal'
-                  else 'openjam' if open_jam else 'team'),
+                  else 'openjam' if open_jam else 'team' if team else 'guest'),
             is_free=free,
             status='confirmed' if free else 'pending',
             group_key=group_key,
@@ -501,11 +507,12 @@ def update_reservation(
         if not display:
             raise HTTPException(400, "이름을 입력해주세요.")
         team, member, booker_name = None, None, None
-    elif room.booking_mode == 'personal':
+    elif room.booking_mode == 'personal' or first.kind == 'guest':
         booker_name = (booker_name or '').strip()
         if not booker_name:
             raise HTTPException(400, "이용자 이름을 입력해주세요.")
-        if 'booker_name' in fields or 'room_id' in fields:
+        # 게스트(팀 없는 합주실 예약)는 멤버 회비와 무관하다 — 멤버로 엮지 않는다.
+        if first.kind != 'guest' and ('booker_name' in fields or 'room_id' in fields):
             member, ambiguous = find_member_by_name(db, booker_name)
             if ambiguous:
                 raise HTTPException(400, "같은 이름의 멤버가 여러 명입니다.")

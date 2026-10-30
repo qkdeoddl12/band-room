@@ -358,6 +358,12 @@ function openResEditModal(id) {
   openOverlay('resEditOverlay');
 }
 
+/* 팀 대신 이름·연락처로 잡은 예약 — 개인연습실이거나, 합주실을 팀 없이 쓰는 게스트. */
+function isNamedBooking(roomId) {
+  return roomsById[roomId]?.booking_mode === 'personal'
+    || allReservations.find(x => x.id === editResId)?.kind === 'guest';
+}
+
 /* 공간 종류에 따라 팀을 고르거나 이용자 이름을 적는다 (예약 페이지와 같은 규칙). */
 function syncResEditMode() {
   const r = allReservations.find(x => x.id === editResId);
@@ -370,7 +376,7 @@ function syncResEditMode() {
     return;
   }
   const roomId = Number(document.getElementById('resEditRoom').value);
-  const personal = roomsById[roomId]?.booking_mode === 'personal';
+  const personal = isNamedBooking(roomId);
   document.getElementById('resEditTeamRow').style.display     = personal ? 'none' : '';
   document.getElementById('resEditPersonalRow').style.display = personal ? '' : 'none';
   document.getElementById('resEditPhoneLabel').textContent    = '연락처';
@@ -389,7 +395,7 @@ document.getElementById('resEditForm').addEventListener('submit', async e => {
   if (!editResId) return;
 
   const roomId = Number(document.getElementById('resEditRoom').value);
-  const personal = roomsById[roomId]?.booking_mode === 'personal';
+  const personal = isNamedBooking(roomId);
   const duration = Number(document.getElementById('resEditDuration').value);
   if (!validDuration(duration)) {
     showToast('이용 시간은 0.5~24 사이, 30분(0.5) 단위여야 합니다.', 'error');

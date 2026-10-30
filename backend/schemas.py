@@ -5,6 +5,11 @@ import re
 from typing import Optional, List, Dict
 
 
+# team_name 이 예약자 실명인 종류 — 개인연습실 이용자 · 팀 없이 합주실을 쓰는 게스트.
+# 인증 없는 공개 목록·SSE 에서는 가린다.
+BOOKER_KINDS = ('personal', 'guest')
+
+
 def mask_name(name):
     """공개 화면용 이름 가리기 — '우병수' → '우*수', '김철' → '김*'. 본인은 알아보고 남은 모르게."""
     name = (name or '').strip()
@@ -93,8 +98,8 @@ class ReservationPublic(BaseModel):
 
     @model_validator(mode='after')
     def _hide_booker(self):
-        # 개인연습실은 team_name 이 이용자 실명이다 — 공개 목록에선 가린다.
-        if self.kind == 'personal':
+        # 개인연습실·게스트는 team_name 이 이용자 실명이다 — 공개 목록에선 가린다.
+        if self.kind in BOOKER_KINDS:
             self.team_name = mask_name(self.team_name)
         return self
 
