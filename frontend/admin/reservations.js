@@ -240,9 +240,15 @@ function renderList(items) {
   const groups = {};
   items.forEach(r => { (groups[r.date] ||= []).push(r); });
 
+  // 다가오는 날은 가까운 순, 지난 날은 최근 순 — 전체로 보면 옛 예약이 맨 위를 차지했다.
+  const today = toDateStr(new Date());
+  const dates = Object.keys(groups).sort();
+  const upcoming = dates.filter(d => d >= today);
+  const past = dates.filter(d => d < today).reverse();
+
   let html = '<div class="reservation-list">';
-  Object.keys(groups).sort().forEach(date => {
-    const today = toDateStr(new Date());
+  [...upcoming, ...past].forEach(date => {
+    if (date === past[0]) html += '<div class="date-group-divider">지난 예약</div>';
     const label = date === today ? `오늘 · ${fmtDateKo(date)}` : fmtDateKo(date);
     html += `<div class="date-group-header">📅 ${label}</div>`;
 

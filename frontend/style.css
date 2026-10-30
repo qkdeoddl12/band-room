@@ -1161,6 +1161,14 @@ a { text-decoration: none; }
   letter-spacing: .3px;
 }
 
+.date-group-divider {
+  margin: 24px 0 4px;
+  font-size: 12px; font-weight: 700;
+  color: var(--text-light);
+  text-align: center;
+  letter-spacing: .3px;
+}
+
 .reservation-item {
   background: var(--card);
   border-radius: var(--radius);
