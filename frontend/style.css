@@ -1,31 +1,76 @@
 /* ============================================================
-   CSS Variables
+   Design tokens
+   중립색은 한 계열(쿨 그레이)로 통일한다. 브랜드 보라는 유지하되
+   채도를 약간 낮춰 텍스트·표와 충돌하지 않게 한다.
    ============================================================ */
 :root {
-  --primary: #7C6FF7;
-  --primary-dark: #6A5CF0;
-  --primary-light: #EEEAFF;
-  --room1: #7C6FF7;
-  --room1-light: #EEEAFF;
-  --room2: #0EA5A0;
-  --room2-light: #EDFAFA;
-  --bg: #F7F7FB;
+  /* Brand */
+  --primary: #6455E8;
+  --primary-dark: #5646D6;
+  --primary-light: #EEECFD;
+
+  /* 공간 구분색 */
+  --room1: #6455E8;
+  --room2: #0E9A96;
+  --room2-light: #E6F6F5;
+
+  /* 중립 — 한 계열만 쓴다 */
+  --bg: #F6F7F9;
   --card: #FFFFFF;
-  --border: #EAECF0;
-  --text: #111827;
-  --text-sub: #6B7280;
-  --text-light: #9CA3AF;
-  --success: #10B981;
-  --danger: #EF4444;
-  --warning: #F59E0B;
-  --radius: 16px;
-  --radius-sm: 10px;
-  --shadow: 0 1px 3px rgba(0,0,0,0.05), 0 4px 16px rgba(0,0,0,0.04);
-  --shadow-md: 0 4px 24px rgba(0,0,0,0.09);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.13);
-  --header-height: 60px;
-  --bottom-bar: 80px;
+  --border: #E6E8EC;
+  --border-strong: #D3D7DE;
+  --text: #14161A;
+  --text-sub: #5C636E;
+  --text-light: #939AA6;
+
+  /* 상태 */
+  --success: #0E9F6E;
+  --danger: #E5484D;
+  --warning: #D9820B;
+  /* 배지·칩에서 12번 반복되던 색 쌍 */
+  --warning-light: #FEF3C7;
+  --warning-ink: #B45309;
+  --info-light: #DBEAFE;
+  --info-ink: #1D4ED8;
+  --neutral-light: #F3F4F6;
+
+  /* 모서리 — 세 단계만. 알약은 상호작용 요소에만 */
+  --radius: 14px;
+  --radius-sm: 9px;
+  --radius-pill: 999px;
+
+  /* 그림자는 배경 색조를 띠게 (순수 검정 금지) */
+  --shadow-sm: 0 1px 2px rgba(20, 22, 26, .04);
+  --shadow: 0 1px 2px rgba(20, 22, 26, .04), 0 6px 16px -6px rgba(20, 22, 26, .08);
+  --shadow-md: 0 8px 24px -8px rgba(20, 22, 26, .14);
+  --shadow-lg: 0 16px 48px -16px rgba(20, 22, 26, .22);
+
+  /* 포커스 링 — 지금까지 없었다 */
+  --focus: 0 0 0 3px rgba(100, 85, 232, .32);
+
+  --header-height: 56px;
+  --bottom-bar: 76px;
   --slot-h: 64px;
+}
+
+/* 숫자는 자리 폭을 고정해 표·금액이 흔들리지 않게 */
+.kpi-value, .res-fee, .bar-value, .stack-value,
+.team-dues-amount, .contact-table, .member-table, .audit-time,
+.tk-stat-value, .fee-value, .res-time-main {
+  font-variant-numeric: tabular-nums;
+}
+
+/* 키보드 사용자를 위한 포커스 표시 (마우스 클릭에는 안 나옴) */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--radius-sm);
+}
+
+/* 눌리는 느낌 */
+button:not(:disabled):active,
+.chip:active, .dues-chip:active, .part-check:active {
+  transform: translateY(1px);
 }
 
 /* ============================================================
@@ -70,7 +115,7 @@ a { text-decoration: none; }
 .logo-icon { font-size: 22px; }
 .logo-text {
   font-size: 18px; font-weight: 800;
-  color: var(--primary); letter-spacing: -0.5px;
+  color: var(--text); letter-spacing: -0.5px;
 }
 
 .header-actions { display: flex; align-items: center; gap: 8px; }
@@ -82,22 +127,12 @@ a { text-decoration: none; }
   border-radius: 20px;
   transition: all .2s;
   white-space: nowrap;
+  /* 버튼으로도 <a> 로도 쓴다 — 두 모양이 같은 높이로 서야 한다 */
+  display: inline-flex; align-items: center;
+  text-decoration: none; background: none; cursor: pointer;
 }
 .header-link:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
 
-.admin-link {
-  font-size: 13px; font-weight: 600;
-  color: var(--text-sub);
-  padding: 6px 14px;
-  border: 1.5px solid var(--border);
-  border-radius: 20px;
-  transition: all .2s;
-}
-.admin-link:hover {
-  color: var(--primary);
-  border-color: var(--primary);
-  background: var(--primary-light);
-}
 
 /* Inquiry category selector (user modal) */
 .inquiry-cats {
@@ -133,9 +168,16 @@ a { text-decoration: none; }
 }
 
 /* --- Date Nav --- */
+/* 24시간 타임라인은 한참 스크롤한다 — 날짜·공간 선택이 사라지면 길을 잃는다.
+   헤더가 fixed 라 그 높이만큼 내려 붙인다. */
+.page-sticky {
+  position: sticky; top: var(--header-height); z-index: 30;
+  background: var(--card);
+}
+
 .date-nav {
   background: var(--card);
-  padding: 16px 20px 0;
+  padding: 10px 20px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -156,12 +198,12 @@ a { text-decoration: none; }
 }
 
 .date-text {
-  font-size: 22px; font-weight: 800;
-  color: var(--text); letter-spacing: -0.8px;
+  font-size: 19px; font-weight: 800;
+  color: var(--text); letter-spacing: -0.5px;
 }
 
 .btn-nav {
-  width: 38px; height: 38px;
+  width: 34px; height: 34px;
   border-radius: 50%;
   background: var(--bg);
   border: 1.5px solid var(--border);
@@ -187,9 +229,9 @@ a { text-decoration: none; }
 .week-day {
   flex: none;
   display: flex; flex-direction: column;
-  align-items: center; gap: 5px;
-  padding: 8px 12px;
-  border-radius: 12px;
+  align-items: center; gap: 3px;
+  padding: 6px 11px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   transition: all .15s;
   min-width: 44px;
@@ -203,7 +245,7 @@ a { text-decoration: none; }
 }
 .week-day.active .week-day-name { color: rgba(255,255,255,.75); }
 
-.week-day-num { font-size: 16px; font-weight: 700; color: var(--text); }
+.week-day-num { font-size: 15px; font-weight: 700; color: var(--text); }
 .week-day.active .week-day-num { color: #fff; }
 .week-day.is-today:not(.active) .week-day-num { color: var(--primary); }
 
@@ -291,6 +333,21 @@ a { text-decoration: none; }
 }
 .reservation-block.room2 {
   background: linear-gradient(135deg, #0EA5A0 0%, #2DD4BF 100%);
+  color: #fff;
+}
+
+/* 대관·정모는 방과 무관한 일정이라 방 색(보라·청록)을 쓰지 않는다.
+   팀 합주 옆에 놓였을 때 한눈에 갈라져야 한다. */
+.reservation-block.rental {
+  background: linear-gradient(135deg, #B45309 0%, #F59E0B 100%);
+  color: #fff;
+}
+.reservation-block.meetup {
+  background: linear-gradient(135deg, #334155 0%, #64748B 100%);
+  color: #fff;
+}
+.reservation-block.openjam {
+  background: linear-gradient(135deg, #BE185D 0%, #F472B6 100%);
   color: #fff;
 }
 
@@ -440,24 +497,6 @@ a { text-decoration: none; }
   padding-right: 40px; cursor: pointer;
 }
 
-/* Duration buttons */
-.duration-grid {
-  display: grid; grid-template-columns: repeat(3,1fr); gap: 8px;
-}
-.duration-btn {
-  padding: 13px 0;
-  border-radius: var(--radius-sm);
-  border: 1.5px solid var(--border);
-  font-size: 14px; font-weight: 600;
-  color: var(--text-sub);
-  transition: all .2s;
-}
-.duration-btn:hover { border-color: var(--primary); color: var(--primary); }
-.duration-btn.active {
-  border-color: var(--primary);
-  background: var(--primary-light);
-  color: var(--primary);
-}
 
 /* Time summary */
 .time-summary {
@@ -533,6 +572,31 @@ a { text-decoration: none; }
   background: rgba(255, 255, 255, 0.85);
   color: #c2410c;
 }
+.res-status-badge.confirmed {
+  background: rgba(255, 255, 255, 0.28);
+  color: #fff;
+}
+/* 내가 이 브라우저로 신청한 예약. 남의 예약과 한눈에 갈라져야 취소를 헷갈리지 않는다. */
+.res-status-badge.mine {
+  background: #fff; color: #111827;
+}
+.res-status-badge.kind {
+  background: rgba(255,255,255,.9); color: #111827;
+}
+.reservation-block.mine {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+  box-shadow: 0 2px 14px rgba(0,0,0,.22);
+}
+.btn-res-cancel {
+  position: absolute; top: 6px; right: 8px;
+  padding: 3px 10px; border-radius: var(--radius-pill);
+  border: 1px solid rgba(255,255,255,.7);
+  background: rgba(255,255,255,.18); color: #fff;
+  font-size: 11px; font-weight: 700; cursor: pointer;
+  transition: background .15s;
+}
+.btn-res-cancel:hover { background: rgba(255,255,255,.34); }
 
 /* Blocked period overlay on timeline */
 .blocked-block {
@@ -725,12 +789,6 @@ a { text-decoration: none; }
   overflow-y: auto;
 }
 
-.sidebar-title {
-  font-size: 11px; font-weight: 700;
-  color: var(--text-light);
-  text-transform: uppercase; letter-spacing: .8px;
-  padding: 0 12px; margin-bottom: 8px;
-}
 
 .sidebar-nav { list-style: none; margin-bottom: 24px; }
 
@@ -746,9 +804,9 @@ a { text-decoration: none; }
 }
 .sidebar-item:hover { background: var(--bg); color: var(--text); }
 .sidebar-item.active { background: var(--primary-light); color: var(--primary); }
-.sidebar-icon { font-size: 16px; }
+.sidebar-icon { font-size: 15px; filter: saturate(.25) opacity(.8); }
+.sidebar-item.active .sidebar-icon { filter: none; }
 
-.room-filter-dot { width: 8px; height: 8px; border-radius: 50%; }
 
 /* Admin main */
 .admin-main {
@@ -760,7 +818,7 @@ a { text-decoration: none; }
 /* Dashboard: pending highlight */
 .pending-highlight {
   display: flex; align-items: center; gap: 16px;
-  background: linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%);
+  background: linear-gradient(135deg, var(--warning-light) 0%, #FDE68A 100%);
   border: 1.5px solid #F59E0B;
   border-radius: var(--radius);
   padding: 18px 20px;
@@ -806,6 +864,9 @@ a { text-decoration: none; }
   gap: 14px;
   margin-bottom: 20px;
 }
+/* 카드가 4장이면 좁은 화면에서 3+1 로 갈라진다 — 2×2 로 묶는다 */
+.kpi-grid.four { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.kpi-grid.five { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
 
 .kpi-card {
   background: var(--card);
@@ -815,13 +876,13 @@ a { text-decoration: none; }
   position: relative;
   overflow: hidden;
 }
-.kpi-card.revenue::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--primary), var(--primary-dark));
-}
+/* 카드 위 보라 막대는 아무 정보도 담지 않아 뺐다.
+   금액 카드는 값 자체의 크기와 색으로 구분한다. */
+.kpi-card { border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+.kpi-card.revenue .kpi-value { color: var(--primary-dark); }
+.kpi-card.team-fee .kpi-value { color: var(--room2); }
+/* 정모 당일 참가비 — 세 번째 수입. 회비·이용료와 합치지 않으므로 색도 따로 쓴다 */
+.kpi-card.walk-in .kpi-value { color: #B45309; }
 .kpi-period {
   font-size: 11px; font-weight: 700;
   color: var(--text-sub);
@@ -833,11 +894,11 @@ a { text-decoration: none; }
   margin-bottom: 6px;
 }
 .kpi-value {
-  font-size: 28px; font-weight: 800;
-  color: var(--text); letter-spacing: -1px; line-height: 1;
+  font-size: 25px; font-weight: 800;
+  color: var(--text); letter-spacing: -.6px; line-height: 1.05;
 }
 .kpi-unit { font-size: 14px; font-weight: 700; color: var(--text-sub); }
-.kpi-sub { font-size: 12px; color: var(--text-sub); font-weight: 500; }
+.kpi-sub { font-size: 12px; color: var(--text-sub); font-weight: 500; word-break: keep-all; }
 .kpi-sub span { font-weight: 700; color: var(--text); }
 
 /* Dashboard: generic card */
@@ -855,6 +916,7 @@ a { text-decoration: none; }
 .dashboard-card-title {
   font-size: 16px; font-weight: 700; color: var(--text);
   letter-spacing: -0.3px;
+  word-break: keep-all;
 }
 .dashboard-card-sub { font-size: 12px; color: var(--text-sub); font-weight: 500; }
 
@@ -875,23 +937,40 @@ a { text-decoration: none; }
   height: 14px;
   white-space: nowrap;
 }
+/* 트랙에 배경을 깔면 값이 0일 때도 꽉 찬 막대로 읽힌다.
+   바닥선만 그어 '값 없음'이 비어 보이게 한다. */
 .bar-track {
   flex: 1; width: 100%;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border);
+  justify-content: center;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   display: flex; align-items: flex-end;
   overflow: hidden;
 }
+/* 부모(.bar-chart)가 flex 라 폭을 명시하지 않으면 글자가 세로로 쪼개진다. */
+.chart-empty {
+  grid-column: 1 / -1;   /* .bar-chart / .stack-chart 는 grid 다 */
+  flex: 1 1 100%; width: 100%;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 120px; text-align: center;
+  font-size: 13px; color: var(--text-light);
+}
+/* 막대는 가늘게, 데이터 끝만 4px 둥글게, 바닥에는 붙인다.
+   아래쪽까지 둥글면 기준선에서 떠 보인다. */
 .bar-fill {
-  width: 100%;
-  background: linear-gradient(180deg, var(--primary) 0%, var(--primary-dark) 100%);
-  border-radius: var(--radius-sm);
+  width: 62%; max-width: 34px;
+  margin: 0 auto;
+  background: var(--primary);
+  border-radius: 4px 4px 0 0;
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 2px;
 }
-.bar-col.today .bar-fill {
-  background: linear-gradient(180deg, #F59E0B 0%, #D97706 100%);
-}
+/* 0 은 아무것도 안 그린다 — min-height 때문에 남는 2px 이 "조금 있음"으로 읽힌다 */
+.bar-fill.is-zero, .stack-fill.is-zero { min-height: 0; }
+/* 한 계열은 한 색. '오늘'은 다른 색이 아니라 라벨과 바닥 표시로 강조한다.
+   (다른 색을 쓰면 두 번째 계열처럼 읽힌다) */
+.bar-col.today .bar-track { border-bottom-color: var(--warning); border-bottom-width: 2px; }
+.bar-col.today .bar-value { color: var(--text); }
 .bar-label {
   font-size: 11px; font-weight: 600;
   color: var(--text-sub);
@@ -926,26 +1005,54 @@ a { text-decoration: none; }
   font-size: 10px; font-weight: 700; color: var(--text-sub);
   height: 14px; white-space: nowrap;
 }
+/* 스택 차트도 같은 이유로 트랙 배경을 없앤다 */
 .stack-track {
   flex: 1; width: 100%;
-  background: var(--bg);
-  border-radius: var(--radius-sm);
+  border-bottom: 1px solid var(--border);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   display: flex; align-items: flex-end;
   overflow: hidden;
 }
+/* 두 계열 사이는 테두리가 아니라 2px 표면 간격으로 나눈다 */
 .stack-fill {
-  width: 100%;
-  background: linear-gradient(180deg, var(--room2) 0%, #0c9590 100%);
-  border-radius: var(--radius-sm);
+  width: 62%; max-width: 34px;
+  margin: 0 auto;
+  background: var(--room2);
+  border-radius: 4px 4px 0 0;
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
   min-height: 2px;
   display: flex; flex-direction: column; justify-content: flex-start;
   overflow: hidden;
 }
+/* 위 칸(합주실)과 아래 칸(개인연습실)은 2px 표면색 간격으로 가른다 */
 .stack-r1 {
   width: 100%;
-  background: linear-gradient(180deg, var(--room1) 0%, var(--primary-dark) 100%);
+  background: var(--room1);
+  border-radius: 4px 4px 0 0;
+  box-shadow: 0 2px 0 var(--card);
   transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 세 번째 계열: 정모 당일 참가비 */
+.stack-r3 {
+  width: 100%;
+  background: #D97706;
+  box-shadow: 0 -2px 0 var(--card);
+  margin-top: auto;
+  transition: height .4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* 범례 — 두 계열 이상이면 색만으로 구분하지 않는다 */
+.chart-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.chart-legend-item {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; color: var(--text-sub);
+}
+.chart-legend-swatch {
+  width: 10px; height: 10px; border-radius: 3px; flex: none;
 }
 .stack-label {
   font-size: 11px; font-weight: 600; color: var(--text-sub);
@@ -988,12 +1095,12 @@ a { text-decoration: none; }
 .room-row-pct { font-size: 11px; font-weight: 600; color: var(--text-sub); }
 
 /* Filter panel (chip-based) */
+/* 필터는 보조 요소다. 카드로 띄우지 않고 배경에 눕힌다. */
 .filter-panel {
-  background: var(--card);
-  border-radius: var(--radius);
-  padding: 14px 16px;
-  margin-bottom: 20px;
-  box-shadow: var(--shadow);
+  background: transparent;
+  padding: 0;
+  margin-bottom: 14px;
+  box-shadow: none;
   display: flex; flex-direction: column; gap: 8px;
 }
 
@@ -1054,6 +1161,14 @@ a { text-decoration: none; }
   letter-spacing: .3px;
 }
 
+.date-group-divider {
+  margin: 24px 0 4px;
+  font-size: 12px; font-weight: 700;
+  color: var(--text-light);
+  text-align: center;
+  letter-spacing: .3px;
+}
+
 .reservation-item {
   background: var(--card);
   border-radius: var(--radius);
@@ -1081,6 +1196,9 @@ a { text-decoration: none; }
 .res-time-info { flex-shrink: 0; text-align: right; }
 .res-time-main { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; }
 .res-duration { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+/* 자정을 넘겨 두 건으로 나뉜 예약 */
+.overnight-tag { cursor: default; }
+.overnight-note { color: var(--warning-ink); font-size: 12px; }
 
 .res-fee { font-size: 13px; color: var(--text-sub); margin-top: 2px; font-weight: 600; }
 
@@ -1091,7 +1209,7 @@ a { text-decoration: none; }
   margin-left: 6px; letter-spacing: 0.3px;
   vertical-align: middle;
 }
-.res-status-admin.pending { background: #FEF3C7; color: #92400E; }
+.res-status-admin.pending { background: var(--warning-light); color: #92400E; }
 .res-status-admin.confirmed { background: #D1FAE5; color: #065F46; }
 
 .reservation-item.pending {
@@ -1159,7 +1277,10 @@ a { text-decoration: none; }
   color: var(--text-sub); transition: color .15s;
 }
 .mobile-nav-item.active { color: var(--primary); }
-.mobile-nav-icon { font-size: 20px; }
+/* 컬러 이모지가 작은 크기에서 산만해 채도를 낮춘다.
+   활성 항목만 원래 색으로 돌려 어디에 있는지 분명하게. */
+.mobile-nav-icon { font-size: 17px; filter: saturate(.25) opacity(.75); }
+.mobile-nav-item.active .mobile-nav-icon { filter: none; }
 
 /* Admin Toast (no bottom bar) */
 .admin-toast {
@@ -1201,19 +1322,23 @@ a { text-decoration: none; }
   white-space: nowrap;
 }
 .user-role-badge.system { background: var(--primary); color: #fff; }
-.user-role-badge.reservation { background: #DBEAFE; color: #1D4ED8; }
+.user-role-badge.reservation { background: var(--info-light); color: var(--info-ink); }
 
 
 /* ============================================================
    ADMIN: Page header
    ============================================================ */
+/* 제목과 동작 버튼은 좁은 화면에서도 한 줄로 — 버튼이 폭을 다 먹지 않게 */
 .page-header {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 20px;
-  flex-wrap: wrap; gap: 12px;
+  margin-bottom: 16px;
+  gap: 12px;
 }
+.page-header > div:first-child { min-width: 0; }
+.page-header .btn-primary,
+.page-header .btn-secondary { flex: none; width: auto; }
 .page-title {
-  font-size: 22px; font-weight: 800;
+  font-size: 19px; font-weight: 800;
   color: var(--text); letter-spacing: -.5px;
   margin-bottom: 2px;
 }
@@ -1224,7 +1349,7 @@ a { text-decoration: none; }
    ADMIN: Buttons
    ============================================================ */
 .btn-primary {
-  height: 42px; padding: 0 18px;
+  height: 38px; padding: 0 14px;
   background: var(--primary); color: #fff;
   font-size: 14px; font-weight: 700;
   border-radius: var(--radius-sm);
@@ -1233,7 +1358,7 @@ a { text-decoration: none; }
 }
 .btn-primary:hover {
   background: var(--primary-dark);
-  box-shadow: 0 4px 16px rgba(124,111,247,.4);
+  box-shadow: 0 6px 16px -6px rgba(100,85,232,.5);
 }
 
 .btn-secondary {
@@ -1374,7 +1499,7 @@ a { text-decoration: none; }
   letter-spacing: .3px;
   background: var(--primary-light); color: var(--primary-dark);
 }
-.inquiry-cat-tag.cat-complaint { background: #FEF3C7; color: #B45309; }
+.inquiry-cat-tag.cat-complaint { background: var(--warning-light); color: var(--warning-ink); }
 .inquiry-cat-tag.cat-incident  { background: #FEE2E2; color: #B91C1C; }
 
 .inquiry-status-badge {
@@ -1521,7 +1646,7 @@ a { text-decoration: none; }
 }
 .cal-bar.r1 { background: var(--primary-light); color: var(--room1); }
 .cal-bar.r2 { background: var(--room2-light); color: var(--room2); }
-.cal-bar.blocked { background: #F3F4F6; color: var(--text-sub); }
+.cal-bar.blocked { background: var(--neutral-light); color: var(--text-sub); }
 .cal-bar.has-pending {
   background-image: repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(245, 158, 11, 0.35) 4px, rgba(245, 158, 11, 0.35) 7px);
 }
@@ -1598,7 +1723,7 @@ a { text-decoration: none; }
 }
 
 .res-room-tag.all {
-  background: #F3F4F6;
+  background: var(--neutral-light);
   color: var(--text-sub);
 }
 
@@ -1651,7 +1776,7 @@ a { text-decoration: none; }
 }
 .user-inactive-tag {
   font-size: 10px; font-weight: 700;
-  background: #F3F4F6; color: var(--text-sub);
+  background: var(--neutral-light); color: var(--text-sub);
   padding: 2px 7px; border-radius: 8px;
   letter-spacing: .3px;
 }
@@ -1686,6 +1811,8 @@ a { text-decoration: none; }
   .filter-search { font-size: 13px; padding: 9px 12px; }
 
   .kpi-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .kpi-grid.four { grid-template-columns: repeat(2, 1fr); }
+  .kpi-grid.five { grid-template-columns: repeat(2, 1fr); }
   .kpi-card { padding: 14px 12px; }
   .kpi-value { font-size: 20px; }
   .kpi-unit { font-size: 12px; }
@@ -1723,6 +1850,40 @@ a { text-decoration: none; }
   .user-created { display: none; }
 }
 
+/* ------------------------------------------------------------
+   관리자 모달: 본문만 스크롤 · 버튼은 바닥 고정 (폰·PC 공통)
+
+   전에는 .modal 이 max-height 와 overflow-y:auto 를 함께 갖고 있어서
+   모달 전체가 스크롤 컨테이너였다. 그래서 조금만 넘쳐도(팀 수정창은 26px)
+   아래 버튼이 잘린 채 보이고 스크롤바도 눈에 안 띄었다.
+   ------------------------------------------------------------ */
+body:has(.admin-dashboard) .modal {
+  display: flex; flex-direction: column;
+  overflow: hidden;              /* 스크롤은 아래 .modal-body 가 맡는다 */
+}
+/* 손잡이·헤더는 flex 아래서 찌그러지면 안 된다 */
+body:has(.admin-dashboard) .modal-handle,
+body:has(.admin-dashboard) .modal-header { flex: none; }
+
+body:has(.admin-dashboard) .modal-body {
+  overflow-y: auto;
+  /* flex 자식은 min-height 를 0 으로 풀어주지 않으면 안 줄어들어 스크롤이 안 생긴다 */
+  min-height: 0;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 저장·삭제는 스크롤 위치와 무관하게 항상 보인다 — 버튼을 찾으러 내려갈 일이 없다.
+   액션 줄이 없는 모달(문의 상세·차단 등록 등)은 :has() 로 걸러 원래 여백을 지킨다. */
+body:has(.admin-dashboard) .modal-body:has(.modal-actions) { padding-bottom: 0; }
+body:has(.admin-dashboard) .modal-actions {
+  position: sticky; bottom: 0; z-index: 2;
+  background: var(--card);
+  /* 폰에서는 시트가 화면 바닥에 붙으므로(.modal-overlay 가 flex-end)
+     홈 인디케이터를 피해야 한다. PC 에서는 env() 가 0 이라 그냥 24px 이다. */
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+}
+
 @media (min-width: 769px) {
   .mobile-admin-nav { display: none; }
   .admin-sidebar { display: block; }
@@ -1743,4 +1904,1151 @@ a { text-decoration: none; }
   body:has(.admin-dashboard) .modal-handle { display: none; }
   body:has(.admin-dashboard) .modal-header { padding-top: 20px; }
   body:has(.admin-dashboard) .modal-body   { padding-bottom: 24px; }
+
+}
+
+
+/* ============================================================
+   ADMIN: Sidebar groups · shared bits
+   ============================================================ */
+.sidebar-group {
+  padding: 16px 16px 6px;
+  font-size: 11px; font-weight: 800;
+  color: var(--text-light);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.sidebar-nav > .sidebar-group:first-child { padding-top: 4px; }
+
+.admin-note {
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  font-size: 13px; line-height: 1.6;
+  margin-bottom: 14px;
+}
+
+/* 나란히 놓이는 버튼은 높이·모서리·글자 크기를 맞춘다.
+   .btn-submit(54px/큰 모서리)와 .btn-danger(48px/작은 모서리)가 달라 보이던 문제. */
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions > button {
+  height: 52px; margin-top: 0;
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+.modal-actions .btn-secondary { flex: 1; }
+.modal-actions .btn-danger { flex: 1; }
+.modal-actions .btn-submit,
+.modal-actions .btn-primary { flex: 2; justify-content: center; }
+.modal-target-sub { color: var(--text-sub); font-weight: 500; font-size: 13px; }
+
+.toggle-title { font-size: 14px; font-weight: 600; color: var(--text); display: block; }
+.toggle-desc  { font-size: 12px; color: var(--text-sub); }
+
+.form-group.disabled { opacity: .45; pointer-events: none; }
+
+/* ============================================================
+   ADMIN: Entity list (teams · members)
+   ============================================================ */
+.entity-list { display: flex; flex-direction: column; gap: 10px; }
+.entity-item {
+  display: flex; align-items: center; gap: 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.entity-item.inactive { opacity: .55; }
+.entity-avatar {
+  width: 42px; height: 42px; flex: none;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; font-weight: 800; color: #fff;
+}
+.entity-avatar.team   { background: var(--room1); }
+.entity-avatar.member { background: var(--room2); }
+.entity-meta { flex: 1; min-width: 0; }
+.entity-meta-top { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.entity-name { font-size: 16px; font-weight: 700; color: var(--text); }
+.entity-meta-bottom {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  margin-top: 4px;
+  font-size: 12px; color: var(--text-sub);
+}
+
+.part-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.part-tag {
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px; border-radius: 6px;
+  background: var(--room2-light); color: var(--room2);
+}
+.part-tag.empty { background: var(--bg); color: var(--text-light); font-weight: 500; }
+
+.fee-badge {
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px; border-radius: 6px;
+  background: var(--primary-light); color: var(--primary-dark);
+}
+.fee-badge.exempt  { background: var(--neutral-light); color: var(--text-sub); }
+.fee-badge.default { background: var(--bg); color: var(--text-sub); }
+
+.part-checks { display: flex; gap: 8px; flex-wrap: wrap; }
+.part-check {
+  position: relative;
+  padding: 9px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px; font-weight: 600; color: var(--text-sub);
+  cursor: pointer; user-select: none;
+  transition: all .15s;
+}
+.part-check input { position: absolute; opacity: 0; pointer-events: none; }
+.part-check.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+}
+
+/* ============================================================
+   ADMIN: Dues (월회비)
+   ============================================================ */
+.dues-progress { margin: 4px 0 16px; }
+.dues-progress-track {
+  height: 10px; border-radius: 5px;
+  background: var(--border); overflow: hidden;
+}
+.dues-progress-fill {
+  height: 100%; border-radius: 5px;
+  background: var(--room1);
+  transition: width .35s cubic-bezier(.2,.8,.3,1);
+}
+/* 계열 색은 화면마다 같아야 한다 — 차트 범례와 맞춘다 */
+.dues-progress-fill.team { background: var(--room2); }
+.dues-progress-text {
+  margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+
+.dues-list { display: flex; flex-direction: column; gap: 8px; }
+
+/* 팀 납부 / 멤버 납부를 갈라 보여주는 소제목 */
+.dues-section { margin-top: 26px; }
+.dues-section-head {
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+  font-size: 13px; font-weight: 800; color: var(--text);
+  margin-bottom: 8px;
+}
+.dues-section-head span { font-weight: 600; color: var(--text-light); }
+/* 한 사람당 높이를 줄인다. 상태는 왼쪽 색선이 이미 말해주므로
+   칩은 작게, 채도는 낮게. 강한 색은 목표 상태(납부)에만. */
+.dues-row {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+}
+.dues-row.status-paid    { border-left-color: var(--success); }
+.dues-row.status-unpaid  { border-left-color: var(--danger); }
+.dues-row.status-pending { border-left-color: var(--warning); }
+.dues-row.status-exempt  { border-left-color: var(--text-light); opacity: .7; }
+.dues-member { flex: 1; min-width: 140px; }
+.dues-name { font-size: 14px; font-weight: 700; color: var(--text); }
+.dues-sub  { font-size: 11px; color: var(--text-sub); margin-top: 1px; }
+.dues-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.dues-chip {
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  font-size: 11px; font-weight: 700; color: var(--text-light);
+  cursor: pointer; transition: all .15s;
+}
+.dues-chip:hover { border-color: var(--border-strong); color: var(--text-sub); }
+/* 납부만 채운다 — 목표 상태라서. 나머지는 연한 배경 + 색 글자. */
+.dues-chip.paid.active    { background: var(--success); border-color: var(--success); color: #fff; }
+.dues-chip.unpaid.active  { background: #FDECEC; border-color: #F6C6C7; color: #B4232A; }
+.dues-chip.pending.active { background: #FEF3E0; border-color: #F3D9A8; color: #96590A; }
+.dues-chip.exempt.active  { background: var(--bg); border-color: var(--border-strong); color: var(--text-sub); }
+
+/* ============================================================
+   ADMIN: Tickets — list
+   ============================================================ */
+.ticket-cards {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+}
+.ticket-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: transform .15s, box-shadow .15s;
+}
+.ticket-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.ticket-thumb {
+  aspect-ratio: 3 / 4;
+  background: #1F2230 center/cover no-repeat;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 40px;
+}
+.ticket-card-body { padding: 12px 14px; }
+.ticket-card-title { font-size: 15px; font-weight: 700; color: var(--text); }
+.ticket-card-sub {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 6px; font-size: 12px; color: var(--text-sub);
+}
+.ticket-pub { font-weight: 700; padding: 2px 7px; border-radius: 6px; }
+.ticket-pub.published { background: #D1FAE5; color: #047857; }
+.ticket-pub.draft     { background: var(--bg); color: var(--text-light); }
+
+/* ============================================================
+   Ticket canvas — shared by the admin editor and /t/{slug}
+   x/y are percentages and font-size is cqw (% of canvas width),
+   so the same numbers render identically at any screen size.
+   ============================================================ */
+.tk-canvas {
+  container-type: inline-size;
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  background: #14161F center/cover no-repeat;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+}
+/* 드래그 배치는 에디터에서만 한다. 공개 페이지에도 touch-action 을 걸면
+   티켓 위에서 손가락을 대는 순간 페이지 스크롤이 죽는다. */
+.tk-canvas.editing { touch-action: none; }
+.tk-canvas.no-bg {
+  background-image:
+    linear-gradient(135deg, #2A2E45 0%, #14161F 60%, #1B2233 100%);
+}
+.tk-el {
+  position: absolute;
+  max-width: 92%;
+  white-space: pre-wrap;
+  line-height: 1.25;
+  letter-spacing: -.01em;
+}
+.tk-el.editable { cursor: grab; }
+.tk-el.editable:active { cursor: grabbing; }
+.tk-el.selected {
+  outline: 2px dashed rgba(255,255,255,.85);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* ============================================================
+   ADMIN: Ticket editor
+   ============================================================ */
+.tk-topbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
+.tk-back { flex: none; width: auto; padding: 0 14px; }
+.tk-title-input { flex: 1; min-width: 0; }
+.tk-topbar .btn-primary { flex: none; }
+
+.tk-toolbar {
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.tk-toolbar .btn-secondary { flex: none; width: auto; padding: 0 14px; height: 38px; }
+.tk-toolbar-label { font-size: 12px; font-weight: 700; color: var(--text-sub); }
+.tk-aspect { width: auto; min-width: 92px; height: 38px; padding: 0 34px 0 12px; }
+
+.tk-editor { display: grid; gap: 16px; grid-template-columns: 1fr; margin-top: 6px; }
+.tk-stage { min-width: 0; }
+.tk-hint { margin-top: 10px; font-size: 12px; color: var(--text-sub); text-align: center; }
+.tk-side { display: flex; flex-direction: column; gap: 14px; }
+.tk-panel-empty {
+  padding: 20px 4px; text-align: center;
+  font-size: 13px; color: var(--text-light); line-height: 1.7;
+}
+.tk-panel-row { display: flex; gap: 12px; }
+.tk-panel-row .form-group { flex: 1; }
+.tk-color input[type="color"] {
+  width: 100%; height: 46px; padding: 4px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--card); cursor: pointer;
+}
+.tk-panel-row input[type="range"] { width: 100%; accent-color: var(--primary); }
+.tk-del { width: 100%; margin-top: 12px; }
+.tk-share { display: flex; gap: 8px; margin-top: 12px; }
+.tk-share .btn-secondary { flex: none; width: auto; padding: 0 14px; }
+.tk-share.disabled { opacity: .45; pointer-events: none; }
+
+@media (min-width: 900px) {
+  .tk-editor { grid-template-columns: minmax(0, 1fr) 340px; align-items: start; }
+  .tk-stage { max-width: 460px; }
+}
+
+/* 항목이 많은 수정창은 넓게 펴서 스크롤을 없앤다.
+   좁은 화면에서는 form-grid 를 투명하게 만들어 그냥 세로로 쌓는다. */
+.form-grid { display: contents; }
+
+@media (min-width: 900px) {
+  .modal.wide { max-width: 860px; }
+  .modal.wide .modal-body { padding: 14px 20px 20px; }
+  .modal.wide .modal-header { padding-bottom: 8px; }
+  body:has(.admin-dashboard) .modal.wide { max-height: 94vh; }
+  .modal.wide .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+    align-items: start;
+  }
+}
+
+/* 메모는 한 줄로는 못 적는다 */
+.memo-box {
+  min-height: 96px; resize: vertical; line-height: 1.6;
+  padding-top: 12px; padding-bottom: 12px;
+}
+
+/* ============================================================
+   ADMIN: Mobile "더보기" menu
+   ============================================================ */
+.more-menu { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.more-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 14px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  font-size: 14px; font-weight: 600; color: var(--text);
+  cursor: pointer;
+}
+.more-item span:first-child { font-size: 20px; }
+
+/* ============================================================
+   USER: booking modal extras
+   ============================================================ */
+.time-max-hint {
+  margin: -8px 0 18px;
+  font-size: 12px; font-weight: 600;
+  color: var(--text-sub); text-align: center;
+}
+.link-inline {
+  display: inline-block;
+  margin-top: 8px; padding: 0;
+  background: none; border: none;
+  font-size: 13px; font-weight: 600;
+  color: var(--primary); cursor: pointer;
+}
+.link-inline:active { opacity: .6; }
+
+.fee-badge.monthly { background: var(--warning-light); color: var(--warning-ink); }
+
+.tk-slug-row { display: flex; align-items: center; gap: 6px; }
+.tk-slug-prefix {
+  font-size: 14px; font-weight: 700; color: var(--text-sub);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+.tk-slug-row .form-input { flex: 1; min-width: 0; }
+.tk-slug-hint { margin-top: 6px; font-size: 12px; color: var(--text-light); line-height: 1.5; }
+
+/* ============================================================
+   ADMIN: 팀 상세 · 도어즈 배지
+   ============================================================ */
+.doors-badge {
+  font-size: 11px; font-weight: 800;
+  padding: 3px 8px; border-radius: 6px;
+  background: #111827; color: #fff;
+  letter-spacing: .02em;
+}
+.fee-badge.dues { background: var(--info-light); color: var(--info-ink); }
+
+.team-detail-head {
+  display: flex; gap: 10px; flex-wrap: wrap; align-items: center;
+  font-size: 12px; color: var(--text-sub);
+  padding-bottom: 12px; border-bottom: 1px solid var(--border);
+}
+.team-detail-memo {
+  margin-top: 12px; padding: 12px 14px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  font-size: 13px; color: var(--text-sub); line-height: 1.6;
+}
+
+.team-month-nav {
+  display: flex; align-items: center; justify-content: center; gap: 14px;
+  margin: 16px 0 12px;
+}
+.team-month-label { font-size: 16px; font-weight: 700; color: var(--text); }
+
+.team-dues-summary {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 14px; margin-bottom: 12px;
+  border-radius: var(--radius-sm);
+  background: #FEF2F2; color: #B91C1C;
+  font-size: 14px; font-weight: 700;
+}
+.team-dues-summary.done { background: #ECFDF5; color: #047857; }
+.team-dues-amount { font-weight: 800; }
+
+.dues-row.status-covered { border-left-color: var(--room2); opacity: .8; }
+.dues-team {
+  margin-left: 6px;
+  font-size: 11px; font-weight: 600;
+  color: var(--text-light);
+}
+
+.prepaid-note {
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 16px;
+  margin-bottom: 20px;
+  background: var(--room2-light);
+  border-radius: var(--radius);
+  color: var(--room2);
+}
+.prepaid-note b { font-size: 15px; font-weight: 800; }
+.prepaid-note span { font-size: 13px; line-height: 1.6; opacity: .85; }
+
+.team-add-member {
+  margin-top: 16px; padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.team-add-title {
+  font-size: 12px; font-weight: 800; color: var(--text-light);
+  letter-spacing: .06em; text-transform: uppercase;
+  margin-bottom: 10px;
+}
+.team-add-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.team-add-row .form-select,
+.team-add-row .form-input { flex: 1; min-width: 120px; }
+.team-add-row .btn-primary { flex: none; width: auto; padding: 0 18px; }
+.team-add-empty { font-size: 13px; color: var(--text-light); }
+
+.part-other { margin-top: 8px; }
+.part-tag.custom { background: var(--warning-light); color: #92400E; }
+
+
+/* ============================================================
+   공개 티켓 페이지 — /t/{slug} 와 관리자 미리보기가 함께 쓴다
+   ============================================================ */
+/* 기본색. 배경 이미지에서 뽑은 색을 ticket.js / tickets.js 가
+   이 요소의 인라인 스타일로 덮어쓴다.
+   :root 에 같이 선언하면 안 된다 — 여기 선언이 상속값을 이겨서 덮어쓰기가 죽는다. */
+.tkp-page {
+  --tkp-accent: 124 111 247;
+  --tkp-bg: 26 22 54;          /* 진한 색. 거의 검정으로 깔면 칙칙해진다 */
+  --tkp-bg2: 16 14 34;
+  --tkp-ink: 255 255 255;      /* 본문 글자 — 밝은 포스터면 어두운 색으로 뒤집힌다 */
+}
+
+/* flex + align-items:center 로 가운데 정렬하면 내용이 화면보다 길 때
+   위쪽이 잘리고 스크롤로 닿지 못한다. block 레이아웃 + margin auto 로 처리. */
+.tkp-page {
+  /* 뽑은 두 색을 겹쳐 깔아 한 톤으로 죽지 않게 한다 (애플 뮤직의 메시 느낌) */
+  background:
+  radial-gradient(90% 55% at 15% 0%,
+    rgb(var(--tkp-accent) / .38) 0%, transparent 62%),
+  radial-gradient(85% 60% at 88% 22%,
+    rgb(var(--tkp-bg2) / .95) 0%, transparent 66%),
+  radial-gradient(120% 90% at 50% 100%,
+    rgb(var(--tkp-bg2) / .7) 0%, transparent 70%),
+  rgb(var(--tkp-bg));
+  background-attachment: scroll;
+  min-height: 100vh;
+  padding: 28px 16px calc(40px + env(safe-area-inset-bottom));
+  transition: background .5s ease;
+  }
+
+  .tkp-wrap { width: 100%; max-width: 420px; margin: 0 auto; }
+
+  .tkp-actions { display: flex; gap: 10px; margin-top: 14px; }
+
+  /* 애플 스타일: 테두리 없이 반투명 머티리얼. 글로우도 없다. */
+  .tkp-btn {
+  flex: 1;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  height: 50px; padding: 0 16px;
+  border-radius: 14px;
+  border: 0;
+  background: rgb(var(--tkp-accent) / .20);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  backdrop-filter: blur(20px) saturate(1.5);
+  color: rgb(var(--tkp-ink));
+  font-size: 15px; font-weight: 600;
+  letter-spacing: -.01em;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background .18s, opacity .12s, transform .12s;
+  }
+  .tkp-btn:hover  { background: rgb(var(--tkp-accent) / .28); }
+  .tkp-btn:active { opacity: .72; transform: scale(.985); }
+
+  /* 길찾기도 같은 머티리얼. 꽉 찬 색으로 칠하면 덩어리처럼 튀고 칙칙해진다.
+     주 동작 표시는 채움을 조금 더 진하게 하는 정도면 충분하다. */
+  .tkp-map {
+  margin-top: 18px;
+  background: rgb(var(--tkp-accent) / .42);
+  color: rgb(var(--tkp-ink));
+  font-weight: 700;
+  box-shadow: none;
+  }
+  .tkp-map:hover { background: rgb(var(--tkp-accent) / .5); }
+  .tkp-note {
+  margin-top: 16px; text-align: center;
+  font-size: 12px; color: rgb(var(--tkp-ink) / .42); line-height: 1.7;
+  }
+  .tkp-error {
+  text-align: center; color: rgb(var(--tkp-ink) / .72);
+  font-size: 15px; line-height: 1.9; padding: 72px 0;
+  }
+  .tkp-page .tk-canvas {
+  box-shadow: 0 18px 44px rgb(0 0 0 / .34), 0 0 0 1px rgb(255 255 255 / .10);
+  }
+  /* 밝은 포스터에선 그림자를 옅게 — 흰 바탕에 검은 그림자는 때가 탄 것처럼 보인다 */
+  .tkp-page.light .tk-canvas {
+  box-shadow: 0 12px 32px rgb(0 0 0 / .12), 0 0 0 1px rgb(0 0 0 / .06);
+  }
+  .tkp-page.light .tkp-btn   { background: rgb(var(--tkp-accent) / .16); }
+  .tkp-page.light .tkp-map   { background: rgb(var(--tkp-accent) / .34); }
+
+  @media (prefers-reduced-motion: reduce) {
+  .tkp-page, .tkp-btn { transition: none; }
+  }
+
+/* 관리자 에디터의 폰 미리보기 */
+.tkp-preview-bar {
+  display: flex; gap: 8px; align-items: center; justify-content: center;
+  flex-wrap: wrap; margin-bottom: 14px;
+}
+.tkp-phone {
+  width: 100%; max-width: var(--tkp-phone-w, 390px);
+  margin: 0 auto;
+  height: min(680px, 70vh);
+  overflow-y: auto;
+  border: 10px solid #1B1D26;
+  border-radius: 36px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.35);
+  -webkit-overflow-scrolling: touch;
+}
+.tkp-phone .tkp-page {
+  min-height: 100%;
+  padding: 28px 16px 40px;
+  background-attachment: scroll;
+}
+.tkp-phone .tkp-btn { pointer-events: none; }
+.tkp-preview-size {
+  font-size: 12px; color: var(--text-sub); text-align: center; margin-top: 10px;
+}
+
+.tk-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tk-stat {
+  padding: 12px 8px; text-align: center;
+  background: var(--bg); border-radius: var(--radius-sm);
+}
+.tk-stat-value { font-size: 17px; font-weight: 800; color: var(--text); }
+.tk-stat-label { margin-top: 3px; font-size: 11px; color: var(--text-sub); }
+
+.tk-stat-row { cursor: pointer; align-items: flex-start; }
+.tk-stat-thumb {
+  width: 52px; flex: none; aspect-ratio: 3 / 4;
+  border-radius: 8px; font-size: 20px;
+}
+
+.entity-item.needs-check { border-left: 4px solid var(--warning); }
+
+.settings-group-label {
+  margin: 18px 0 10px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  font-size: 12px; font-weight: 800; color: var(--text-light);
+  letter-spacing: .05em;
+}
+.dashboard-card .settings-group-label:first-of-type { margin-top: 4px; padding-top: 0; border-top: none; }
+
+.field-hint { margin-top: 8px; font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.team-pick-empty { font-size: 12px; color: var(--text-light); }
+
+.booker-status {
+  margin-top: 8px; font-size: 13px; font-weight: 600;
+  color: var(--text-sub); line-height: 1.5; min-height: 18px;
+}
+.booker-status.ok   { color: var(--success); }
+.booker-status.warn { color: var(--warning); }
+
+.booker-tag {
+  margin-left: 6px; font-size: 10px; font-weight: 800;
+  padding: 2px 6px; border-radius: 5px; vertical-align: middle;
+}
+.booker-tag.member { background: var(--room2-light); color: var(--room2); }
+.booker-tag.guest  { background: var(--warning-light); color: var(--warning-ink); }
+
+/* ============================================================
+   ADMIN: 감사 로그
+   ============================================================ */
+.audit-list { display: flex; flex-direction: column; gap: 6px; }
+.audit-item {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 11px 14px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.audit-icon { font-size: 16px; line-height: 1.3; flex: none; }
+.audit-body { flex: 1; min-width: 0; }
+.audit-head { display: flex; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.audit-action { font-size: 14px; font-weight: 700; color: var(--text); }
+.audit-target { font-size: 13px; color: var(--text-sub); word-break: break-all; }
+.audit-detail { margin-top: 3px; font-size: 12px; color: var(--text-light); line-height: 1.5; }
+.audit-meta { flex: none; text-align: right; }
+.audit-time { font-size: 12px; font-weight: 700; color: var(--text-sub); white-space: nowrap; }
+.audit-user { margin-top: 2px; font-size: 11px; color: var(--text-light); }
+
+/* ============================================================
+   ADMIN: 연락망 — 한 화면에 들어오게 촘촘한 표
+   ============================================================ */
+.contact-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  font-size: 13px;
+}
+.contact-table td { padding: 7px 10px; border-bottom: 1px solid var(--border); }
+.contact-table tr:last-child td { border-bottom: none; }
+
+.ct-group td {
+  padding: 6px 10px;
+  background: var(--bg);
+  font-size: 11px; font-weight: 800; color: var(--text-sub);
+  letter-spacing: .04em;
+  position: sticky; top: 0;
+}
+.ct-group span { color: var(--text-light); font-weight: 700; }
+
+.ct-name { font-weight: 700; color: var(--text); white-space: nowrap; }
+.ct-tag {
+  margin-left: 4px; padding: 1px 4px; border-radius: 4px;
+  font-size: 9px; font-weight: 800;
+  background: var(--primary-light); color: var(--primary-dark);
+  vertical-align: middle;
+}
+.ct-part {
+  color: var(--text-sub);
+  max-width: 0; width: 40%;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ct-tel { text-align: right; white-space: nowrap; }
+.ct-tel a {
+  color: var(--primary-dark); font-weight: 700; text-decoration: none;
+  font-variant-numeric: tabular-nums;
+}
+.ct-none { color: var(--text-light); }
+
+.team-roster-label {
+  margin: 14px 0 8px;
+  font-size: 12px; font-weight: 800; color: var(--text-light);
+  letter-spacing: .05em;
+}
+
+/* --- 팀 상세 탭 (멤버 | 레퍼토리) --- */
+.team-detail-tabs { margin: 14px 0 4px; }
+
+/* --- 레퍼토리 --- */
+.song-title { cursor: pointer; }
+.song-title:hover { color: var(--primary); }
+.song-link { margin-left: 6px; text-decoration: none; font-size: 12px; }
+/* 곡을 눌렀을 때만 펼치는 상세 편집 줄 */
+.song-edit {
+  display: flex; flex-direction: column; gap: 8px;
+  margin: -4px 0 10px; padding: 12px 14px;
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.song-edit-actions { display: flex; gap: 8px; }
+.song-edit-actions button {
+  flex: 1; height: 40px; border-radius: var(--radius-sm); font-size: 13px;
+}
+.dues-sub a { color: var(--primary-dark); font-weight: 600; text-decoration: none; }
+
+/* ============================================================
+   ADMIN: 멤버 카드
+   한 사람 = 카드 한 장. 처음 카드보다 촘촘하게 세 줄로 담고,
+   넓은 화면에서는 여러 장이 나란히 들어간다.
+   ============================================================ */
+.entity-cards {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+}
+.ecard {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s;
+}
+.ecard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+.ecard.inactive { opacity: .55; }
+.ecard.needs-check { box-shadow: inset 3px 0 0 var(--warning); }
+
+.ecard-top {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 5px;
+  margin-bottom: 5px;
+}
+.ecard-name { font-size: 15px; font-weight: 700; color: var(--text); }
+.ecard-fee { margin-left: auto; flex: none; }
+
+.ecard-sub { font-size: 12.5px; font-weight: 700; color: var(--text); }
+.ecard-parts { font-weight: 500; color: var(--text-sub); }
+.ecard-parts::before { content: ' · '; color: var(--text-light); }
+
+.ecard-meta {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 2px 10px;
+  margin-top: 3px;
+  font-size: 12px; color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+}
+.ecard-meta span { white-space: nowrap; }
+/* 카드를 누르면 상세로 가므로 수정은 작은 버튼으로 따로 둔다 */
+.ecard-edit {
+  padding: 2px 9px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 11px; font-weight: 700; color: var(--text-sub);
+  cursor: pointer; transition: all .15s;
+}
+.ecard-edit:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+.ecard-memo {
+  margin-top: 7px; padding-top: 7px;
+  border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text-light); line-height: 1.5;
+}
+.ecard-memo::before { content: '📝 '; }
+
+.mt-badge {
+  padding: 1px 5px; border-radius: 4px;
+  font-size: 10px; font-weight: 800; flex: none;
+}
+.mt-badge.doors { background: #111827; color: #fff; }
+.mt-badge.check { background: var(--warning-light); color: var(--warning-ink); }
+.mt-badge.off   { background: var(--bg); color: var(--text-light); }
+/* 다른 밴드에도 속한 사람 표시 (팀 상세 명단) */
+.mt-badge.team  { background: var(--primary-light); color: var(--primary); }
+/* 도어즈 소속이 아닌 외부 밴드 */
+.mt-badge.out   { background: #FEF3C7; color: #92400E; }
+/* 멤버 등급 — 운영진/모임장. 회비 기본 면제라 눈에 띄어야 한다. */
+.mt-badge.role  { background: #E0F2FE; color: #075985; }
+.mt-badge.role.lead { background: #FCE7F3; color: #9D174D; }
+
+/* 예약 목록의 종류 꼬리표 (대관·정모) */
+.kind-tag {
+  margin-left: 6px; padding: 1px 6px; border-radius: 4px;
+  font-size: 10px; font-weight: 800; vertical-align: middle;
+}
+.kind-tag.rental { background: #FEF3C7; color: #92400E; }
+.kind-tag.meetup { background: #E2E8F0; color: #334155; }
+.kind-tag.openjam { background: #EDE9FE; color: #5B21B6; }
+
+/* 목록 화면 위의 동작 줄 (예약 추가 등) */
+.page-head {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.btn-page-action { width: auto; padding: 0 18px; height: 40px; font-size: 13px; }
+.page-head-hint { font-size: 12.5px; color: var(--text-light); }
+
+/* 예약 목록의 수정 버튼 — 삭제(🗑) 옆이라 눈에 덜 띄어야 한다 */
+.btn-edit-res {
+  padding: 5px 11px; border-radius: var(--radius-pill);
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  cursor: pointer; transition: all .15s; white-space: nowrap;
+}
+.btn-edit-res:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+
+/* 팀 상세 — 읽기 전용 1인 회비 */
+.team-fee-note {
+  margin-top: 12px; padding: 10px 12px;
+  background: var(--bg); border-radius: var(--radius-sm);
+}
+.team-fee-note.own { background: var(--info-light); }
+.team-fee-line {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-size: 13px; color: var(--text-sub);
+}
+.team-fee-line b { font-size: 15px; color: var(--text); font-variant-numeric: tabular-nums; }
+.team-fee-note.own .team-fee-line b { color: var(--info-ink); }
+.team-fee-src { font-size: 11px; font-weight: 700; color: var(--text-light); }
+.team-fee-note.own .team-fee-src { color: var(--info-ink); }
+.team-fee-hint { margin-top: 6px; font-size: 11px; color: var(--text-sub); line-height: 1.6; }
+
+/* ============================================================
+   ADMIN: 입금 이력 (멤버 상세 · 팀 상세 공용)
+   ============================================================ */
+.dues-hist {
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.dues-hist-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  font-size: 12px; font-weight: 700; color: var(--text-sub);
+  margin-bottom: 8px;
+}
+.dues-hist-head span { font-weight: 600; color: var(--text-light); }
+.dues-hist-rows { max-height: 190px; overflow-y: auto; }
+.dues-hist-row {
+  display: grid;
+  grid-template-columns: 76px 52px 1fr 40px;
+  align-items: center; gap: 8px;
+  padding: 7px 2px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px; font-variant-numeric: tabular-nums;
+}
+.dues-hist-row:last-child { border-bottom: 0; }
+.dh-ym   { font-weight: 700; color: var(--text); }
+/* 소속이 여럿이면 같은 달이 팀 수만큼 나온다 — 어느 팀 몫인지 밑줄로 붙인다. */
+.dh-team {
+  display: block; font-size: 10.5px; font-weight: 600; color: var(--text-light);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.dh-amt  { text-align: right; color: var(--text); font-weight: 600; }
+.dh-date { text-align: right; color: var(--text-light); font-size: 11px; }
+.dh-status {
+  padding: 1px 0; border-radius: 4px; text-align: center;
+  font-size: 11px; font-weight: 700;
+}
+.dh-status.paid    { background: #E3F5EC; color: #0A7A55; }
+.dh-status.unpaid  { background: #FDECEC; color: #B4232A; }
+.dh-status.pending { background: #FEF3E0; color: #96590A; }
+.dh-status.exempt  { background: var(--neutral-light); color: var(--text-sub); }
+.dh-memo {
+  padding: 0 2px 7px; font-size: 11px; color: var(--text-light);
+  border-bottom: 1px solid var(--border);
+}
+.dues-hist-empty {
+  padding: 14px; text-align: center;
+  font-size: 12px; color: var(--text-light);
+  background: var(--bg); border-radius: var(--radius-sm);
+}
+
+
+/* ============================================================
+   GUIDE PAGE (/guide) — 화면으로도 보고 A4 로도 뽑는다.
+   앱은 480px 한 줄짜리지만 안내문은 읽는 글이라 더 넓게 간다.
+   ============================================================ */
+.guide-body { background: #ECECF4; }
+
+.guide-topbar {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; padding: 10px 16px;
+  background: rgba(255,255,255,.92);
+  backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border);
+}
+.guide-back {
+  font-size: 14px; font-weight: 700; color: var(--text-sub); text-decoration: none;
+}
+.guide-back:hover { color: var(--primary); }
+.guide-print {
+  padding: 8px 16px; border-radius: var(--radius-pill);
+  border: 1px solid var(--primary); background: var(--primary); color: #fff;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+}
+.guide-print:hover { filter: brightness(1.06); }
+
+.guide {
+  max-width: 720px; margin: 0 auto; padding: 28px 22px 60px;
+  background: var(--card); min-height: 100vh;
+  box-shadow: 0 8px 40px rgba(0,0,0,.08);
+}
+
+.guide-head { text-align: center; padding-bottom: 22px; border-bottom: 2px solid var(--border); }
+.guide-logo { font-size: 15px; font-weight: 800; color: var(--primary); letter-spacing: -.3px; }
+.guide-title { font-size: 26px; font-weight: 800; color: var(--text); margin-top: 6px; letter-spacing: -.6px; }
+.guide-sub { font-size: 14px; color: var(--text-sub); margin-top: 6px; }
+
+.guide h2 {
+  font-size: 16px; font-weight: 800; color: var(--text);
+  margin: 26px 0 10px; letter-spacing: -.3px;
+}
+.guide p { font-size: 14px; line-height: 1.7; color: var(--text); margin: 6px 0; }
+
+/* --- 공간·요금 카드 --- */
+.guide-room-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.guide-room { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
+.guide-room.r1 { border-left: 4px solid var(--room1); }
+.guide-room.r2 { border-left: 4px solid var(--room2); }
+.guide-room-name  { font-size: 15px; font-weight: 800; color: var(--text); }
+.guide-room-desc  { font-size: 12.5px; color: var(--text-sub); margin-top: 3px; }
+.guide-room-price { font-size: 14px; font-weight: 800; color: var(--primary); margin-top: 8px; }
+.guide-room-mode  { font-size: 12px; color: var(--text-light); margin-top: 4px; line-height: 1.5; }
+
+/* --- 번호 붙은 단계 --- */
+.guide-steps { list-style: none; counter-reset: step; margin-top: 8px; }
+.guide-step {
+  counter-increment: step;
+  position: relative; padding: 18px 0 18px 44px;
+  border-bottom: 1px solid var(--border);
+  break-inside: avoid; page-break-inside: avoid;
+}
+.guide-step:last-child { border-bottom: 0; }
+.guide-step::before {
+  content: counter(step);
+  position: absolute; left: 0; top: 20px;
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--primary); color: #fff;
+  font-size: 14px; font-weight: 800;
+  display: flex; align-items: center; justify-content: center;
+}
+.guide-step h2 { margin: 0 0 6px; font-size: 17px; }
+
+.guide-list { margin: 8px 0 0 18px; }
+.guide-list li { font-size: 13.5px; line-height: 1.75; color: var(--text); margin-bottom: 4px; }
+
+/* --- 시간표 색 설명 --- */
+.guide-legend { list-style: none; margin: 10px 0 0; }
+.guide-legend li {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13.5px; color: var(--text); margin-bottom: 6px;
+}
+.lg-chip { width: 30px; height: 18px; border-radius: 5px; flex: none; }
+.lg-confirmed { background: linear-gradient(135deg, #7C6FF7 0%, #A89DF8 100%); }
+.lg-pending {
+  background: linear-gradient(135deg, #7C6FF7 0%, #A89DF8 100%);
+  background-image: repeating-linear-gradient(45deg, transparent, transparent 4px,
+                    rgba(255,255,255,.55) 4px, rgba(255,255,255,.55) 8px),
+                    linear-gradient(135deg, #7C6FF7 0%, #A89DF8 100%);
+  opacity: .7;
+}
+.lg-blocked { background: repeating-linear-gradient(45deg, #D8D8E0, #D8D8E0 4px, #EDEDF2 4px, #EDEDF2 8px); }
+
+.guide-callout {
+  background: var(--primary-light); border-radius: var(--radius-sm);
+  padding: 10px 14px; font-size: 13.5px; margin-top: 10px;
+}
+
+/* --- 화면 캡처 --- */
+.guide-shot { margin: 12px 0 2px; }
+.guide-shot img {
+  display: block; width: 100%; max-width: 320px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  box-shadow: 0 2px 12px rgba(0,0,0,.10);
+}
+.guide-shot figcaption { font-size: 12px; color: var(--text-light); margin-top: 6px; }
+
+/* --- 계좌 --- */
+.guide-deposit { break-inside: avoid; page-break-inside: avoid; }
+.guide-account {
+  border: 2px dashed var(--primary); border-radius: var(--radius-sm);
+  padding: 14px 18px; text-align: center;
+}
+.guide-account-num {
+  font-size: 19px; font-weight: 800; color: var(--text);
+  letter-spacing: .3px; font-variant-numeric: tabular-nums;
+}
+.guide-account-holder { font-size: 13.5px; color: var(--text-sub); margin-top: 4px; }
+.guide-account-note { font-size: 13px; color: var(--text-sub); margin-top: 8px; }
+
+.guide-foot {
+  margin-top: 28px; padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: 13px; color: var(--text-sub); text-align: center; line-height: 1.7;
+}
+
+/* --- 인쇄 --- */
+@media print {
+  .no-print { display: none !important; }
+  /* 배경색을 살려야 단계 번호와 시간표 설명이 흰 동그라미로 안 나온다 */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  .guide-body { background: #fff; }
+  .guide {
+    max-width: none; margin: 0; padding: 0; min-height: 0;
+    box-shadow: none; background: #fff;
+  }
+  .guide-title { font-size: 22px; }
+  .guide h2 { margin-top: 14px; }
+  .guide-step { padding: 10px 0 10px 40px; }
+  .guide-step::before { top: 12px; }
+  .guide-shot img { max-width: 230px; }
+  @page { size: A4; margin: 14mm; }
+}
+
+
+/* ============================================================
+   OPEN JAM (/openjam) — 회원이 곡을 발제하고 자리를 잡는 화면
+   ============================================================ */
+.jam-main { padding-bottom: 40px; }
+.jam-intro {
+  margin: 14px 16px 6px; padding: 14px 16px;
+  background: var(--primary-light); border-radius: var(--radius-sm);
+  font-size: 13px; line-height: 1.7; color: var(--text);
+}
+
+.jam-empty {
+  margin: 40px 16px; text-align: center;
+  font-size: 14px; line-height: 1.7; color: var(--text-light);
+}
+.jam-empty-icon { font-size: 34px; display: block; margin-bottom: 10px; }
+
+.jam-card {
+  margin: 12px 16px; padding: 16px;
+  background: var(--card); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-sm);
+}
+.jam-card.closed { opacity: .82; }
+
+.jam-card-top { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.jam-status {
+  padding: 2px 9px; border-radius: var(--radius-pill);
+  font-size: 11px; font-weight: 800;
+}
+.jam-status.recruiting { background: var(--primary-light); color: var(--primary); }
+.jam-status.closed     { background: var(--bg); color: var(--text-sub); }
+.jam-status.mine       { background: #111827; color: #fff; }
+/* 마감만 하고 오래 방치된 잼 — 자동으로 닫지 않고 표시만 한다 */
+.jam-status.stale      { background: var(--warning-light); color: var(--warning-ink); }
+
+.jam-title { font-size: 16px; font-weight: 800; color: var(--text); letter-spacing: -.3px; }
+.jam-meta  { margin-top: 3px; font-size: 12.5px; color: var(--text-sub); }
+.jam-memo {
+  margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border);
+  font-size: 13px; line-height: 1.6; color: var(--text-sub);
+}
+
+.jam-slots { margin-top: 12px; display: flex; flex-direction: column; gap: 6px; }
+.jam-slot {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: var(--radius-sm);
+  background: var(--bg); border: 1px solid var(--border);
+  font-size: 13px;
+}
+/* 찬 자리와 빈 자리가 한눈에 갈라져야 "뭐가 남았나"를 세지 않는다 */
+.jam-slot.taken { background: var(--card); border-style: dashed; }
+.jam-slot.mine  { border-color: var(--primary); background: var(--primary-light); }
+.jam-slot-part { font-weight: 800; color: var(--text); min-width: 62px; }
+.jam-slot-who  { flex: 1; color: var(--text-sub); }
+.jam-slot.taken .jam-slot-who { color: var(--text); font-weight: 600; }
+.jam-slot-btn {
+  flex: none; padding: 5px 12px; border-radius: var(--radius-pill);
+  border: 1px solid var(--primary); background: var(--primary); color: #fff;
+  font-size: 12px; font-weight: 700; cursor: pointer;
+}
+.jam-slot-btn.cancel { background: var(--card); color: var(--text-sub); border-color: var(--border); }
+
+.jam-owner-actions { display: flex; gap: 8px; margin-top: 12px; }
+.jam-owner-btn {
+  flex: 1; height: 40px; border-radius: var(--radius-sm);
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 13px; font-weight: 700; color: var(--text); cursor: pointer;
+}
+.jam-owner-btn.danger { color: var(--danger); border-color: var(--danger); }
+.jam-owner-btn.done   { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+.jam-hint { margin-top: 8px; font-size: 12px; color: var(--text-light); line-height: 1.6; }
+.jam-hint.warn { color: var(--warning-ink); }
+
+.jam-claim-target {
+  padding: 12px 14px; margin-bottom: 16px;
+  background: var(--bg); border-radius: var(--radius-sm);
+  font-size: 14px; line-height: 1.6;
+}
+.jam-count-row {
+  display: flex; align-items: center; gap: 8px; margin-top: 8px;
+  font-size: 13px; font-weight: 600;
+}
+.jam-count-row span:first-child { min-width: 68px; }
+.jam-count-row .form-input { width: 80px; flex: none; }
+.jam-count-unit { color: var(--text-sub); font-weight: 500; }
+
+/* 관리자 오픈 잼 목록의 자리 표시 */
+.jam-adm-slots { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.jam-adm-slot {
+  padding: 2px 8px; border-radius: var(--radius-pill);
+  border: 1px dashed var(--border); background: var(--bg);
+  font-size: 11.5px; font-weight: 600; color: var(--text-light);
+}
+.jam-adm-slot.taken {
+  border-style: solid; border-color: var(--primary);
+  background: var(--primary-light); color: var(--primary);
+}
+.jam-adm-actions { display: flex; gap: 6px; }
+
+
+/* ============================================================
+   ADMIN: 정모 기록
+   ============================================================ */
+.meetup-todo {
+  margin-bottom: 16px; padding: 14px 16px;
+  background: var(--warning-light); border-radius: var(--radius);
+}
+.meetup-todo-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; padding: 6px 0;
+  font-size: 13px; color: var(--text);
+}
+
+/* 목록 카드의 사진 미리보기 */
+.meetup-thumbs { display: flex; gap: 5px; margin-top: 8px; flex-wrap: wrap; }
+.meetup-thumbs img {
+  width: 44px; height: 44px; object-fit: cover;
+  border-radius: 6px; border: 1px solid var(--border);
+}
+
+/* 참석 명단 — 이름 · 구분 · 금액 · 빼기 */
+.meetup-att-list, .meetup-song-list { display: flex; flex-direction: column; gap: 6px; }
+.meetup-att-row {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg);
+}
+/* 이름은 한 줄을 통째로 쓴다. 좁은 칼럼에서 select·금액과 나란히 두면
+   폭이 80px 밖에 안 남아 긴 이름이 두 줄로 감겼다. */
+.meetup-att-name { flex: 1 1 100%; font-size: 13px; font-weight: 700; }
+.meetup-att-pay  { flex: 1 1 118px; }
+.meetup-att-fee  { flex: 1 1 88px; }
+.meetup-att-fee:disabled { opacity: .4; }
+
+/* 곡 — 제목 한 줄, 그 아래 포지션 줄이 쌓인다. */
+.meetup-song-row {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 10px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--bg);
+}
+.meetup-song-title { flex: 1 1 140px; }
+.meetup-song-parts { flex: 1 1 100%; display: flex; flex-direction: column; gap: 6px; }
+.meetup-song-parts:empty { display: none; }
+.meetup-part-row { display: flex; gap: 6px; align-items: center; }
+.meetup-part-pos { flex: 0 0 118px; }
+.meetup-part-who { flex: 1 1 auto; }
+.meetup-part-row .jam-slot-btn { flex: none; padding: 0 9px; }
+.meetup-part-add {
+  flex: 1 1 100%; height: 32px; font-size: 12.5px; font-weight: 600;
+  color: var(--primary); background: none; border: 1px dashed var(--border);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.meetup-part-add:hover { border-color: var(--primary); background: var(--bg); }
+
+/* 좁은 칸에 쓰는 작은 입력. **높이를 줄일 땐 패딩도 같이 줄여야 한다** —
+   기본 .form-input 은 상하 패딩만 26px 이라 높이만 낮추면 글자가 잘린다. */
+.meetup-att-row .form-input,
+.meetup-att-row .form-select,
+.meetup-song-row .form-input,
+.meetup-song-row .form-select {
+  height: 38px; padding-top: 8px; padding-bottom: 8px;
+  font-size: 13px; min-width: 0;
+}
+.meetup-att-row .form-select,
+.meetup-song-row .form-select { padding-right: 30px; background-position: right 10px center; }
+
+.meetup-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.meetup-photo { position: relative; }
+.meetup-photo img {
+  width: 76px; height: 76px; object-fit: cover;
+  border-radius: var(--radius-sm); border: 1px solid var(--border);
+}
+.meetup-photo-x {
+  position: absolute; top: -6px; right: -6px;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--card);
+  font-size: 11px; cursor: pointer; line-height: 1;
 }

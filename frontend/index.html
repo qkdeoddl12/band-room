@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Band Room — 합주실 예약</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/static/style.css">
@@ -17,14 +18,16 @@
       <span class="logo-text">Band Room</span>
     </div>
     <div class="header-actions">
+      <a class="header-link" href="/openjam" aria-label="오픈 잼">🎸 오픈 잼</a>
+      <a class="header-link" href="/guide" aria-label="이용안내">📖 이용안내</a>
       <button class="header-link" onclick="openInquiryModal()" aria-label="문의/신고">📩 문의·신고</button>
-      <a href="/admin" class="admin-link">관리자</a>
     </div>
   </header>
 
   <main class="main">
 
-    <!-- Date Navigation -->
+    <!-- Date Navigation + Room Tabs — 스크롤해도 항상 붙어 있어야 한다 -->
+    <div class="page-sticky">
     <div class="date-nav">
       <div class="date-top">
         <button class="btn-nav" id="prevDay" aria-label="이전 날">&#8249;</button>
@@ -37,14 +40,8 @@
       <div class="week-strip" id="weekStrip"></div>
     </div>
 
-    <!-- Room Tabs -->
-    <div class="room-tabs">
-      <button class="room-tab active" id="tab-1" onclick="switchRoom(1)">
-        <span class="tab-dot"></span>합주실
-      </button>
-      <button class="room-tab" id="tab-2" onclick="switchRoom(2)">
-        <span class="tab-dot"></span>개인연습실
-      </button>
+    <!-- Room Tabs (filled from /api/rooms) -->
+    <div class="room-tabs" id="roomTabs"></div>
     </div>
 
     <!-- Timeline -->
@@ -102,18 +99,42 @@
             <span class="time-summary-icon">🕐</span>
             <span class="time-summary-text" id="timeSummaryText">—</span>
           </div>
+          <div class="time-max-hint" id="timeMaxHint"></div>
 
-          <!-- Team Name -->
-          <div class="form-group">
-            <label class="form-label" for="teamName">
-              팀명 / 예약자 <span style="color:var(--danger)">*</span>
+          <!-- Team (합주실 등 팀 단위 공간) -->
+          <div class="form-group" id="teamField">
+            <label class="form-label" for="teamSelect">
+              예약 팀 <span style="color:var(--danger)">*</span>
             </label>
-            <input type="text" class="form-input" id="teamName"
-              placeholder="팀명 또는 예약자 이름" required>
+            <select class="form-select" id="teamSelect">
+              <option value="">팀을 선택하세요</option>
+            </select>
+            <button type="button" class="link-inline" onclick="closeModal(); openInquiryModal();">
+              팀 등록을 원하시나요? 문의하기 →
+            </button>
           </div>
 
-          <!-- Members -->
-          <div class="form-group">
+          <!-- 개인 단위 공간 (개인연습실) · 팀 없이 잡는 합주실 게스트 -->
+          <div id="personalFields" style="display:none;">
+            <div class="form-group">
+              <label class="form-label" for="bookerName">
+                이용자 이름 <span style="color:var(--danger)">*</span>
+              </label>
+              <input type="text" class="form-input" id="bookerName" maxlength="50"
+                     placeholder="이름을 입력하세요" autocomplete="off">
+              <div class="booker-status" id="bookerStatus"></div>
+            </div>
+            <div class="form-group" id="bookerPhoneField">
+              <label class="form-label" for="bookerPhone">
+                연락처 <span id="bookerPhoneReq" style="color:var(--danger)">*</span>
+              </label>
+              <input type="tel" class="form-input" id="bookerPhone" maxlength="30"
+                     placeholder="010-0000-0000">
+            </div>
+          </div>
+
+          <!-- Members (팀 예약만 — 개인연습실은 혼자 쓴다) -->
+          <div class="form-group" id="membersField">
             <label class="form-label" for="members">
               참여 멤버
               <span style="color:var(--text-light);font-weight:500;text-transform:none;letter-spacing:0">(선택)</span>
@@ -132,21 +153,26 @@
               placeholder="특이사항이 있다면 적어주세요"></textarea>
           </div>
 
+          <!-- 선불 팀(월 이용료 · 월회비)은 건별 요금이 없어 요금 박스를 통째로 감춘다 -->
+          <div class="prepaid-note" id="prepaidNote" style="display:none;"></div>
+
           <!-- Fee & Deposit Info -->
-          <div class="fee-box">
+          <div class="fee-box" id="feeBox">
             <div class="fee-row">
               <span class="fee-label">이용 요금</span>
               <span class="fee-value" id="feeAmount">—</span>
             </div>
             <div class="fee-breakdown" id="feeBreakdown">시간당 요금 안내</div>
-            <div class="fee-divider"></div>
-            <div class="fee-deposit-title">입금 계좌</div>
-            <div class="fee-deposit">
-              <div class="fee-deposit-bank">농협 <b>352-1068-1777-83</b></div>
-              <div class="fee-deposit-name">예금주: 황은희</div>
-              <button type="button" class="btn-copy-account" id="copyAccountBtn">계좌번호 복사</button>
+            <div id="feeDepositBox">
+              <div class="fee-divider"></div>
+              <div class="fee-deposit-title">입금 계좌</div>
+              <div class="fee-deposit">
+                <div class="fee-deposit-bank" id="depositBank"></div>
+                <div class="fee-deposit-name" id="depositHolder"></div>
+                <button type="button" class="btn-copy-account" id="copyAccountBtn">계좌번호 복사</button>
+              </div>
             </div>
-            <div class="fee-notice">입금 확인 후 예약이 확정됩니다.</div>
+            <div class="fee-notice" id="feeNotice">입금 확인 후 예약이 확정됩니다.</div>
           </div>
 
           <button type="submit" class="btn-submit" id="submitBtn">예약 신청</button>

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Band Room — 온라인 티켓</title>
+  <!--OG-->
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="tkp-page">
+
+  <div class="tkp-wrap">
+    <div class="tk-canvas" id="tkpCanvas"></div>
+
+    <a class="tkp-btn tkp-map" id="tkpMap" style="display:none;" target="_blank" rel="noopener noreferrer">길찾기</a>
+
+    <div class="tkp-actions" id="tkpActions" style="display:none;">
+      <button class="tkp-btn" onclick="shareTicket()">공유하기</button>
+      <button class="tkp-btn" onclick="copyLink()" id="tkpCopyBtn">링크 복사</button>
+    </div>
+
+    <div class="tkp-note" id="tkpNote"></div>
+  </div>
+
+  <script src="/static/ticket-render.js"></script>
+  <script src="/static/ticket.js"></script>
+</body>
+</html>

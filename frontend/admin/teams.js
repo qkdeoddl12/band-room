@@ -1,0 +1,633 @@
+'use strict';
+
+/* ============================================================
+   팀 관리 — 예약할 수 있는 팀 명부 + 월회비 납부 현황
+   ============================================================ */
+let allTeams = [];
+let teamSearch = '';
+let editTeamId = null;          // null = 신규 등록
+let detailTeamId = null;        // 상세 보고 있는 팀
+let detailCursor = new Date();  // 상세에서 보고 있는 달
+let detailMembers = [];         // 팀에 붙일 수 있는 후보 (활동 중인 전체 멤버)
+let detailTab = 'members';      // 팀 상세 안의 탭: members | songs
+let detailSongs = [];           // 이 팀 레퍼토리
+let openSongId = null;          // 펼쳐서 링크·메모를 고치는 중인 곡
+
+/* 곡 상태. 라벨을 여기 한 곳에만 두면 화면마다 문구가 갈리지 않는다. */
+const SONG_STATUS = {
+  done:       { label: '완곡',   cls: 'paid'    },
+  practicing: { label: '연습중', cls: 'pending' },
+  candidate:  { label: '후보',   cls: 'unpaid'  },
+};
+
+PAGE_LOADERS.teams = loadTeams;
+
+async function loadTeams() {
+  const list = document.getElementById('teamList');
+  list.innerHTML = '<div class="spinner"></div>';
+  try {
+    allTeams = await apiJson('/api/admin/teams');
+    cacheTeams(allTeams);          // 같은 응답을 캐시로도 쓴다
+  } catch (e) {
+    allTeams = [];
+    list.innerHTML = `<div class="admin-empty"><span class="admin-empty-icon">⚠️</span><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
+    return;
+  }
+  renderTeams();
+}
+
+function filterTeams() {
+  teamSearch = document.getElementById('teamSearch').value.trim().toLowerCase();
+  renderTeams();
+}
+
+/* 금액을 따로 안 정했으면 환경 설정의 기본값을 보여준다. */
+/* 이 팀의 1인 회비와 그 출처.
+   dues_fee 는 입력칸이 없어 값이 있어도 화면에서 안 보이던 값이라
+   배지와 팀 상세에서 같은 함수로 꺼내 쓴다. */
+function teamDuesFee(t) {
+  return t.dues_fee != null
+    ? { fee: t.dues_fee, own: true }
+    : { fee: settingNum('default_monthly_fee'), own: false };
+}
+
+/* 평균 나이 + 연령대별 인원. 출생년도를 아는 멤버가 없으면 아무 것도 안 그린다 —
+   '평균 0세' 는 정보가 아니라 오해다. */
+function teamAgeText(t) {
+  if (t.age_avg == null) return '';
+  const buckets = Object.entries(t.age_buckets || {})
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([decade, n]) => `${decade === '60' ? '60대+' : `${decade}대`} ${n}`);
+  return `평균 ${t.age_avg}세${buckets.length ? ` · ${buckets.join(' · ')}` : ''}`;
+}
+
+function teamBillingBadge(t) {
+  const meta = BILLING[t.billing_type] || BILLING.hourly;
+  let amount = '';
+  if (t.billing_type === 'monthly') {
+    const fee = t.monthly_fee ?? settingNum('default_team_fee');
+    if (fee) amount = ` ${fee.toLocaleString()}원`;
+  }
+  if (t.billing_type === 'dues') {
+    const { fee } = teamDuesFee(t);
+    if (fee) amount = ` 1인 ${fee.toLocaleString()}원`;
+  }
+  return `<span class="fee-badge ${meta.cls}">${meta.label}${amount}</span>`;
+}
+
+function renderTeams() {
+  const list = document.getElementById('teamList');
+  const items = allTeams.filter(t => {
+    if (!teamSearch) return true;
+    return `${t.name} ${t.leader_name || ''} ${t.phone || ''}`.toLowerCase().includes(teamSearch);
+  });
+
+  document.getElementById('teamCount').textContent =
+    `${allTeams.filter(t => t.is_active).length}팀 활성 · 전체 ${allTeams.length}팀`;
+
+  if (items.length === 0) {
+    list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">🎸</span><div class="admin-empty-text">등록된 팀이 없습니다.</div></div>';
+    return;
+  }
+
+  // 멤버 목록과 같은 카드. 카드를 누르면 상세, 오른쪽 아래 버튼은 수정.
+  list.innerHTML = '<div class="entity-cards">' + items.map(t => {
+    const contact = [
+      t.leader_name ? escHtml(t.leader_name) : '',
+      t.phone ? escHtml(formatPhone(t.phone)) : '',
+    ].filter(Boolean).join(' · ') || '담당자 미지정';
+    // 멤버 수는 과금 방식과 상관없이 늘 보여준다 — 옆에 나이 통계가 붙는데
+    // 인원이 없으면 무슨 모수인지 알 수 없다.
+    const counts = `멤버 ${t.member_count}명 · 예약 ${t.reservation_count}건`
+      + (t.done_song_count ? ` · 완곡 ${t.done_song_count}곡` : '');
+    const ages = teamAgeText(t);
+
+    return `
+      <div class="ecard${t.is_active ? '' : ' inactive'}" onclick="openTeamDetail(${t.id})">
+        <div class="ecard-top">
+          <span class="ecard-name">${escHtml(t.name)}</span>
+          ${t.is_doors ? '' : '<span class="mt-badge out">외부</span>'}
+          ${t.is_active ? '' : '<span class="mt-badge off">비활성</span>'}
+          <span class="ecard-fee">${teamBillingBadge(t)}</span>
+        </div>
+        <div class="ecard-sub">${contact}
+          <span class="ecard-parts">${escHtml(splitParts(t.parts).join(' · ') || '포지션 미지정')}</span>
+        </div>
+        <div class="ecard-meta">
+          <span>${counts}</span>
+          ${ages ? `<span>${escHtml(ages)}</span>` : ''}
+          <button class="ecard-edit" onclick="event.stopPropagation(); openTeamModal(${t.id})">수정</button>
+        </div>
+      </div>`;
+  }).join('') + '</div>';
+}
+
+/* ============================================================
+   팀 등록 / 수정
+   ============================================================ */
+function openTeamModal(teamId = null) {
+  editTeamId = teamId;
+  const t = teamId ? allTeams.find(x => x.id === teamId) : null;
+
+  document.getElementById('teamModalTitle').textContent = t ? '팀 수정' : '팀 등록';
+  document.getElementById('teamName').value       = t?.name || '';
+  document.getElementById('teamLeader').value     = t?.leader_name || '';
+  document.getElementById('teamPhone').value      = formatPhone(t?.phone);
+  document.getElementById('teamMemo').value       = t?.memo || '';
+  renderPartPicker('teamParts', 'teamPartsOther', t?.parts);
+  document.getElementById('teamDoors').checked    = t ? t.is_doors : true;
+  document.getElementById('teamActive').checked   = t ? t.is_active : true;
+
+  const billing = t?.billing_type || 'hourly';
+  document.querySelectorAll('input[name="teamBilling"]').forEach(r => {
+    r.checked = r.value === billing;
+  });
+  // 새 팀이면 환경 설정의 기본 금액을 미리 채워둔다.
+  document.getElementById('teamFee').value =
+    t ? (t.monthly_fee ?? '') : (settingNum('default_team_fee') || '');
+  syncTeamBilling();
+
+  document.getElementById('teamDeleteBtn').style.display = t ? '' : 'none';
+  document.getElementById('teamSaveBtn').textContent = t ? '변경 저장' : '팀 등록';
+  // 팀 단위 입금은 월 이용료 팀만 있다. 나머지는 멤버별로 낸다.
+  renderDuesHistory('teamHistory',
+    t && t.billing_type === 'monthly' ? `/api/admin/dues/history/team/${t.id}` : null);
+
+  openOverlay('teamOverlay');
+}
+
+function closeTeamModal() {
+  closeOverlay('teamOverlay');
+  editTeamId = null;
+}
+
+bindOverlayClose('teamOverlay', closeTeamModal);
+
+function selectedBilling() {
+  return document.querySelector('input[name="teamBilling"]:checked')?.value || 'hourly';
+}
+
+/* 고른 과금 방식에 해당하는 금액 칸만 보여준다. */
+function syncTeamBilling() {
+  const billing = selectedBilling();
+  document.getElementById('teamMonthlyFeeRow').style.display = billing === 'monthly' ? '' : 'none';
+  document.getElementById('teamDuesFeeRow').style.display    = billing === 'dues'    ? '' : 'none';
+  document.querySelectorAll('input[name="teamBilling"]').forEach(input => {
+    input.closest('.role-option').classList.toggle('active', input.checked);
+  });
+}
+
+document.querySelectorAll('input[name="teamBilling"]').forEach(input => {
+  input.addEventListener('change', syncTeamBilling);
+});
+
+document.getElementById('teamForm').addEventListener('submit', async e => {
+  e.preventDefault();
+  const billing = selectedBilling();
+  const feeRaw  = document.getElementById('teamFee').value.trim();
+
+  const body = {
+    name:         document.getElementById('teamName').value.trim(),
+    leader_name:  document.getElementById('teamLeader').value.trim(),
+    phone:        document.getElementById('teamPhone').value.trim(),
+    parts:        readPartPicker('teamParts', 'teamPartsOther'),
+    memo:         document.getElementById('teamMemo').value.trim(),
+    billing_type: billing,
+    monthly_fee:  billing === 'monthly' ? Number(feeRaw || 0)  : null,
+    dues_fee:     null,   // 팀별 회비는 쓰지 않는다 — 환경 설정 기본값 + 멤버별 금액으로 충분
+    is_doors:     document.getElementById('teamDoors').checked,
+    is_active:    document.getElementById('teamActive').checked,
+  };
+  if (!body.name) { showToast('팀 이름을 입력해주세요.', 'error'); return; }
+  if (body.monthly_fee !== null && (isNaN(body.monthly_fee) || body.monthly_fee < 0)) {
+    showToast('월 이용료는 0 이상의 숫자여야 합니다.', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('teamSaveBtn');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = '저장 중...';
+  try {
+    if (editTeamId) {
+      await apiJson(`/api/admin/teams/${editTeamId}`, { method: 'PATCH', body: JSON.stringify(body) });
+    } else {
+      await apiJson('/api/admin/teams', { method: 'POST', body: JSON.stringify(body) });
+    }
+    closeTeamModal();
+    await loadTeams();
+    showToast('저장되었습니다.', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+async function deleteCurrentTeam() {
+  if (!editTeamId) return;
+  const t = allTeams.find(x => x.id === editTeamId);
+  if (!t) return;
+  if (!confirm(`[${t.name}] 팀을 삭제하시겠습니까?`)) return;
+  try {
+    await apiJson(`/api/admin/teams/${editTeamId}`, { method: 'DELETE' });
+    closeTeamModal();
+    await loadTeams();
+    showToast('삭제되었습니다.', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+attachPhoneMask(document.getElementById('teamPhone'));
+
+/* ============================================================
+   팀 상세 — 소속 멤버 + 이번 달 납부 현황
+   ============================================================ */
+function openTeamDetail(teamId) {
+  detailTeamId = teamId;
+  detailCursor = new Date();
+  // 다른 팀을 열면 멤버부터 본다. 곡 편집창이 열린 채 남아 있으면 남의 팀 곡을 고치게 된다.
+  detailTab = 'members';
+  openSongId = null;
+  openOverlay('teamDetailOverlay');
+  renderTeamDetail();
+}
+
+function closeTeamDetail() {
+  closeOverlay('teamDetailOverlay');
+  detailTeamId = null;
+}
+
+bindOverlayClose('teamDetailOverlay', closeTeamDetail);
+
+function teamDetailPrevMonth() { detailCursor.setMonth(detailCursor.getMonth() - 1); renderTeamDetail(); }
+function teamDetailNextMonth() { detailCursor.setMonth(detailCursor.getMonth() + 1); renderTeamDetail(); }
+
+/* 월회비 팀의 1인 회비를 읽기 전용으로 보여준다.
+   팀에만 지정된 금액은 어디서도 볼 수 없던 값이라 출처를 함께 적는다. */
+function teamDuesNote(team) {
+  if (team.billing_type !== 'dues') return '';
+  const { fee, own } = teamDuesFee(team);
+  const base = settingNum('default_monthly_fee');
+  return `
+    <div class="team-fee-note${own ? ' own' : ''}">
+      <div class="team-fee-line">
+        <span>1인 회비</span>
+        <b>${fee.toLocaleString()}원</b>
+        <span class="team-fee-src">${own ? '이 팀에 지정됨' : '환경 설정 기본값'}</span>
+      </div>
+      ${own ? `<div class="team-fee-hint">
+        기본값 ${base.toLocaleString()}원 대신 이 팀에만 적용됩니다.
+        화면에서 바꿀 수 없고, 과금 방식을 다른 것으로 바꾸면 사라집니다.
+        멤버별로 다르게 받으려면 멤버 수정에서 금액을 지정하세요.
+      </div>` : ''}
+    </div>`;
+}
+
+async function renderTeamDetail() {
+  const team = allTeams.find(t => t.id === detailTeamId);
+  const body = document.getElementById('teamDetailBody');
+  if (!team) { body.innerHTML = ''; return; }
+
+  document.getElementById('teamDetailTitle').textContent = team.name;
+
+  const head = `
+    ${team.parts ? `<div class="part-tags" style="margin-bottom:10px;">${partTagsHtml(team.parts)}</div>` : ''}
+    <div class="team-detail-head">
+      ${teamBillingBadge(team)}
+      ${team.leader_name ? `<span>👤 ${escHtml(team.leader_name)}</span>` : ''}
+      ${team.phone ? `<span>📞 ${escHtml(formatPhone(team.phone))}</span>` : ''}
+      <span>📋 예약 ${team.reservation_count}건</span>
+      ${teamAgeText(team) ? `<span>🎂 ${escHtml(teamAgeText(team))}</span>` : ''}
+    </div>
+    ${teamDuesNote(team)}
+    ${team.memo ? `<div class="team-detail-memo">${escHtml(team.memo)}</div>` : ''}
+    <div class="chip-row team-detail-tabs">
+      ${Object.entries({ members: '멤버', songs: '레퍼토리' }).map(([key, label]) => `
+        <button class="chip${detailTab === key ? ' active' : ''}"
+                onclick="setTeamDetailTab('${key}')">${label}</button>
+      `).join('')}
+    </div>
+  `;
+  body.innerHTML = head + '<div class="spinner"></div>';
+
+  if (detailTab === 'songs') {
+    try {
+      detailSongs = await apiJson(`/api/admin/teams/${team.id}/songs`);
+    } catch (e) {
+      body.innerHTML = head + `<div class="admin-empty"><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
+      return;
+    }
+    body.innerHTML = head + renderSongList() + renderAddSongBox();
+    return;
+  }
+
+  const isDues = team.billing_type === 'dues';
+  const ym = ymStr(detailCursor);
+
+  let roster, dues = null;
+  try {
+    // 전체 명단 하나만 받아 이 팀 소속을 걸러 쓴다 (같은 데이터를 두 번 받지 않게)
+    [detailMembers, dues] = await Promise.all([
+      apiJson('/api/admin/members?active=true'),
+      isDues ? apiJson(`/api/admin/dues?year_month=${ym}&team_id=${team.id}`) : Promise.resolve(null),
+    ]);
+    // 대표 팀이 아니라 '이 팀에 속해 있는가' 로 고른다 (여러 밴드 가능).
+    roster = detailMembers.filter(m => (m.teams || []).some(t => t.id === team.id));
+  } catch (e) {
+    body.innerHTML = head + `<div class="admin-empty"><div class="admin-empty-text">${escHtml(e.message)}</div></div>`;
+    return;
+  }
+
+  // 월회비 팀만 달을 넘겨가며 납부를 본다.
+  const monthNav = isDues ? `
+    <div class="team-month-nav">
+      <button class="btn-nav" onclick="teamDetailPrevMonth()" aria-label="이전 달">&#8249;</button>
+      <span class="team-month-label">${detailCursor.getFullYear()}년 ${detailCursor.getMonth() + 1}월</span>
+      <button class="btn-nav" onclick="teamDetailNextMonth()" aria-label="다음 달">&#8250;</button>
+    </div>` : '';
+
+  let summary = '';
+  if (isDues && roster.length) {
+    const done = dues.unpaid_count === 0 && dues.pending_count === 0;
+    summary = `
+      <div class="team-dues-summary${done ? ' done' : ''}">
+        ${done
+          ? `✅ ${dues.rows.length}명 전원 납부 완료`
+          : `미납 ${dues.unpaid_count}명${dues.pending_count ? ` · 확인중 ${dues.pending_count}명` : ''} / 전체 ${dues.rows.length}명`}
+        <span class="team-dues-amount">${dues.total_paid.toLocaleString()} / ${dues.total_expected.toLocaleString()}원</span>
+      </div>`;
+  }
+
+  const duesByMember = {};
+  (dues?.rows || []).forEach(r => { duesByMember[r.member_id] = r; });
+
+  const rows = roster.length ? roster.map(m => {
+    const d = duesByMember[m.id];
+    const chips = isDues && d && !d.covered_by_team ? `
+      <div class="dues-chips">
+        ${Object.entries(DUES_STATUS).map(([key, meta]) => `
+          <button class="dues-chip ${meta.cls}${d.status === key ? ' active' : ''}"
+                  onclick="setRosterDuesStatus(${m.id}, '${key}')">${meta.label}</button>
+        `).join('')}
+      </div>` : '';
+    // 다른 밴드도 하는 사람은 어디에 또 속했는지 같이 보여준다.
+    const others = (m.teams || []).filter(t => t.id !== team.id);
+    return `
+      <div class="dues-row${isDues && d ? ` status-${d.covered_by_team ? 'covered' : d.status}` : ''}">
+        <div class="dues-member">
+          <div class="dues-name">
+            ${escHtml(m.name)}
+            ${m.is_doors ? '<span class="doors-badge">도어즈</span>' : ''}
+            ${others.map(t => `<span class="mt-badge team">${escHtml(t.name)}</span>`).join('')}
+            ${isDues && !m.is_doors ? '<span class="mt-badge off">회비 대상 아님</span>' : ''}
+          </div>
+          <div class="dues-sub">
+            ${m.parts ? escHtml(splitParts(m.parts).join(' · ')) : '포지션 미지정'}
+            ${m.phone ? ` · <a href="tel:${escHtml(String(m.phone).replace(/[^\d+]/g, ''))}">${escHtml(formatPhone(m.phone))}</a>` : ' · 연락처 없음'}
+          </div>
+        </div>
+        ${chips || `<button class="btn-edit-user" onclick="editTeamMember(${m.id})">수정</button>`}
+      </div>`;
+  }).join('') : `<div class="admin-empty"><span class="admin-empty-icon">🥁</span><div class="admin-empty-text">등록된 멤버가 없습니다.<br>아래에서 추가할 수 있습니다.</div></div>`;
+
+  body.innerHTML = head + monthNav + summary +
+    `<div class="team-roster-label">멤버 ${roster.length}명</div>` +
+    `<div class="dues-list">${rows}</div>` +
+    renderAddMemberBox();
+}
+
+/* 팀 상세에서 바로 멤버 정보를 고친다. 저장하면 팀 상세로 돌아온다. */
+async function editTeamMember(memberId) {
+  const teamId = detailTeamId;
+  try {
+    allMembers = await apiJson('/api/admin/members');
+  } catch (e) { showToast(e.message, 'error'); return; }
+  closeTeamDetail();
+  openMemberModal(memberId, teamId);
+}
+
+function setTeamDetailTab(tab) {
+  detailTab = tab;
+  openSongId = null;
+  renderTeamDetail();
+}
+
+/* ============================================================
+   레퍼토리 — 이 팀이 어떤 곡을 할 수 있나 (완곡 먼저 보여준다)
+   ============================================================ */
+function renderSongList() {
+  const counts = Object.keys(SONG_STATUS)
+    .map(k => `${SONG_STATUS[k].label} ${detailSongs.filter(s => s.status === k).length}`)
+    .join(' · ');
+
+  if (!detailSongs.length) {
+    return '<div class="admin-empty"><span class="admin-empty-icon">🎵</span>'
+      + '<div class="admin-empty-text">등록된 곡이 없습니다.<br>아래에서 추가할 수 있습니다.</div></div>';
+  }
+
+  return `<div class="team-roster-label">${escHtml(counts)}</div>`
+    + '<div class="dues-list">' + detailSongs.map(song => {
+    const open = openSongId === song.id;
+    return `
+      <div class="dues-row status-${song.status === 'done' ? 'paid' : song.status === 'practicing' ? 'pending' : 'unpaid'}">
+        <div class="dues-member">
+          <div class="dues-name">
+            <span class="song-title" onclick="toggleSongEdit(${song.id})">${escHtml(song.title)}</span>
+            ${song.link ? `<a class="song-link" href="${escHtml(song.link)}" target="_blank" rel="noopener noreferrer" title="참고 링크">🔗</a>` : ''}
+          </div>
+          <div class="dues-sub">
+            ${song.artist ? escHtml(song.artist) : '아티스트 미지정'}
+            ${song.memo ? ` · ${escHtml(song.memo)}` : ''}
+          </div>
+        </div>
+        <div class="dues-chips">
+          ${Object.entries(SONG_STATUS).map(([key, meta]) => `
+            <button class="dues-chip ${meta.cls}${song.status === key ? ' active' : ''}"
+                    onclick="setSongStatus(${song.id}, '${key}')">${meta.label}</button>
+          `).join('')}
+        </div>
+      </div>
+      ${open ? songEditRow(song) : ''}`;
+  }).join('') + '</div>';
+}
+
+/* 링크·메모는 자주 안 고치니 곡을 눌렀을 때만 펼친다. */
+function songEditRow(song) {
+  return `
+    <div class="song-edit">
+      <input type="text" class="form-input" id="songEditTitle" maxlength="200"
+             value="${escHtml(song.title)}" placeholder="곡 제목">
+      <input type="text" class="form-input" id="songEditArtist" maxlength="100"
+             value="${escHtml(song.artist || '')}" placeholder="아티스트 / 원곡자">
+      <input type="url" class="form-input" id="songEditLink" maxlength="500"
+             value="${escHtml(song.link || '')}" placeholder="참고 링크 (https://...)">
+      <input type="text" class="form-input" id="songEditMemo"
+             value="${escHtml(song.memo || '')}" placeholder="메모 (예: 키 반음 내림)">
+      <div class="song-edit-actions">
+        <button type="button" class="btn-secondary" onclick="toggleSongEdit(${song.id})">닫기</button>
+        <button type="button" class="btn-danger" onclick="deleteSong(${song.id})">삭제</button>
+        <button type="button" class="btn-primary" onclick="saveSong(${song.id})">저장</button>
+      </div>
+    </div>`;
+}
+
+function renderAddSongBox() {
+  return `
+    <div class="team-add-member">
+      <div class="team-add-title">곡 추가</div>
+      <div class="team-add-row">
+        <input type="text" class="form-input" id="newSongTitle" maxlength="200" placeholder="곡 제목">
+        <input type="text" class="form-input" id="newSongArtist" maxlength="100" placeholder="아티스트">
+        <button type="button" class="btn-primary" onclick="addSong()">추가</button>
+      </div>
+      <div class="team-add-empty">추가하면 <b>후보</b>로 들어갑니다. 곡을 눌러 링크·메모를 넣을 수 있습니다.</div>
+    </div>`;
+}
+
+function toggleSongEdit(songId) {
+  openSongId = openSongId === songId ? null : songId;
+  renderTeamDetail();
+}
+
+async function addSong() {
+  const title = document.getElementById('newSongTitle').value.trim();
+  if (!title) { showToast('곡 제목을 입력해주세요.', 'error'); return; }
+  try {
+    await apiJson(`/api/admin/teams/${detailTeamId}/songs`, {
+      method: 'POST',
+      body: JSON.stringify({
+        title,
+        artist: document.getElementById('newSongArtist').value.trim() || null,
+      }),
+    });
+    await renderTeamDetail();
+    showToast(`${title} 추가됨`, 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function setSongStatus(songId, status) {
+  const song = detailSongs.find(s => s.id === songId);
+  if (!song || song.status === status) return;
+  try {
+    await apiJson(`/api/admin/songs/${songId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    });
+    // 완곡 수가 팀 카드에도 나오므로 목록 캐시를 같이 갱신한다.
+    await loadTeams();
+    await renderTeamDetail();
+    showToast(`${song.title} · ${SONG_STATUS[status].label}`, 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function saveSong(songId) {
+  const body = {
+    title:  document.getElementById('songEditTitle').value.trim(),
+    artist: document.getElementById('songEditArtist').value.trim(),
+    link:   document.getElementById('songEditLink').value.trim(),
+    memo:   document.getElementById('songEditMemo').value.trim(),
+  };
+  if (!body.title) { showToast('곡 제목을 입력해주세요.', 'error'); return; }
+  try {
+    await apiJson(`/api/admin/songs/${songId}`, { method: 'PATCH', body: JSON.stringify(body) });
+    openSongId = null;
+    await renderTeamDetail();
+    showToast('저장되었습니다.', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+async function deleteSong(songId) {
+  const song = detailSongs.find(s => s.id === songId);
+  if (!confirm(`[${song ? song.title : '이 곡'}] 을 삭제하시겠습니까?`)) return;
+  try {
+    await apiJson(`/api/admin/songs/${songId}`, { method: 'DELETE' });
+    openSongId = null;
+    await loadTeams();
+    await renderTeamDetail();
+    showToast('삭제되었습니다.', 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+/* 이미 이 팀 소속인 사람은 후보에서 뺀다. */
+function renderAddMemberBox() {
+  const candidates = detailMembers.filter(
+    m => !(m.teams || []).some(t => t.id === detailTeamId));
+  const options = candidates.map(m => {
+    const now = (m.teams || []).map(t => t.name).join(' · ');
+    return `<option value="${m.id}">${escHtml(m.name)}${now ? ` (현재: ${escHtml(now)})` : ' (무소속)'}</option>`;
+  }).join('');
+
+  return `
+    <div class="team-add-member">
+      <div class="team-add-title">멤버 추가</div>
+      ${candidates.length ? `
+        <div class="team-add-row">
+          <select class="form-select" id="teamAddMemberSelect">
+            <option value="">기존 멤버 선택…</option>
+            ${options}
+          </select>
+          <button type="button" class="btn-primary" onclick="addMemberToTeam()">추가</button>
+        </div>
+      ` : '<div class="team-add-empty">추가할 수 있는 다른 멤버가 없습니다.</div>'}
+      <button type="button" class="link-inline" onclick="newMemberForTeam()">+ 새 멤버로 등록 →</button>
+    </div>
+  `;
+}
+
+async function addMemberToTeam() {
+  const select = document.getElementById('teamAddMemberSelect');
+  const memberId = Number(select.value);
+  if (!memberId) { showToast('추가할 멤버를 선택해주세요.', 'error'); return; }
+
+  const member = detailMembers.find(m => m.id === memberId);
+  const current = (member?.teams || []).map(t => t.name).join(' · ');
+  // 기존 소속에서 빼는 게 아니라 더하는 것이다 — 밴드를 여러 개 할 수 있다.
+  if (current && !confirm(
+    `${member.name} 님은 현재 [${current}] 소속입니다.\n이 팀에도 추가하시겠습니까?`
+  )) return;
+
+  try {
+    await apiJson(`/api/admin/members/${memberId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({
+        team_ids: [...(member?.teams || []).map(t => t.id), detailTeamId],
+      }),
+    });
+    await loadTeams();
+    await renderTeamDetail();
+    showToast(`${member?.name || '멤버'} 추가됨`, 'success');
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
+
+/* 새 멤버를 만들면서 이 팀으로 바로 넣는다. 저장 후 팀 상세로 돌아온다. */
+function newMemberForTeam() {
+  const teamId = detailTeamId;
+  closeTeamDetail();
+  openMemberModal(null, teamId);
+}
+
+/* 팀 상세 명단의 회비 칩. 이름을 setTeamDuesStatus 로 두면 dues.js 의
+   같은 이름(팀 이용료용)이 나중에 로드되며 덮어써서 아무 동작도 하지 않는다. */
+async function setRosterDuesStatus(memberId, status) {
+  try {
+    await apiJson(
+      `/api/admin/dues/${memberId}/${ymStr(detailCursor)}?team_id=${detailTeamId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status }),
+      });
+    await renderTeamDetail();
+  } catch (e) {
+    showToast(e.message, 'error');
+  }
+}
