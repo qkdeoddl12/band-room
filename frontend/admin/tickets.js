@@ -405,6 +405,7 @@ async function saveTicket() {
     currentTicket.elements = currentTicket.elements || [];
     document.getElementById('tkSlug').value = currentTicket.slug;
     tkDirty = false;
+    tkFreshId = null;   // 한 번 저장했으면 제목이 '새 티켓' 이어도 지우지 않는다
     syncShareLink();
     syncShareState();
     showToast('저장되었습니다.', 'success');

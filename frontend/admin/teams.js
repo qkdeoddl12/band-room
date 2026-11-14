@@ -298,6 +298,9 @@ async function renderTeamDetail() {
     const artist = document.getElementById('newSongArtist').value;
     songDraft = (draftTitle.value || artist) ? { title: draftTitle.value, artist } : null;
   }
+  // 다시 그리면 입력칸이 새로 생겨 남는 건 곡 초안뿐이다 — 곡 수정·멤버 추가를 저장한 뒤 ✕ 가 묻지 않게
+  const overlay = document.getElementById('teamDetailOverlay');
+  if (songDraft) overlay.dataset.dirty = '1'; else delete overlay.dataset.dirty;
 
   document.getElementById('teamDetailTitle').textContent = team.name;
 
@@ -520,7 +523,6 @@ async function addSong(btn) {
     // 다시 그리기 전에 비워야 방금 넣은 곡이 초안으로 되살아나지 않는다
     document.getElementById('newSongTitle').value = '';
     document.getElementById('newSongArtist').value = '';
-    delete document.getElementById('teamDetailOverlay').dataset.dirty;   // 저장됐으니 ✕ 가 묻지 않게
     await renderTeamDetail();
     showToast(`${title} 추가됨`, 'success');
   } catch (e) {
