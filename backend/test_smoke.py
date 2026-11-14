@@ -817,10 +817,18 @@ def test_self_cancel(h):
                       json={"token": "0" * 32})
     assert bad.status_code == 403, f"남의 예약이 지워진다, got {bad.status_code}"
 
-    # 이미 시작된 예약은 본인도 못 지운다
+    # 지난 시각은 이용자가 잡을 수 없다
+    old_day = str(date.today() - timedelta(days=200))
+    gone = client.post("/api/reservations", json={**body, "date": old_day})
+    assert gone.status_code == 400, f"지난 시각 예약은 막아야 한다, got {gone.status_code}"
+
+    # 이미 시작된 예약은 본인도 못 지운다 — 관리자가 과거로 옮긴 예약으로 본다
     past = client.post("/api/reservations", json={
-        **body, "date": str(date.today() - timedelta(days=200))}).json()
+        **body, "date": str(day + timedelta(days=1))}).json()
     created["past"] = past["id"]
+    moved = client.patch(f"/api/admin/reservations/{past['id']}", headers=h,
+                         json={"date": old_day})
+    assert moved.status_code == 200, moved.text
     late = client.post(f"/api/reservations/{past['id']}/cancel",
                        json={"token": past["cancel_token"]})
     assert late.status_code == 400, f"지난 예약은 막아야 한다, got {late.status_code}"
