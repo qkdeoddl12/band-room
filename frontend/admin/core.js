@@ -230,6 +230,7 @@ let _pressTarget = null;
 document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true);
 
 /* Backdrop click closes — call once per overlay at module load. */
+const DIRTY_CLOSE_MSG = '저장하지 않은 내용이 있습니다. 닫을까요?';
 function bindOverlayClose(id, fn) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -237,9 +238,14 @@ function bindOverlayClose(id, fn) {
   el.addEventListener('input', () => { el.dataset.dirty = '1'; });
   el.addEventListener('click', e => {
     if (e.target !== e.currentTarget || (e.detail && _pressTarget !== el)) return;
-    if (el.dataset.dirty && !confirm('저장하지 않은 내용이 있습니다. 닫을까요?')) return;
+    if (el.dataset.dirty && !confirm(DIRTY_CLOSE_MSG)) return;
     (fn || (() => closeOverlay(id)))();
   });
+  // ✕ 도 같이 묻는다. capture 라 버튼의 inline onclick 보다 먼저 돈다. 저장 성공은 closeOverlay 직행이라 안 묻는다
+  el.addEventListener('click', e => {
+    if (!e.target.closest('.modal-close') || !el.dataset.dirty || confirm(DIRTY_CLOSE_MSG)) return;
+    e.stopPropagation(); e.preventDefault();
+  }, true);
 }
 
 /* 납부를 다른 상태로 바꾸면 서버가 입금일·금액을 지운다 — 다시 납부로 돌려도 원래 값은 안 돌아온다. */
