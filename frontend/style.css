@@ -120,6 +120,7 @@ a { text-decoration: none; }
 .logo-text {
   font-size: 18px; font-weight: 800;
   color: var(--text); letter-spacing: -0.5px;
+  white-space: nowrap;
 }
 
 .header-actions { display: flex; align-items: center; gap: 8px; }
@@ -136,6 +137,9 @@ a { text-decoration: none; }
   text-decoration: none; background: none; cursor: pointer;
 }
 .header-link:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+.header-link { white-space: nowrap; }
+/* 390px 폰에서 버튼 셋 + 로고가 한 줄에 들어가게 */
+@media (max-width: 420px) { .header-actions { gap: 4px; } .header-link { padding: 6px 8px; font-size: 11px; } }
 
 
 /* Inquiry category selector (user modal) */
@@ -2159,7 +2163,7 @@ body:has(.admin-dashboard) .modal-actions {
    ADMIN: Ticket editor
    ============================================================ */
 .tk-topbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
-.tk-back { flex: none; width: auto; padding: 0 14px; }
+.tk-back { flex: none; width: auto; padding: 0 14px; height: 38px; }   /* 옆 btn-primary 와 같은 높이 */
 .tk-title-input { flex: 1; min-width: 0; }
 .tk-topbar .btn-primary { flex: none; }
 
@@ -2484,6 +2488,7 @@ body:has(.admin-dashboard) .modal-actions {
   margin-top: 8px; font-size: 13px; font-weight: 600;
   color: var(--text-sub); line-height: 1.5; min-height: 18px;
 }
+.booker-status:empty { display: none; }   /* 빈 줄이 이름칸 아래 26px 을 먹었다 */
 .booker-status.ok   { color: var(--success); }
 .booker-status.warn { color: var(--warning); }
 
@@ -2897,6 +2902,7 @@ body:has(.admin-dashboard) .modal-actions {
   margin: 14px 16px 6px; padding: 14px 16px;
   background: var(--primary-light); border-radius: var(--radius-sm);
   font-size: 13px; line-height: 1.7; color: var(--text);
+  word-break: keep-all;
 }
 
 .jam-empty {

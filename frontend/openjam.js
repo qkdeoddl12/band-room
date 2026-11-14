@@ -252,7 +252,7 @@ function readJamSlots() {
   }));
   // 자유 입력 포지션은 1명씩
   document.getElementById('jamPartsOther').value
-    .split(',').map(s => s.trim()).filter(Boolean)
+    .split(/[,，、]/).map(s => s.trim()).filter(Boolean)   // 한글 자판의 전각 콤마·모점도
     .forEach(part => rows.push({ part, count: 1 }));
   return rows;
 }

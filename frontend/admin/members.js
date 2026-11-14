@@ -43,9 +43,11 @@ function filterMembers() {
 
 /* 팀 목록은 core 의 teamsById 캐시를 쓴다 (팀 관리에서 갱신됨). */
 function teamOptionsHtml(selected, firstLabel) {
-  const teams = Object.values(teamsById).sort((a, b) => a.name.localeCompare(b.name));
+  // 비활성 팀은 뒤로 보내고 표시한다 — 같은 이름처럼 보여서 잘못 고르던 걸 막는다
+  const teams = Object.values(teamsById)
+    .sort((a, b) => (b.is_active - a.is_active) || a.name.localeCompare(b.name));
   return `<option value="">${firstLabel}</option>` + teams.map(t =>
-    `<option value="${t.id}"${String(selected) === String(t.id) ? ' selected' : ''}>${escHtml(t.name)}</option>`
+    `<option value="${t.id}"${String(selected) === String(t.id) ? ' selected' : ''}>${escHtml(t.name)}${t.is_active ? '' : ' (비활성)'}</option>`
   ).join('');
 }
 
@@ -147,7 +149,7 @@ function renderMembers() {
           ${roleExempt(m.role) ? `<span class="mt-badge ${MEMBER_ROLES[m.role].cls}">${MEMBER_ROLES[m.role].label}</span>` : ''}
           ${m.needs_check ? '<span class="mt-badge check">활동 확인 필요</span>' : ''}
           ${m.is_active ? '' : '<span class="mt-badge off">비활동</span>'}
-          <span class="fee-badge ${fee.cls} ecard-fee">${escHtml(fee.text)}</span>
+          ${m.is_active ? `<span class="fee-badge ${fee.cls} ecard-fee">${escHtml(fee.text)}</span>` : ''}
         </div>
 
         <div class="ecard-sub">
