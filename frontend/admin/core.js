@@ -48,7 +48,8 @@ function fmtDateKo(s) {
 }
 function fmtDateTime(s) {
   const d = new Date(s);
-  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 function fmtRelative(iso) {
   const d = new Date(iso);
@@ -209,7 +210,7 @@ document.querySelectorAll('.modal-overlay > .modal').forEach((m, i) => {
 
 document.addEventListener('keydown', e => {
   // Esc = 배경 클릭. 맨 위 창만 닫고, 손댄 창은 bindOverlayClose 가 묻는다.
-  if (e.key === 'Escape') {
+  if (e.key === 'Escape' && !e.isComposing) {
     const top = [...document.querySelectorAll('.modal-overlay.open')]
       .sort((a, b) => (+getComputedStyle(a).zIndex || 0) - (+getComputedStyle(b).zIndex || 0)).pop();
     if (top) { e.preventDefault(); top.click(); }
@@ -223,6 +224,11 @@ document.addEventListener('keydown', e => {
     t.click();
   }
 });
+/* 입력칸 글자를 드래그로 고르다 창 밖에서 떼면 브라우저가 배경에 click 을 쏜다 (PC).
+   누른 자리도 배경일 때만 닫는다. detail 0 = Esc·키보드 합성 클릭이라 그대로 통과. */
+let _pressTarget = null;
+document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true);
+
 /* Backdrop click closes — call once per overlay at module load. */
 function bindOverlayClose(id, fn) {
   const el = document.getElementById(id);
@@ -230,7 +236,7 @@ function bindOverlayClose(id, fn) {
   // 입력하다 배경을 잘못 누르면 그대로 날아간다 — 손댄 창은 묻고 닫는다.
   el.addEventListener('input', () => { el.dataset.dirty = '1'; });
   el.addEventListener('click', e => {
-    if (e.target !== e.currentTarget) return;
+    if (e.target !== e.currentTarget || (e.detail && _pressTarget !== el)) return;
     if (el.dataset.dirty && !confirm('저장하지 않은 내용이 있습니다. 닫을까요?')) return;
     (fn || (() => closeOverlay(id)))();
   });

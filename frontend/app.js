@@ -467,6 +467,13 @@ function hourTaken(hour) {
   });
 }
 
+/* 지난 시각 — 서버도 이용자 예약에서 거부한다 (reservations.py::_create_booking). */
+function hourPast(hour) {
+  const now = new Date(), day = toDateStr(currentDate), today = toDateStr(now);
+  if (day !== today) return day < today;
+  return hour * 60 <= now.getHours() * 60 + now.getMinutes();
+}
+
 function hourUnavailable(hour) { return hourBlocked(hour) || hourTaken(hour); }
 
 /* 시작 시각에서 끊기지 않고 이어 잡을 수 있는 마지막 시각. 24를 넘으면 다음날. */
@@ -494,7 +501,10 @@ function populateStartTimes(defaultHour) {
     const option = document.createElement('option');
     option.value = val;
     option.textContent = val;
-    if (hourBlocked(h)) {
+    if (hourPast(h)) {
+      option.disabled = true;
+      option.textContent = `${val} (지남)`;
+    } else if (hourBlocked(h)) {
       option.disabled = true;
       option.textContent = `${val} (차단됨)`;
     } else if (hourTaken(h)) {
@@ -685,9 +695,12 @@ async function runMemberCheck() {
   updateTimeSummary();
 }
 
-/* Close on overlay backdrop click */
+/* Close on overlay backdrop click.
+   누른 자리도 배경이어야 한다 — 입력칸에서 드래그해 창 밖에서 떼면 배경 click 이 난다 (PC). */
+let _pressTarget = null;
+document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true);
 document.getElementById('modalOverlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeModal();
+  if (e.target === e.currentTarget && _pressTarget === e.currentTarget) closeModal();
 });
 
 /* Copy deposit account number */
@@ -818,7 +831,7 @@ document.querySelectorAll('input[name="inqCat"]').forEach(input => {
 });
 
 document.getElementById('inquiryOverlay').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeInquiryModal();
+  if (e.target === e.currentTarget && _pressTarget === e.currentTarget) closeInquiryModal();
 });
 
 document.getElementById('inquiryForm').addEventListener('submit', async e => {

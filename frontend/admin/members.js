@@ -115,7 +115,7 @@ function renderMembers() {
     if (memberTeamFil && memberTeamFil !== 'none' &&
         !teams.some(t => String(t.id) === memberTeamFil)) return false;
     if (!memberSearch) return true;
-    return `${m.name} ${m.parts || ''} ${m.phone || ''} ${m.memo || ''}`.toLowerCase().includes(memberSearch);
+    return `${m.name} ${m.parts || ''} ${m.phone || ''} ${formatPhone(m.phone || '')} ${m.memo || ''}`.toLowerCase().includes(memberSearch);
   });
 
   const active = allMembers.filter(m => m.is_active).length;
@@ -201,10 +201,13 @@ function openMemberModal(memberId = null, presetTeamId = null) {
   openOverlay('memberOverlay');
 }
 
-function closeMemberModal() {
+/* 팀 상세에서 왔으면 취소해도 그리로 돌아간다. 저장·삭제는 새로 받아서 직접 연다 (reopen=false). */
+function closeMemberModal(reopen = true) {
+  const backTo = returnToTeamId;
   closeOverlay('memberOverlay');
   editMemberId = null;
   returnToTeamId = null;
+  if (reopen && backTo) openTeamDetail(backTo);
 }
 
 bindOverlayClose('memberOverlay', closeMemberModal);
@@ -299,7 +302,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
       await apiJson('/api/admin/members', { method: 'POST', body: JSON.stringify(body) });
     }
     const backTo = returnToTeamId;
-    closeMemberModal();
+    closeMemberModal(false);
     if (backTo) {
       await loadTeams();
       openTeamDetail(backTo);
@@ -322,7 +325,7 @@ async function deleteCurrentMember() {
   try {
     await apiJson(`/api/admin/members/${editMemberId}`, { method: 'DELETE' });
     const backTo = returnToTeamId;
-    closeMemberModal();
+    closeMemberModal(false);
     if (backTo) {
       await loadTeams();
       openTeamDetail(backTo);

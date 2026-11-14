@@ -344,9 +344,12 @@ function closeOverlay(id) {
   document.getElementById(id).classList.remove('open');
   document.body.style.overflow = '';
 }
+// 누른 자리도 배경이어야 닫는다 — 입력칸에서 드래그해 창 밖에서 떼면 배경 click 이 난다 (PC).
+let _pressTarget = null;
+document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true);
 ['jamCreateOverlay', 'jamClaimOverlay'].forEach(id => {
   const ov = document.getElementById(id);
-  ov.addEventListener('click', e => { if (e.target === ov) closeOverlay(id); });
+  ov.addEventListener('click', e => { if (e.target === ov && _pressTarget === ov) closeOverlay(id); });
 });
 
 loadJams();

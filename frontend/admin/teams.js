@@ -79,14 +79,14 @@ function renderTeams() {
   const list = document.getElementById('teamList');
   const items = allTeams.filter(t => {
     if (!teamSearch) return true;
-    return `${t.name} ${t.leader_name || ''} ${t.phone || ''}`.toLowerCase().includes(teamSearch);
+    return `${t.name} ${t.leader_name || ''} ${t.phone || ''} ${formatPhone(t.phone || '')}`.toLowerCase().includes(teamSearch);
   });
 
   document.getElementById('teamCount').textContent =
     `${allTeams.filter(t => t.is_active).length}팀 활성 · 전체 ${allTeams.length}팀`;
 
   if (items.length === 0) {
-    list.innerHTML = '<div class="admin-empty"><span class="admin-empty-icon">🎸</span><div class="admin-empty-text">등록된 팀이 없습니다.</div></div>';
+    list.innerHTML = `<div class="admin-empty"><span class="admin-empty-icon">🎸</span><div class="admin-empty-text">${teamSearch ? '검색 결과가 없습니다.' : '등록된 팀이 없습니다.'}</div></div>`;
     return;
   }
 

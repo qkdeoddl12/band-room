@@ -2181,6 +2181,8 @@ body:has(.admin-dashboard) .modal-actions {
 }
 .tk-panel-row { display: flex; gap: 12px; }
 .tk-panel-row .form-group { flex: 1; }
+/* 세 칸이 한 줄이면 화살표 여백 40px 이 글자를 자른다 (멤버 수정의 등급) — 정모 행과 같은 여백으로 */
+.tk-panel-row .form-select { padding-right: 30px; background-position: right 10px center; }
 .tk-color input[type="color"] {
   width: 100%; height: 46px; padding: 4px;
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
