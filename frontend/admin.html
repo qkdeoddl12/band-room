@@ -1431,6 +1431,16 @@
             <textarea class="form-textarea memo-box" id="teamMemo" rows="3"
                       maxlength="500" placeholder="특이사항 · 연락 기록 등"></textarea>
           </div>
+
+          <div class="form-group">
+            <label class="toggle-row">
+              <span>
+                <span class="toggle-title">도어즈 밴드</span>
+                <span class="toggle-desc">끄면 외부 밴드로 표시됩니다. 과금 방식과는 별개입니다.</span>
+              </span>
+              <input type="checkbox" class="toggle-switch" id="teamDoors" checked>
+            </label>
+          </div>
           </div><!-- /form-col -->
 
           <div class="form-col">
@@ -1474,16 +1484,6 @@
           </div>
 
           <div id="teamHistory"></div>
-
-          <div class="form-group">
-            <label class="toggle-row">
-              <span>
-                <span class="toggle-title">도어즈 밴드</span>
-                <span class="toggle-desc">끄면 외부 밴드로 표시됩니다. 과금 방식과는 별개입니다.</span>
-              </span>
-              <input type="checkbox" class="toggle-switch" id="teamDoors" checked>
-            </label>
-          </div>
 
           <div class="form-group">
             <label class="toggle-row">
@@ -1590,15 +1590,6 @@
             </div>
           </div>
 
-          </div><!-- /form-col -->
-
-          <div class="form-col">
-          <div class="form-group">
-            <label class="form-label">가능한 포지션</label>
-            <div class="part-checks" id="memberParts"></div>
-            <input type="text" class="form-input part-other" id="memberPartsOther" aria-label="기타 포지션"
-                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
-          </div>
 
           <div class="form-group">
             <label class="form-label">상태</label>
@@ -1625,6 +1616,16 @@
               운영진·모임장은 회비가 기본 면제입니다.
             </div>
           </div>
+          </div><!-- /form-col -->
+
+          <div class="form-col">
+          <div class="form-group">
+            <label class="form-label">가능한 포지션</label>
+            <div class="part-checks" id="memberParts"></div>
+            <input type="text" class="form-input part-other" id="memberPartsOther" aria-label="기타 포지션"
+                   maxlength="120" placeholder="기타 포지션 (쉼표로 구분 · 예: 색소폰, 코러스)">
+          </div>
+
 
 
 
