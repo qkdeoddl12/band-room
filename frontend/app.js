@@ -834,6 +834,13 @@ document.getElementById('inquiryOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget && _pressTarget === e.currentTarget) closeInquiryModal();
 });
 
+// Esc 는 위에 뜬 창부터 닫는다. 한글 조합 중 Esc 는 조합만 끝낸다
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.isComposing) return;
+  if (document.getElementById('inquiryOverlay').classList.contains('open')) closeInquiryModal();
+  else if (document.getElementById('modalOverlay').classList.contains('open')) closeModal();
+});
+
 document.getElementById('inquiryForm').addEventListener('submit', async e => {
   e.preventDefault();
   const category = document.querySelector('input[name="inqCat"]:checked').value;

@@ -351,5 +351,10 @@ document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true
   const ov = document.getElementById(id);
   ov.addEventListener('click', e => { if (e.target === ov && _pressTarget === ov) closeOverlay(id); });
 });
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || e.isComposing) return;
+  const open = ['jamClaimOverlay', 'jamCreateOverlay'].find(id => document.getElementById(id).classList.contains('open'));
+  if (open) closeOverlay(open);
+});
 
 loadJams();
