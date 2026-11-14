@@ -332,6 +332,10 @@ def _create_booking(reservation: schemas.ReservationCreate, request: Request,
             raise HTTPException(400, "등록되지 않은 팀입니다. 문의하기로 팀 등록을 요청해주세요.")
         free = not team.is_hourly
 
+    # 지난 시각은 이용자가 잡을 수 없다. 관리자는 사후 기록용으로 허용한다.
+    if admin is None and datetime.combine(reservation.date, reservation.start_time) <= datetime.now():
+        raise HTTPException(400, "이미 지난 시각은 예약할 수 없습니다.")
+
     # 자정을 넘기면 거부하지 않고 날짜별로 쪼갠다 (23시~새벽 2시 같은 예약).
     segments = _split_segments(reservation.date, reservation.start_time, reservation.duration)
     # 관리자 예약은 새벽 상한이 없다 (대관·정모와 같은 규칙).

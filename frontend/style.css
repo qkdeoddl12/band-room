@@ -4,6 +4,8 @@
    채도를 약간 낮춰 텍스트·표와 충돌하지 않게 한다.
    ============================================================ */
 :root {
+  /* transition: all 은 레이아웃 속성까지 애니메이션해서 버벅인다 — 눌림·색 변화만 */
+  --t-props: color, background-color, border-color, box-shadow, transform, opacity;
   /* Brand */
   --primary: #6455E8;
   --primary-dark: #5646D6;
@@ -60,8 +62,10 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* 키보드 사용자를 위한 포커스 표시 (마우스 클릭에는 안 나옴) */
-:focus-visible {
+/* 키보드 사용자를 위한 포커스 표시 (마우스 클릭에는 안 나옴).
+   대화상자는 열릴 때 창 자체가 포커스를 받는다 — 거기 링·모서리를 씌우면 창 모양이 바뀐다.
+   :where 로 감싸 특이도는 그대로 둔다. */
+:focus-visible:not(:where(.modal)) {
   outline: none;
   box-shadow: var(--focus);
   border-radius: var(--radius-sm);
@@ -116,6 +120,7 @@ a { text-decoration: none; }
 .logo-text {
   font-size: 18px; font-weight: 800;
   color: var(--text); letter-spacing: -0.5px;
+  white-space: nowrap;
 }
 
 .header-actions { display: flex; align-items: center; gap: 8px; }
@@ -125,13 +130,15 @@ a { text-decoration: none; }
   padding: 6px 12px;
   border: 1.5px solid var(--border);
   border-radius: 20px;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
   white-space: nowrap;
   /* 버튼으로도 <a> 로도 쓴다 — 두 모양이 같은 높이로 서야 한다 */
   display: inline-flex; align-items: center;
   text-decoration: none; background: none; cursor: pointer;
 }
 .header-link:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
+/* 390px 폰에서 버튼 셋 + 로고가 한 줄에 들어가게 */
+@media (max-width: 420px) { .header-actions { gap: 4px; } .header-link { padding: 6px 8px; font-size: 11px; } }
 
 
 /* Inquiry category selector (user modal) */
@@ -147,7 +154,7 @@ a { text-decoration: none; }
   border: 2px solid transparent;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
 }
 .inquiry-cat:hover { background: var(--primary-light); }
 .inquiry-cat.active {
@@ -209,7 +216,7 @@ a { text-decoration: none; }
   border: 1.5px solid var(--border);
   font-size: 20px; color: var(--text-sub);
   display: flex; align-items: center; justify-content: center;
-  transition: all .2s; line-height: 1;
+  transition: .2s; transition-property: var(--t-props); line-height: 1;
 }
 .btn-nav:hover {
   background: var(--primary-light);
@@ -233,7 +240,7 @@ a { text-decoration: none; }
   padding: 6px 11px;
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
   min-width: 44px;
 }
 .week-day:hover:not(.active) { background: var(--bg); }
@@ -262,7 +269,7 @@ a { text-decoration: none; }
   font-size: 14px; font-weight: 600;
   color: var(--text-sub);
   border: none; border-bottom: 2.5px solid transparent;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .room-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
@@ -388,7 +395,7 @@ a { text-decoration: none; }
   color: #fff;
   font-size: 16px; font-weight: 700;
   border-radius: var(--radius);
-  transition: all .2s; letter-spacing: -.3px;
+  transition: .2s; transition-property: var(--t-props); letter-spacing: -.3px;
   display: flex; align-items: center; justify-content: center; gap: 6px;
 }
 .btn-reserve-main:hover {
@@ -421,6 +428,7 @@ a { text-decoration: none; }
   transition: transform .35s cubic-bezier(.34,1.56,.64,1);
 }
 .modal-overlay.open .modal { transform: translateY(0); }
+.modal:focus { outline: none; }
 
 .modal-handle {
   width: 36px; height: 4px;
@@ -441,7 +449,7 @@ a { text-decoration: none; }
   border-radius: 50%; background: var(--bg);
   font-size: 14px; color: var(--text-sub);
   display: flex; align-items: center; justify-content: center;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .modal-close:hover { background: var(--border); color: var(--text); }
 
@@ -542,7 +550,7 @@ a { text-decoration: none; }
   border: 1px solid var(--primary);
   font-size: 13px; font-weight: 700;
   border-radius: var(--radius-sm);
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
 }
 .btn-copy-account:hover { background: var(--primary-light); }
 .fee-notice {
@@ -632,7 +640,7 @@ a { text-decoration: none; }
   background: var(--primary); color: #fff;
   font-size: 16px; font-weight: 700;
   border-radius: var(--radius);
-  transition: all .2s; letter-spacing: -.3px;
+  transition: .2s; transition-property: var(--t-props); letter-spacing: -.3px;
   margin-top: 8px;
 }
 .btn-submit:hover {
@@ -655,7 +663,7 @@ a { text-decoration: none; }
   font-size: 14px; font-weight: 600;
   white-space: nowrap;
   opacity: 0;
-  transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  transition: .3s cubic-bezier(.34,1.56,.64,1); transition-property: var(--t-props);
   z-index: 400; pointer-events: none;
   max-width: calc(100vw - 40px);
 }
@@ -730,7 +738,7 @@ a { text-decoration: none; }
   font-size: 15px; font-weight: 700;
   border-radius: var(--radius-sm);
   margin-top: 16px;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-login:hover {
   background: var(--primary-dark);
@@ -768,7 +776,7 @@ a { text-decoration: none; }
   padding: 6px 14px;
   border: 1.5px solid var(--border);
   border-radius: 20px;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-logout:hover { color: var(--danger); border-color: var(--danger); background: #FEF2F2; }
 
@@ -798,7 +806,7 @@ a { text-decoration: none; }
   font-size: 14px; font-weight: 600;
   color: var(--text-sub);
   cursor: pointer;
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
   display: flex; align-items: center; gap: 10px;
   margin-bottom: 2px;
 }
@@ -811,6 +819,7 @@ a { text-decoration: none; }
 /* Admin main */
 .admin-main {
   flex: 1;
+  min-width: 0;   /* 없으면 줄바꿈 없는 긴 글(예약 메모)만큼 화면이 옆으로 늘어난다 */
   padding: 28px;
   margin-left: 220px;
 }
@@ -824,7 +833,7 @@ a { text-decoration: none; }
   padding: 18px 20px;
   margin-bottom: 20px;
   cursor: pointer;
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
 }
 .pending-highlight:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(245, 158, 11, 0.25); }
 .pending-highlight.empty {
@@ -1117,7 +1126,7 @@ a { text-decoration: none; }
   font-size: 13px; font-weight: 600;
   color: var(--text-sub);
   cursor: pointer;
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
   white-space: nowrap;
 }
 .chip:hover { border-color: var(--primary); color: var(--primary); }
@@ -1227,7 +1236,7 @@ a { text-decoration: none; }
   color: #065F46;
   font-size: 12px; font-weight: 700;
   white-space: nowrap;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-confirm-deposit:hover { background: #10B981; color: #fff; border-color: #10B981; }
 
@@ -1240,7 +1249,7 @@ a { text-decoration: none; }
   color: var(--danger);
   font-size: 16px;
   display: flex; align-items: center; justify-content: center;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-delete:hover { background: var(--danger); color: #fff; border-color: var(--danger); }
 
@@ -1290,9 +1299,11 @@ a { text-decoration: none; }
   padding: 12px 22px;
   border-radius: 24px;
   font-size: 14px; font-weight: 600;
-  white-space: nowrap;
+  /* left:50% 라 그냥 두면 폭이 화면 절반에 갇힌다 — 글 길이만큼 쓰되 화면 안에서 줄바꿈 */
+  width: max-content; max-width: calc(100vw - 32px);
+  text-align: center;
   opacity: 0;
-  transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  transition: .3s cubic-bezier(.34,1.56,.64,1); transition-property: var(--t-props);
   z-index: 400; pointer-events: none;
 }
 .admin-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
@@ -1354,7 +1365,7 @@ a { text-decoration: none; }
   font-size: 14px; font-weight: 700;
   border-radius: var(--radius-sm);
   display: inline-flex; align-items: center; gap: 6px;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-primary:hover {
   background: var(--primary-dark);
@@ -1368,7 +1379,7 @@ a { text-decoration: none; }
   font-size: 15px; font-weight: 600;
   color: var(--text-sub);
   background: var(--card);
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-secondary:hover { background: var(--bg); color: var(--text); }
 
@@ -1377,7 +1388,7 @@ a { text-decoration: none; }
   background: var(--danger); color: #fff;
   border-radius: var(--radius-sm);
   font-size: 15px; font-weight: 700;
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-danger:hover {
   background: #DC2626;
@@ -1399,7 +1410,7 @@ a { text-decoration: none; }
   border: 1.5px solid var(--border);
   border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
   background: var(--card);
 }
 .role-option:hover { border-color: var(--primary); background: var(--primary-light); }
@@ -1789,7 +1800,7 @@ a { text-decoration: none; }
   border: 1.5px solid var(--border);
   font-size: 13px; font-weight: 600;
   color: var(--text);
-  transition: all .2s;
+  transition: .2s; transition-property: var(--t-props);
 }
 .btn-edit-user:hover {
   background: var(--primary-light);
@@ -1805,7 +1816,11 @@ a { text-decoration: none; }
   .admin-sidebar { display: none; }
   .admin-main { margin-left: 0; padding: 16px; padding-bottom: 90px; }
   .mobile-admin-nav { display: block; }
-  .reservation-item { padding: 14px 16px; gap: 10px; }
+  .reservation-item { padding: 14px 16px; gap: 10px; flex-wrap: wrap; }
+  /* 폰: 시간·버튼은 아랫줄로 — 한 줄에 다 넣으면 버튼이 화면 밖으로 밀린다 */
+  .res-info { flex-basis: calc(100% - 90px); }
+  .res-time-info { text-align: left; display: flex; gap: 8px; align-items: baseline; }
+  .res-actions { margin-left: auto; }
   .filter-panel { padding: 12px; gap: 6px; }
   .chip { padding: 6px 12px; font-size: 12px; }
   .filter-search { font-size: 13px; padding: 9px 12px; }
@@ -2001,7 +2016,7 @@ body:has(.admin-dashboard) .modal-actions {
   border-radius: 10px;
   font-size: 13px; font-weight: 600; color: var(--text-sub);
   cursor: pointer; user-select: none;
-  transition: all .15s;
+  transition: .15s; transition-property: var(--t-props);
 }
 .part-check input { position: absolute; opacity: 0; pointer-events: none; }
 .part-check.active {
@@ -2064,7 +2079,7 @@ body:has(.admin-dashboard) .modal-actions {
   border-radius: var(--radius-pill);
   background: var(--card);
   font-size: 11px; font-weight: 700; color: var(--text-light);
-  cursor: pointer; transition: all .15s;
+  cursor: pointer; transition: .15s; transition-property: var(--t-props);
 }
 .dues-chip:hover { border-color: var(--border-strong); color: var(--text-sub); }
 /* 납부만 채운다 — 목표 상태라서. 나머지는 연한 배경 + 색 글자. */
@@ -2147,7 +2162,7 @@ body:has(.admin-dashboard) .modal-actions {
    ADMIN: Ticket editor
    ============================================================ */
 .tk-topbar { display: flex; gap: 10px; align-items: center; margin-bottom: 14px; }
-.tk-back { flex: none; width: auto; padding: 0 14px; }
+.tk-back { flex: none; width: auto; padding: 0 14px; height: 38px; }   /* 옆 btn-primary 와 같은 높이 */
 .tk-title-input { flex: 1; min-width: 0; }
 .tk-topbar .btn-primary { flex: none; }
 
@@ -2169,6 +2184,8 @@ body:has(.admin-dashboard) .modal-actions {
 }
 .tk-panel-row { display: flex; gap: 12px; }
 .tk-panel-row .form-group { flex: 1; }
+/* 세 칸이 한 줄이면 화살표 여백 40px 이 글자를 자른다 (멤버 수정의 등급) — 정모 행과 같은 여백으로 */
+.tk-panel-row .form-select { padding-right: 30px; background-position: right 10px center; }
 .tk-color input[type="color"] {
   width: 100%; height: 46px; padding: 4px;
   border: 1.5px solid var(--border); border-radius: var(--radius-sm);
@@ -2196,7 +2213,7 @@ body:has(.admin-dashboard) .modal-actions {
   body:has(.admin-dashboard) .modal.wide { max-height: 94vh; }
   .modal.wide .form-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 0 24px;
     align-items: start;
   }
@@ -2470,6 +2487,7 @@ body:has(.admin-dashboard) .modal-actions {
   margin-top: 8px; font-size: 13px; font-weight: 600;
   color: var(--text-sub); line-height: 1.5; min-height: 18px;
 }
+.booker-status:empty { display: none; }   /* 빈 줄이 이름칸 아래 26px 을 먹었다 */
 .booker-status.ok   { color: var(--success); }
 .booker-status.warn { color: var(--warning); }
 
@@ -2578,7 +2596,7 @@ body:has(.admin-dashboard) .modal-actions {
 .entity-cards {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(320px, 100%), 1fr));
 }
 .ecard {
   background: var(--card);
@@ -2615,7 +2633,7 @@ body:has(.admin-dashboard) .modal-actions {
   padding: 2px 9px; border-radius: var(--radius-pill);
   border: 1px solid var(--border); background: var(--card);
   font-size: 11px; font-weight: 700; color: var(--text-sub);
-  cursor: pointer; transition: all .15s;
+  cursor: pointer; transition: .15s; transition-property: var(--t-props);
 }
 .ecard-edit:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 
@@ -2663,7 +2681,7 @@ body:has(.admin-dashboard) .modal-actions {
   padding: 5px 11px; border-radius: var(--radius-pill);
   border: 1px solid var(--border); background: var(--card);
   font-size: 12px; font-weight: 700; color: var(--text-sub);
-  cursor: pointer; transition: all .15s; white-space: nowrap;
+  cursor: pointer; transition: .15s; transition-property: var(--t-props); white-space: nowrap;
 }
 .btn-edit-res:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
 
@@ -2883,6 +2901,7 @@ body:has(.admin-dashboard) .modal-actions {
   margin: 14px 16px 6px; padding: 14px 16px;
   background: var(--primary-light); border-radius: var(--radius-sm);
   font-size: 13px; line-height: 1.7; color: var(--text);
+  word-break: keep-all;
 }
 
 .jam-empty {
@@ -3051,4 +3070,18 @@ body:has(.admin-dashboard) .modal-actions {
   width: 22px; height: 22px; border-radius: 50%;
   border: 1px solid var(--border); background: var(--card);
   font-size: 11px; cursor: pointer; line-height: 1;
+}
+
+/* 예약관리 상태 칩 건수 */
+.chip-count { font-weight: 800; opacity: .7; margin-left: 2px; }
+.chip-count:empty { display: none; }
+
+/* 움직임 줄이기를 켠 사용자에겐 애니메이션을 끈다 (끝 이벤트는 그대로 난다) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

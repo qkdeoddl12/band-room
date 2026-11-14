@@ -43,9 +43,11 @@ function filterMembers() {
 
 /* 팀 목록은 core 의 teamsById 캐시를 쓴다 (팀 관리에서 갱신됨). */
 function teamOptionsHtml(selected, firstLabel) {
-  const teams = Object.values(teamsById).sort((a, b) => a.name.localeCompare(b.name));
+  // 비활성 팀은 뒤로 보내고 표시한다 — 같은 이름처럼 보여서 잘못 고르던 걸 막는다
+  const teams = Object.values(teamsById)
+    .sort((a, b) => (b.is_active - a.is_active) || a.name.localeCompare(b.name));
   return `<option value="">${firstLabel}</option>` + teams.map(t =>
-    `<option value="${t.id}"${String(selected) === String(t.id) ? ' selected' : ''}>${escHtml(t.name)}</option>`
+    `<option value="${t.id}"${String(selected) === String(t.id) ? ' selected' : ''}>${escHtml(t.name)}${t.is_active ? '' : ' (비활성)'}</option>`
   ).join('');
 }
 
@@ -81,7 +83,7 @@ function memberFee(m) {
   if (!teams.length) {
     const fee = memberTeamFee(m, null);
     return fee
-      ? { text: `${fee.toLocaleString()}원`, cls: m.monthly_fee != null ? '' : 'default' }
+      ? { text: `${fee.toLocaleString('ko-KR')}원`, cls: m.monthly_fee != null ? '' : 'default' }
       : { text: '회비 미설정', cls: 'default' };
   }
 
@@ -96,7 +98,7 @@ function memberFee(m) {
   });
   if (!charged) return { text: '팀 이용료 납부', cls: 'monthly' };
   return {
-    text: `${total.toLocaleString()}원${charged > 1 ? ` (${charged}팀)` : ''}`,
+    text: `${total.toLocaleString('ko-KR')}원${charged > 1 ? ` (${charged}팀)` : ''}`,
     cls,
   };
 }
@@ -115,7 +117,7 @@ function renderMembers() {
     if (memberTeamFil && memberTeamFil !== 'none' &&
         !teams.some(t => String(t.id) === memberTeamFil)) return false;
     if (!memberSearch) return true;
-    return `${m.name} ${m.parts || ''} ${m.phone || ''} ${m.memo || ''}`.toLowerCase().includes(memberSearch);
+    return `${m.name} ${m.parts || ''} ${m.phone || ''} ${formatPhone(m.phone || '')} ${m.memo || ''}`.toLowerCase().includes(memberSearch);
   });
 
   const active = allMembers.filter(m => m.is_active).length;
@@ -139,7 +141,7 @@ function renderMembers() {
     ].filter(Boolean).join(' · ');
 
     return `
-      <div class="ecard${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
+      <div role="button" tabindex="0" class="ecard${m.is_active ? '' : ' inactive'}${m.needs_check ? ' needs-check' : ''}"
            onclick="openMemberModal(${m.id})">
         <div class="ecard-top">
           <span class="ecard-name">${escHtml(m.name)}</span>
@@ -147,7 +149,7 @@ function renderMembers() {
           ${roleExempt(m.role) ? `<span class="mt-badge ${MEMBER_ROLES[m.role].cls}">${MEMBER_ROLES[m.role].label}</span>` : ''}
           ${m.needs_check ? '<span class="mt-badge check">활동 확인 필요</span>' : ''}
           ${m.is_active ? '' : '<span class="mt-badge off">비활동</span>'}
-          <span class="fee-badge ${fee.cls} ecard-fee">${escHtml(fee.text)}</span>
+          ${m.is_active ? `<span class="fee-badge ${fee.cls} ecard-fee">${escHtml(fee.text)}</span>` : ''}
         </div>
 
         <div class="ecard-sub">
@@ -201,10 +203,13 @@ function openMemberModal(memberId = null, presetTeamId = null) {
   openOverlay('memberOverlay');
 }
 
-function closeMemberModal() {
+/* 팀 상세에서 왔으면 취소해도 그리로 돌아간다. 저장·삭제는 새로 받아서 직접 연다 (reopen=false). */
+function closeMemberModal(reopen = true) {
+  const backTo = returnToTeamId;
   closeOverlay('memberOverlay');
   editMemberId = null;
   returnToTeamId = null;
+  if (reopen && backTo) openTeamDetail(backTo);
 }
 
 bindOverlayClose('memberOverlay', closeMemberModal);
@@ -291,7 +296,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
 
   const btn = document.getElementById('memberSaveBtn');
   const original = btn.textContent;
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
   try {
     if (editMemberId) {
       await apiJson(`/api/admin/members/${editMemberId}`, { method: 'PATCH', body: JSON.stringify(body) });
@@ -299,7 +304,7 @@ document.getElementById('memberForm').addEventListener('submit', async e => {
       await apiJson('/api/admin/members', { method: 'POST', body: JSON.stringify(body) });
     }
     const backTo = returnToTeamId;
-    closeMemberModal();
+    closeMemberModal(false);
     if (backTo) {
       await loadTeams();
       openTeamDetail(backTo);
@@ -322,7 +327,7 @@ async function deleteCurrentMember() {
   try {
     await apiJson(`/api/admin/members/${editMemberId}`, { method: 'DELETE' });
     const backTo = returnToTeamId;
-    closeMemberModal();
+    closeMemberModal(false);
     if (backTo) {
       await loadTeams();
       openTeamDetail(backTo);

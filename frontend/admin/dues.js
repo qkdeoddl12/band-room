@@ -53,11 +53,11 @@ function renderDues() {
   const teamExpect = d.team_total_expected || 0;
   const teamUnpaid = teamRows.filter(r => r.status === 'unpaid').length;
 
-  setText('duesPaid',         d.total_paid.toLocaleString());
-  setText('duesExpected',     d.total_expected.toLocaleString());
-  setText('duesTeamPaid',     teamPaid.toLocaleString());
-  setText('duesTeamExpected', teamExpect.toLocaleString());
-  setText('duesWalkIn',       (d.walk_in_total || 0).toLocaleString());
+  setText('duesPaid',         d.total_paid.toLocaleString('ko-KR'));
+  setText('duesExpected',     d.total_expected.toLocaleString('ko-KR'));
+  setText('duesTeamPaid',     teamPaid.toLocaleString('ko-KR'));
+  setText('duesTeamExpected', teamExpect.toLocaleString('ko-KR'));
+  setText('duesWalkIn',       (d.walk_in_total || 0).toLocaleString('ko-KR'));
   setText('duesWalkInSub',
     d.walk_in_count ? `${d.walk_in_count}명 · 정모 ${d.walk_in_meetups}회` : '당일 참가');
   setText('duesUnpaid',       d.unpaid_count);
@@ -83,7 +83,7 @@ function renderDues() {
         <div class="dues-sub">
           ${r.parts ? escHtml(splitParts(r.parts).join(' · ')) : '포지션 미지정'}
           · ${r.covered_by_team ? '팀 월 이용료에 포함'
-              : (r.status === 'exempt' ? '면제' : r.fee.toLocaleString() + '원')}
+              : (r.status === 'exempt' ? '면제' : r.fee.toLocaleString('ko-KR') + '원')}
         </div>
       </div>
       ${r.covered_by_team
@@ -108,7 +108,7 @@ function duesSectionHead(title, count, paid, expected, teal = false) {
         <div class="dues-progress-fill${teal ? ' team' : ''}" style="width:${Math.min(100, pct)}%"></div>
       </div>
       <div class="dues-progress-text">
-        ${paid.toLocaleString()}원 / 예상 ${expected.toLocaleString()}원 · 수납률 ${pct}%
+        ${paid.toLocaleString('ko-KR')}원 / 예상 ${expected.toLocaleString('ko-KR')}원 · 수납률 ${pct}%
       </div>
     </div>`;
 }
@@ -129,7 +129,7 @@ function renderTeamDues(d) {
                 <span class="dues-team">멤버 ${r.member_count}명</span>
               </div>
               <div class="dues-sub">
-                ${r.fee.toLocaleString()}원
+                ${r.fee.toLocaleString('ko-KR')}원
                 ${r.paid_on ? ` · ${r.paid_on} 입금` : ''}
               </div>
             </div>
@@ -148,6 +148,7 @@ function renderTeamDues(d) {
 async function setTeamDuesStatus(teamId, status) {
   const row = duesData?.team_rows?.find(r => r.team_id === teamId);
   if (!row || row.status === status) return;
+  if (!confirmDropPaid(row.status, status)) return;
   try {
     await apiJson(`/api/admin/dues/team/${teamId}/${ymStr(duesCursor)}`, {
       method: 'PUT',
@@ -166,6 +167,7 @@ async function setDuesStatus(memberId, teamId, status) {
   const row = duesData?.rows.find(
     r => r.member_id === memberId && (r.team_id ?? null) === teamId);
   if (!row || row.status === status) return;
+  if (!confirmDropPaid(row.status, status)) return;
 
   const q = teamId == null ? '' : `?team_id=${teamId}`;
   try {
@@ -199,7 +201,7 @@ async function loadDuesSummary(year) {
       const sum = total(r);
       const peak = sum === max && sum > 0;
       return `
-        <div class="stack-col" title="${i + 1}월 · 월회비 ${r.paid.toLocaleString()}원 · 월 이용료 ${(r.team_paid || 0).toLocaleString()}원 · 정모 참가비 ${(r.walk_in_paid || 0).toLocaleString()}원">
+        <div class="stack-col" title="${i + 1}월 · 월회비 ${r.paid.toLocaleString('ko-KR')}원 · 월 이용료 ${(r.team_paid || 0).toLocaleString('ko-KR')}원 · 정모 참가비 ${(r.walk_in_paid || 0).toLocaleString('ko-KR')}원">
           <div class="stack-value">${peak ? (sum / 10000).toFixed(0) + '만' : ''}</div>
           <div class="stack-track">
             <div class="stack-fill${sum ? '' : ' is-zero'}" style="height:${(sum / max) * 100}%">

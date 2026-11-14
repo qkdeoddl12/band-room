@@ -329,6 +329,23 @@ def test_upload_guards(h):
     assert leftovers.status_code == 200
 
 
+def test_room_long_price_guard(h):
+    """3시간 이상 요금이 시간당 요금보다 비싸면 할인이 아니라 할증이다 — 저장을 막는다."""
+    room = client.get("/api/rooms").json()[0]
+    url = f"/api/admin/rooms/{room['id']}/price"
+    price = room["hourly_price"]
+    try:
+        bad = client.put(url, headers=h, json={"hourly_price": price, "long_hourly_price": price + 1000})
+        assert bad.status_code == 422, f"장시간 요금이 더 비싸도 저장된다, got {bad.status_code}"
+        same = client.put(url, headers=h, json={"hourly_price": price, "long_hourly_price": price})
+        assert same.status_code == 200, same.text
+    finally:
+        back = client.put(url, headers=h, json={"hourly_price": price,
+                                                "long_hourly_price": room.get("long_hourly_price")})
+        # 운영 DB 에 돌리는 테스트다 — 되돌리기가 실패하면 조용히 넘어가면 안 된다
+        assert back.status_code == 200, f"방 요금 원복 실패: {back.text}"
+
+
 def test_settings(h):
     pub = client.get("/api/settings").json()
     assert "deposit_account" in pub and "default_monthly_fee" not in pub, \
@@ -817,10 +834,18 @@ def test_self_cancel(h):
                       json={"token": "0" * 32})
     assert bad.status_code == 403, f"남의 예약이 지워진다, got {bad.status_code}"
 
-    # 이미 시작된 예약은 본인도 못 지운다
+    # 지난 시각은 이용자가 잡을 수 없다
+    old_day = str(date.today() - timedelta(days=200))
+    gone = client.post("/api/reservations", json={**body, "date": old_day})
+    assert gone.status_code == 400, f"지난 시각 예약은 막아야 한다, got {gone.status_code}"
+
+    # 이미 시작된 예약은 본인도 못 지운다 — 관리자가 과거로 옮긴 예약으로 본다
     past = client.post("/api/reservations", json={
-        **body, "date": str(date.today() - timedelta(days=200))}).json()
+        **body, "date": str(day + timedelta(days=1))}).json()
     created["past"] = past["id"]
+    moved = client.patch(f"/api/admin/reservations/{past['id']}", headers=h,
+                         json={"date": old_day})
+    assert moved.status_code == 200, moved.text
     late = client.post(f"/api/reservations/{past['id']}/cancel",
                        json={"token": past["cancel_token"]})
     assert late.status_code == 400, f"지난 예약은 막아야 한다, got {late.status_code}"
@@ -1086,6 +1111,7 @@ def main():
         test_tickets(h);                       steps.append("tickets")
         test_upload_guards(h);                 steps.append("upload guards")
         test_settings(h);                      steps.append("settings")
+        test_room_long_price_guard(h);         steps.append("room long price")
         test_leader_dues(h);                   steps.append("leader dues")
         test_password_and_roles(h);            steps.append("password + roles")
     except AssertionError as exc:

@@ -48,7 +48,8 @@ function fmtDateKo(s) {
 }
 function fmtDateTime(s) {
   const d = new Date(s);
-  return `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')}`;
+  const p = n => String(n).padStart(2,'0');
+  return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
 }
 function fmtRelative(iso) {
   const d = new Date(iso);
@@ -171,7 +172,7 @@ function partTagsHtml(parts) {
 }
 
 function escHtml(str) {
-  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 function showToast(msg, type='success') {
   const el = document.getElementById('adminToast');
@@ -181,18 +182,83 @@ function showToast(msg, type='success') {
 }
 
 function openOverlay(id) {
-  document.getElementById(id).classList.add('open');
+  const el = document.getElementById(id);
+  el.classList.add('open');
+  delete el.dataset.dirty;
   document.body.style.overflow = 'hidden';
+  // 키보드·스크린리더가 창 안에서 시작하고, 닫으면 누른 자리로 돌아온다.
+  // 입력칸이 아니라 창 자체에 둔다 — 폰에서 키보드가 튀어나오지 않게.
+  el._opener = document.activeElement;
+  el.querySelector('.modal')?.focus({ preventScroll: true });
 }
 function closeOverlay(id) {
-  document.getElementById(id).classList.remove('open');
+  const el = document.getElementById(id);
+  el.classList.remove('open');
   document.body.style.overflow = '';
+  el._opener?.focus?.({ preventScroll: true });
+  el._opener = null;
 }
+
+/* 창은 전부 admin.html 에 미리 있다 — 대화상자 표시를 한 번에 붙인다. */
+document.querySelectorAll('.modal-overlay > .modal').forEach((m, i) => {
+  m.setAttribute('role', 'dialog');
+  m.setAttribute('aria-modal', 'true');
+  m.tabIndex = -1;
+  const t = m.querySelector('.modal-title');
+  if (t) { t.id ||= `modalTitle${i}`; m.setAttribute('aria-labelledby', t.id); }
+});
+
+document.addEventListener('keydown', e => {
+  // Esc = 배경 클릭. 맨 위 창만 닫고, 손댄 창은 bindOverlayClose 가 묻는다.
+  if (e.key === 'Escape' && !e.isComposing && e.keyCode !== 229) {   // 229 = Safari 한글 조합 중
+    const top = [...document.querySelectorAll('.modal-overlay.open')]
+      .sort((a, b) => (+getComputedStyle(a).zIndex || 0) - (+getComputedStyle(b).zIndex || 0)).pop();
+    if (top) { e.preventDefault(); top.click(); }
+    return;
+  }
+  // role="button" 을 단 div·li 카드도 Enter·Space 로 눌려야 한다.
+  const t = e.target;
+  if ((e.key === 'Enter' || e.key === ' ') && t.getAttribute?.('role') === 'button'
+      && !(t instanceof HTMLButtonElement)) {
+    e.preventDefault();
+    t.click();
+  }
+});
+/* 입력칸 글자를 드래그로 고르다 창 밖에서 떼면 브라우저가 배경에 click 을 쏜다 (PC).
+   누른 자리도 배경일 때만 닫는다. detail 0 = Esc·키보드 합성 클릭이라 그대로 통과. */
+let _pressTarget = null;
+document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true);
+// 뗀 자리도 같아야 한다 — 배경에서 누르고 창 안에서 떼도 click 은 배경(공통 조상)에 떨어진다
+document.addEventListener('pointerup', e => { if (e.target !== _pressTarget) _pressTarget = null; }, true);
+
 /* Backdrop click closes — call once per overlay at module load. */
+const DIRTY_CLOSE_MSG = '저장하지 않은 내용이 있습니다. 닫을까요?';
 function bindOverlayClose(id, fn) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.addEventListener('click', e => { if (e.target === e.currentTarget) (fn || (() => closeOverlay(id)))(); });
+  // 입력하다 배경을 잘못 누르면 그대로 날아간다 — 손댄 창은 묻고 닫는다.
+  el.addEventListener('input', () => { el.dataset.dirty = '1'; });
+  el.addEventListener('click', e => {
+    if (e.target !== e.currentTarget || (e.detail && _pressTarget !== el)) return;
+    if (el.dataset.dirty && !confirm(DIRTY_CLOSE_MSG)) return;
+    (fn || (() => closeOverlay(id)))();
+  });
+  // ✕ 도 같이 묻는다. capture 라 버튼의 inline onclick 보다 먼저 돈다. 저장 성공은 closeOverlay 직행이라 안 묻는다
+  el.addEventListener('click', e => {
+    if (!e.target.closest('.modal-close') || !el.dataset.dirty || confirm(DIRTY_CLOSE_MSG)) return;
+    e.stopPropagation(); e.preventDefault();
+  }, true);
+}
+
+/* 납부를 다른 상태로 바꾸면 서버가 입금일·금액을 지운다 — 다시 납부로 돌려도 원래 값은 안 돌아온다. */
+function confirmDropPaid(from, to) {
+  return from !== 'paid' || to === 'paid'
+    || confirm('납부 기록(입금일·금액)이 지워집니다. 바꿀까요?');
+}
+
+/* 불러오기 실패를 '없습니다' 로 보여주면 데이터가 날아간 줄 안다. */
+function loadErrorHtml(msg) {
+  return `<div class="admin-empty"><span class="admin-empty-icon">⚠️</span><div class="admin-empty-text">불러오지 못했습니다 — ${escHtml(msg)}</div></div>`;
 }
 
 function api(path, opts = {}) {
@@ -296,7 +362,7 @@ function resFee(r) {
 }
 function resFeeLabel(r) {
   const fee = resFee(r);
-  if (fee > 0) return `${fee.toLocaleString()}원`;
+  if (fee > 0) return `${fee.toLocaleString('ko-KR')}원`;
   if (r.member_id) return '회비 납부 멤버';
   return BILLING[teamsById[r.team_id]?.billing_type]?.label || '무료';
 }
@@ -368,7 +434,11 @@ async function showDashboard() {
   });
 
   await Promise.all([loadRooms(), loadTeamsCache(), loadAppSettings()]);
-  switchPage('dashboard');
+  // 새로고침해도 보던 페이지로 — 주소의 #page 를 따른다.
+  const start = location.hash.slice(1);
+  const allowed = document.getElementById(start + 'Page')
+    && !(SYSTEM_ONLY_PAGES.includes(start) && currentUser.role !== 'system');
+  switchPage(allowed ? start : 'dashboard');
   refreshInquiryBadge();
 }
 
@@ -379,7 +449,7 @@ document.getElementById('loginForm').addEventListener('submit', async e => {
   const btn = document.getElementById('loginBtn');
   const err = document.getElementById('loginError');
 
-  btn.disabled = true; btn.textContent = '확인 중...';
+  btn.disabled = true; btn.textContent = '확인 중…';
   err.classList.remove('show');
 
   try {
@@ -434,7 +504,7 @@ document.getElementById('changePwForm').addEventListener('submit', async e => {
     return;
   }
 
-  btn.disabled = true; btn.textContent = '설정 중...';
+  btn.disabled = true; btn.textContent = '설정 중…';
   err.classList.remove('show');
 
   try {
@@ -471,7 +541,11 @@ const SYSTEM_ONLY_PAGES = ['users', 'settings', 'blocked', 'audit'];
 
 function switchPage(page) {
   if (SYSTEM_ONLY_PAGES.includes(page) && currentUser?.role !== 'system') return;
+  // 티켓 에디터는 페이지를 옮기면 편집이 버려진다 (tickets.js::showTicketList).
+  if (currentPage === 'tickets' && tkDirty
+      && !confirm('저장하지 않은 변경사항이 있습니다. 페이지를 옮길까요?')) return;
   currentPage = page;
+  history.replaceState(null, '', '#' + page);
 
   document.querySelectorAll('.admin-page').forEach(p => p.style.display = 'none');
   const el = document.getElementById(page + 'Page');
@@ -479,6 +553,7 @@ function switchPage(page) {
 
   document.querySelectorAll('.sidebar-item[data-page]').forEach(item => {
     item.classList.toggle('active', item.dataset.page === page);
+    item.ariaCurrent = item.dataset.page === page ? 'page' : null;
   });
   document.querySelectorAll('.mobile-nav-item[data-mtab]').forEach(item => {
     item.classList.toggle('active', item.dataset.mtab === page);
@@ -533,7 +608,7 @@ async function renderDuesHistory(elId, path) {
           <span class="dh-ym">${escHtml(r.year_month)}${
             r.team_name ? `<span class="dh-team">${escHtml(r.team_name)}</span>` : ''}</span>
           <span class="dh-status ${r.status}">${DUES_LABEL[r.status] || r.status}</span>
-          <span class="dh-amt">${r.amount ? r.amount.toLocaleString() + '원' : '—'}</span>
+          <span class="dh-amt">${r.amount ? r.amount.toLocaleString('ko-KR') + '원' : '—'}</span>
           <span class="dh-date">${r.paid_on ? escHtml(r.paid_on.slice(5)) : ''}</span>
         </div>
         ${r.memo ? `<div class="dh-memo">${escHtml(r.memo)}</div>` : ''}

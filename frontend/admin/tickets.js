@@ -16,6 +16,8 @@ let allTickets    = [];
 let currentTicket = null;   // 편집 중인 티켓
 let tkSelectedId  = null;
 let tkDirty       = false;
+let tkDropping    = null;    // 진행 중인 빈 티켓 삭제 — 겹쳐 불린 loadTickets 도 이걸 기다린다
+let tkFreshId     = null;    // 이 세션에서 + 새 티켓 으로 만든 티켓 — 손 안 대고 나가면 지운다
 
 PAGE_LOADERS.tickets = loadTickets;
 
@@ -23,6 +25,7 @@ PAGE_LOADERS.tickets = loadTickets;
    목록
    ============================================================ */
 async function loadTickets() {
+  await dropUntouchedTicket();
   showTicketList();
   const list = document.getElementById('ticketList');
   list.innerHTML = '<div class="spinner"></div>';
@@ -44,7 +47,7 @@ function renderTicketList() {
   }
 
   list.innerHTML = '<div class="ticket-cards">' + allTickets.map(t => `
-    <div class="ticket-card" onclick="openTicketEditor(${t.id})">
+    <div role="button" tabindex="0" class="ticket-card" onclick="openTicketEditor(${t.id})">
       <div class="ticket-thumb${t.bg_url ? '' : ' no-bg'}"
            style="${t.bg_url ? `background-image:url('${encodeURI(t.bg_url)}')` : ''}">
         ${t.bg_url ? '' : '🎫'}
@@ -66,18 +69,32 @@ function renderTicketList() {
 }
 
 async function createTicket() {
-  const title = prompt('티켓 이름 (공연 제목)');
-  if (!title || !title.trim()) return;
+  // prompt() 대신 일단 만들고 에디터의 이름 칸으로 보낸다.
   try {
     const t = await apiJson('/api/admin/tickets', {
       method: 'POST',
-      body: JSON.stringify({ title: title.trim() }),
+      body: JSON.stringify({ title: '새 티켓' }),
     });
     await loadTickets();
-    openTicketEditor(t.id);
+    tkFreshId = t.id;
+    await openTicketEditor(t.id);
+    const input = document.getElementById('tkTitle');
+    input.focus(); input.select();
   } catch (e) {
     showToast(e.message, 'error');
   }
+}
+
+/* + 새 티켓 은 누르는 순간 행이 생긴다. 만든 그대로 나가면 빈 티켓이 목록에 쌓이므로 지운다.
+   남이 막 만든 티켓을 지우지 않게 이 세션에서 만든 것만 본다. */
+async function dropUntouchedTicket() {
+  const t = currentTicket;
+  if (t && t.id === tkFreshId) {
+    tkFreshId = null;
+    if (t.title === '새 티켓' && !t.bg_url && !(t.elements || []).length && !t.is_published)
+      tkDropping = api(`/api/admin/tickets/${t.id}`, { method: 'DELETE' }).catch(() => { /* 남아도 손으로 지우면 된다 */ });
+  }
+  await tkDropping;
 }
 
 /* ============================================================
@@ -118,6 +135,8 @@ async function openTicketEditor(id) {
   syncShareState();
   tkDraw();
 }
+
+window.addEventListener('beforeunload', e => { if (tkDirty) e.preventDefault(); });
 
 function backToTicketList() {
   if (tkDirty && !confirm('저장하지 않은 변경사항이 있습니다. 목록으로 돌아갈까요?')) return;
@@ -301,7 +320,7 @@ document.getElementById('tkBgInput').addEventListener('change', async e => {
   const form = new FormData();
   form.append('file', file);
   const btn = document.getElementById('tkBgBtn');
-  btn.disabled = true; btn.textContent = '업로드 중...';
+  btn.disabled = true; btn.textContent = '업로드 중…';
   try {
     // FormData sets its own multipart boundary — do not force Content-Type here.
     const res = await api('/api/admin/tickets/upload', { method: 'POST', body: form });
@@ -371,7 +390,7 @@ document.getElementById('tkSlug').addEventListener('input', e => {
 async function saveTicket() {
   if (!currentTicket) return;
   const btn = document.getElementById('tkSaveBtn');
-  btn.disabled = true; btn.textContent = '저장 중...';
+  btn.disabled = true; btn.textContent = '저장 중…';
   try {
     const saved = await apiJson(`/api/admin/tickets/${currentTicket.id}`, {
       method: 'PUT',
@@ -389,6 +408,7 @@ async function saveTicket() {
     currentTicket.elements = currentTicket.elements || [];
     document.getElementById('tkSlug').value = currentTicket.slug;
     tkDirty = false;
+    tkFreshId = null;   // 한 번 저장했으면 제목이 '새 티켓' 이어도 지우지 않는다
     syncShareLink();
     syncShareState();
     showToast('저장되었습니다.', 'success');
@@ -435,7 +455,7 @@ function renderTicketStats() {
   ];
   box.innerHTML = rows.map(([icon, label, n]) => `
     <div class="tk-stat">
-      <div class="tk-stat-value">${icon} ${n.toLocaleString()}</div>
+      <div class="tk-stat-value">${icon} ${n.toLocaleString('ko-KR')}</div>
       <div class="tk-stat-label">${label}</div>
     </div>
   `).join('');
@@ -523,9 +543,9 @@ function renderTicketStatsList() {
   const list = document.getElementById('ticketStatsList');
 
   const sum = key => allTickets.reduce((n, t) => n + (t[key] ?? 0), 0);
-  document.getElementById('tkTotalViews').textContent  = sum('view_count').toLocaleString();
-  document.getElementById('tkTotalShares').textContent = sum('share_count').toLocaleString();
-  document.getElementById('tkTotalCopies').textContent = sum('copy_count').toLocaleString();
+  document.getElementById('tkTotalViews').textContent  = sum('view_count').toLocaleString('ko-KR');
+  document.getElementById('tkTotalShares').textContent = sum('share_count').toLocaleString('ko-KR');
+  document.getElementById('tkTotalCopies').textContent = sum('copy_count').toLocaleString('ko-KR');
   document.getElementById('tkPublishedCount').textContent =
     allTickets.filter(t => t.is_published).length;
 
@@ -541,7 +561,7 @@ function renderTicketStatsList() {
   list.innerHTML = '<div class="entity-list">' + rows.map(t => {
     const views = t.view_count ?? 0;
     return `
-      <div class="entity-item tk-stat-row" onclick="openTicketEditor(${t.id})">
+      <div role="button" tabindex="0" class="entity-item tk-stat-row" onclick="openTicketEditor(${t.id})">
         <div class="ticket-thumb tk-stat-thumb${t.bg_url ? '' : ' no-bg'}"
              style="${t.bg_url ? `background-image:url('${encodeURI(t.bg_url)}')` : ''}">
           ${t.bg_url ? '' : '🎫'}
@@ -557,9 +577,9 @@ function renderTicketStatsList() {
             <div class="room-row-meter-fill r1" style="width:${(views / max) * 100}%"></div>
           </div>
           <div class="entity-meta-bottom">
-            <span>👁 열람 ${views.toLocaleString()}</span>
-            <span>↗ 공유 ${(t.share_count ?? 0).toLocaleString()}</span>
-            <span>🔗 복사 ${(t.copy_count ?? 0).toLocaleString()}</span>
+            <span>👁 열람 ${views.toLocaleString('ko-KR')}</span>
+            <span>↗ 공유 ${(t.share_count ?? 0).toLocaleString('ko-KR')}</span>
+            <span>🔗 복사 ${(t.copy_count ?? 0).toLocaleString('ko-KR')}</span>
             <span>${fmtDateTime(t.created_at)}</span>
           </div>
         </div>
