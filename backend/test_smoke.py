@@ -329,6 +329,20 @@ def test_upload_guards(h):
     assert leftovers.status_code == 200
 
 
+def test_room_long_price_guard(h):
+    """3시간 이상 요금이 시간당 요금보다 비싸면 할인이 아니라 할증이다 — 저장을 막는다."""
+    room = client.get("/api/rooms").json()[0]
+    url = f"/api/admin/rooms/{room['id']}/price"
+    try:
+        bad = client.put(url, headers=h, json={"hourly_price": 20000, "long_hourly_price": 30000})
+        assert bad.status_code == 422, f"장시간 요금이 더 비싸도 저장된다, got {bad.status_code}"
+        same = client.put(url, headers=h, json={"hourly_price": 20000, "long_hourly_price": 20000})
+        assert same.status_code == 200, same.text
+    finally:
+        client.put(url, headers=h, json={"hourly_price": room["hourly_price"],
+                                         "long_hourly_price": room.get("long_hourly_price")})
+
+
 def test_settings(h):
     pub = client.get("/api/settings").json()
     assert "deposit_account" in pub and "default_monthly_fee" not in pub, \
@@ -1094,6 +1108,7 @@ def main():
         test_tickets(h);                       steps.append("tickets")
         test_upload_guards(h);                 steps.append("upload guards")
         test_settings(h);                      steps.append("settings")
+        test_room_long_price_guard(h);         steps.append("room long price")
         test_leader_dues(h);                   steps.append("leader dues")
         test_password_and_roles(h);            steps.append("password + roles")
     except AssertionError as exc:

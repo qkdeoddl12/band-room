@@ -775,6 +775,13 @@ class RoomUpdate(BaseModel):
     long_hourly_price: Optional[int] = Field(None, ge=0)
     booking_mode: Optional[str] = Field(None, pattern=BOOKING_MODE_PATTERN)
 
+    @model_validator(mode="after")
+    def _long_not_dearer(self):
+        # 0/None 은 '할인 없음' (라우트가 or None 으로 처리) — 그대로 통과
+        if self.long_hourly_price and self.long_hourly_price > self.hourly_price:
+            raise ValueError("3시간 이상 요금은 시간당 요금보다 클 수 없습니다.")
+        return self
+
 
 class SettingsUpdate(BaseModel):
     values: Dict[str, str]

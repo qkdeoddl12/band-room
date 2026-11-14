@@ -46,6 +46,13 @@ async function loadSettings() {
 
 document.getElementById('settingsForm').addEventListener('submit', async e => {
   e.preventDefault();
+  // 일부만 저장되지 않게 보내기 전에 막는다 (서버 RoomUpdate 와 같은 규칙·문구)
+  const dearer = [...document.querySelectorAll('#settingsRooms input[data-room-id]')].some(input => {
+    const long = Number(document.getElementById(`roomLong${input.dataset.roomId}`)?.value || 0);
+    return long && long > Number(input.value || 0);
+  });
+  if (dearer) { showToast(`${LONG_HOURS}시간 이상 요금은 시간당 요금보다 클 수 없습니다.`, 'error'); return; }
+
   const btn = document.getElementById('settingsSaveBtn');
   btn.disabled = true; btn.textContent = '저장 중…';
 
