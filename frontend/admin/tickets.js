@@ -16,6 +16,7 @@ let allTickets    = [];
 let currentTicket = null;   // 편집 중인 티켓
 let tkSelectedId  = null;
 let tkDirty       = false;
+let tkFreshId     = null;    // 이 세션에서 + 새 티켓 으로 만든 티켓 — 손 안 대고 나가면 지운다
 
 PAGE_LOADERS.tickets = loadTickets;
 
@@ -23,6 +24,7 @@ PAGE_LOADERS.tickets = loadTickets;
    목록
    ============================================================ */
 async function loadTickets() {
+  await dropUntouchedTicket();
   showTicketList();
   const list = document.getElementById('ticketList');
   list.innerHTML = '<div class="spinner"></div>';
@@ -73,12 +75,23 @@ async function createTicket() {
       body: JSON.stringify({ title: '새 티켓' }),
     });
     await loadTickets();
+    tkFreshId = t.id;
     await openTicketEditor(t.id);
     const input = document.getElementById('tkTitle');
     input.focus(); input.select();
   } catch (e) {
     showToast(e.message, 'error');
   }
+}
+
+/* + 새 티켓 은 누르는 순간 행이 생긴다. 만든 그대로 나가면 빈 티켓이 목록에 쌓이므로 지운다.
+   남이 막 만든 티켓을 지우지 않게 이 세션에서 만든 것만 본다. */
+async function dropUntouchedTicket() {
+  const t = currentTicket;
+  if (!t || t.id !== tkFreshId) return;
+  tkFreshId = null;
+  if (t.title !== '새 티켓' || t.bg_url || (t.elements || []).length || t.is_published) return;
+  try { await api(`/api/admin/tickets/${t.id}`, { method: 'DELETE' }); } catch { /* 남아도 손으로 지우면 된다 */ }
 }
 
 /* ============================================================
