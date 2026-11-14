@@ -699,6 +699,8 @@ async function runMemberCheck() {
    누른 자리도 배경이어야 한다 — 입력칸에서 드래그해 창 밖에서 떼면 배경 click 이 난다 (PC). */
 let _pressTarget = null;
 document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true);
+// 뗀 자리도 같아야 한다 — 배경에서 누르고 창 안에서 떼도 click 은 배경(공통 조상)에 떨어진다
+document.addEventListener('pointerup', e => { if (e.target !== _pressTarget) _pressTarget = null; }, true);
 document.getElementById('modalOverlay').addEventListener('click', e => {
   if (e.target === e.currentTarget && _pressTarget === e.currentTarget) closeModal();
 });
@@ -836,7 +838,7 @@ document.getElementById('inquiryOverlay').addEventListener('click', e => {
 
 // Esc 는 위에 뜬 창부터 닫는다. 한글 조합 중 Esc 는 조합만 끝낸다
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Escape' || e.isComposing) return;
+  if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229) return;   // 229 = Safari 한글 조합 중
   if (document.getElementById('inquiryOverlay').classList.contains('open')) closeInquiryModal();
   else if (document.getElementById('modalOverlay').classList.contains('open')) closeModal();
 });

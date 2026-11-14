@@ -347,12 +347,14 @@ function closeOverlay(id) {
 // 누른 자리도 배경이어야 닫는다 — 입력칸에서 드래그해 창 밖에서 떼면 배경 click 이 난다 (PC).
 let _pressTarget = null;
 document.addEventListener('pointerdown', e => { _pressTarget = e.target; }, true);
+// 뗀 자리도 같아야 한다 — 배경에서 누르고 창 안에서 떼도 click 은 배경(공통 조상)에 떨어진다
+document.addEventListener('pointerup', e => { if (e.target !== _pressTarget) _pressTarget = null; }, true);
 ['jamCreateOverlay', 'jamClaimOverlay'].forEach(id => {
   const ov = document.getElementById(id);
   ov.addEventListener('click', e => { if (e.target === ov && _pressTarget === ov) closeOverlay(id); });
 });
 document.addEventListener('keydown', e => {
-  if (e.key !== 'Escape' || e.isComposing) return;
+  if (e.key !== 'Escape' || e.isComposing || e.keyCode === 229) return;   // 229 = Safari 한글 조합 중
   const open = ['jamClaimOverlay', 'jamCreateOverlay'].find(id => document.getElementById(id).classList.contains('open'));
   if (open) closeOverlay(open);
 });

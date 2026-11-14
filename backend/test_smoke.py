@@ -333,14 +333,17 @@ def test_room_long_price_guard(h):
     """3시간 이상 요금이 시간당 요금보다 비싸면 할인이 아니라 할증이다 — 저장을 막는다."""
     room = client.get("/api/rooms").json()[0]
     url = f"/api/admin/rooms/{room['id']}/price"
+    price = room["hourly_price"]
     try:
-        bad = client.put(url, headers=h, json={"hourly_price": 20000, "long_hourly_price": 30000})
+        bad = client.put(url, headers=h, json={"hourly_price": price, "long_hourly_price": price + 1000})
         assert bad.status_code == 422, f"장시간 요금이 더 비싸도 저장된다, got {bad.status_code}"
-        same = client.put(url, headers=h, json={"hourly_price": 20000, "long_hourly_price": 20000})
+        same = client.put(url, headers=h, json={"hourly_price": price, "long_hourly_price": price})
         assert same.status_code == 200, same.text
     finally:
-        client.put(url, headers=h, json={"hourly_price": room["hourly_price"],
-                                         "long_hourly_price": room.get("long_hourly_price")})
+        back = client.put(url, headers=h, json={"hourly_price": price,
+                                                "long_hourly_price": room.get("long_hourly_price")})
+        # 운영 DB 에 돌리는 테스트다 — 되돌리기가 실패하면 조용히 넘어가면 안 된다
+        assert back.status_code == 200, f"방 요금 원복 실패: {back.text}"
 
 
 def test_settings(h):

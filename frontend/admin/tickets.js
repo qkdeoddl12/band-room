@@ -16,6 +16,7 @@ let allTickets    = [];
 let currentTicket = null;   // 편집 중인 티켓
 let tkSelectedId  = null;
 let tkDirty       = false;
+let tkDropping    = null;    // 진행 중인 빈 티켓 삭제 — 겹쳐 불린 loadTickets 도 이걸 기다린다
 let tkFreshId     = null;    // 이 세션에서 + 새 티켓 으로 만든 티켓 — 손 안 대고 나가면 지운다
 
 PAGE_LOADERS.tickets = loadTickets;
@@ -88,10 +89,12 @@ async function createTicket() {
    남이 막 만든 티켓을 지우지 않게 이 세션에서 만든 것만 본다. */
 async function dropUntouchedTicket() {
   const t = currentTicket;
-  if (!t || t.id !== tkFreshId) return;
-  tkFreshId = null;
-  if (t.title !== '새 티켓' || t.bg_url || (t.elements || []).length || t.is_published) return;
-  try { await api(`/api/admin/tickets/${t.id}`, { method: 'DELETE' }); } catch { /* 남아도 손으로 지우면 된다 */ }
+  if (t && t.id === tkFreshId) {
+    tkFreshId = null;
+    if (t.title === '새 티켓' && !t.bg_url && !(t.elements || []).length && !t.is_published)
+      tkDropping = api(`/api/admin/tickets/${t.id}`, { method: 'DELETE' }).catch(() => { /* 남아도 손으로 지우면 된다 */ });
+  }
+  await tkDropping;
 }
 
 /* ============================================================

@@ -137,7 +137,6 @@ a { text-decoration: none; }
   text-decoration: none; background: none; cursor: pointer;
 }
 .header-link:hover { color: var(--primary); border-color: var(--primary); background: var(--primary-light); }
-.header-link { white-space: nowrap; }
 /* 390px 폰에서 버튼 셋 + 로고가 한 줄에 들어가게 */
 @media (max-width: 420px) { .header-actions { gap: 4px; } .header-link { padding: 6px 8px; font-size: 11px; } }
 
