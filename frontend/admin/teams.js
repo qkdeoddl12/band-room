@@ -10,6 +10,8 @@ let detailTeamId = null;        // 상세 보고 있는 팀
 let detailCursor = new Date();  // 상세에서 보고 있는 달
 let detailMembers = [];         // 팀에 붙일 수 있는 후보 (활동 중인 전체 멤버)
 let detailTab = 'members';      // 팀 상세 안의 탭: members | songs
+// 곡 추가 칸에 쓰던 값 — 탭을 바꾸거나 곡을 펼치면 상세를 통째로 다시 그려서 날아갔다
+let songDraft = null;
 let detailSongs = [];           // 이 팀 레퍼토리
 let openSongId = null;          // 펼쳐서 링크·메모를 고치는 중인 곡
 
@@ -249,6 +251,8 @@ function openTeamDetail(teamId) {
   // 다른 팀을 열면 멤버부터 본다. 곡 편집창이 열린 채 남아 있으면 남의 팀 곡을 고치게 된다.
   detailTab = 'members';
   openSongId = null;
+  songDraft = null;
+  document.getElementById('teamDetailBody').innerHTML = '';   // 앞 팀의 입력칸이 초안으로 잡히지 않게
   openOverlay('teamDetailOverlay');
   renderTeamDetail();
 }
@@ -289,6 +293,12 @@ async function renderTeamDetail() {
   const body = document.getElementById('teamDetailBody');
   if (!team) { body.innerHTML = ''; return; }
 
+  const draftTitle = document.getElementById('newSongTitle');
+  if (draftTitle) {
+    const artist = document.getElementById('newSongArtist').value;
+    songDraft = (draftTitle.value || artist) ? { title: draftTitle.value, artist } : null;
+  }
+
   document.getElementById('teamDetailTitle').textContent = team.name;
 
   const head = `
@@ -319,6 +329,10 @@ async function renderTeamDetail() {
       return;
     }
     body.innerHTML = head + renderSongList() + renderAddSongBox();
+    if (songDraft) {
+      document.getElementById('newSongTitle').value = songDraft.title;
+      document.getElementById('newSongArtist').value = songDraft.artist;
+    }
     return;
   }
 
@@ -503,6 +517,10 @@ async function addSong(btn) {
         artist: document.getElementById('newSongArtist').value.trim() || null,
       }),
     });
+    // 다시 그리기 전에 비워야 방금 넣은 곡이 초안으로 되살아나지 않는다
+    document.getElementById('newSongTitle').value = '';
+    document.getElementById('newSongArtist').value = '';
+    delete document.getElementById('teamDetailOverlay').dataset.dirty;   // 저장됐으니 ✕ 가 묻지 않게
     await renderTeamDetail();
     showToast(`${title} 추가됨`, 'success');
   } catch (e) {
